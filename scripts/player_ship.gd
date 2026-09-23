@@ -10,10 +10,6 @@ const SHIP_TEXTURES := [
 	preload("res://assets/ship_saucer.png"),
 ]
 const SHIP_STYLE_COUNT := 8
-const COCKPIT_OFFSETS := [
-	Vector2(0.0, -4.0), Vector2(0.0, -4.0), Vector2(0.0, 2.0), Vector2.ZERO,
-	Vector2(0.0, -7.0), Vector2(0.0, -3.0), Vector2(0.0, -5.0), Vector2(0.0, -8.0),
-]
 const COCKPIT_RADII := [13.0, 13.0, 13.0, 15.0, 13.0, 13.0, 13.0, 12.0]
 const PROCEDURAL_SIZES := [
 	Vector2(68.0, 78.0), Vector2(82.0, 76.0), Vector2(92.0, 72.0), Vector2(64.0, 82.0),
@@ -74,11 +70,11 @@ func _draw() -> void:
 	else:
 		_draw_procedural_ship()
 
-	var cockpit: Vector2 = COCKPIT_OFFSETS[ship_style]
+	var cockpit := Vector2.ZERO
 	var cockpit_radius: float = COCKPIT_RADII[ship_style]
-	draw_circle(cockpit, cockpit_radius + 3.5, Color(0.01, 0.02, 0.09, 0.92))
+	draw_circle(cockpit, cockpit_radius + 3.5, Color(0.0, 0.0, 0.0, 0.98))
 	draw_circle(cockpit, cockpit_radius + 1.5, ship_color)
-	draw_circle(cockpit, cockpit_radius, Color("79d9ff"))
+	draw_circle(cockpit, cockpit_radius, Color("010205"))
 	_draw_pilot(cockpit, cockpit_radius)
 	draw_arc(cockpit, cockpit_radius + 1.0, PI, TAU, 24, Color(1.0, 1.0, 1.0, 0.72), 2.2, true)
 	draw_arc(Vector2.ZERO, maxf(target_size.x, target_size.y) * 0.48, -0.15, PI + 0.15, 38, Color(ship_color, 0.76), 2.0, true)

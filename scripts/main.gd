@@ -7,8 +7,6 @@ const MeteorScene := preload("res://scripts/meteor.gd")
 
 const SFX_STREAMS := {
 	"click": preload("res://assets/sfx_click.ogg"),
-	"countdown": preload("res://assets/sfx_countdown.ogg"),
-	"start": preload("res://assets/sfx_start.ogg"),
 	"meteor": preload("res://assets/sfx_meteor.ogg"),
 	"explosion": preload("res://assets/sfx_explosion.ogg"),
 }
@@ -22,9 +20,10 @@ const MENU_SHIP_SCALE := Vector2(1.12, 1.12)
 const SHOUT_SAMPLE_RATE := 22050
 const SHOUT_DURATION := 1.15
 const SAVE_PATH := "user://astrotops.cfg"
-const TRACTOR_MAX_ANGLE := 0.349066
-const TRACTOR_MIN_DISTANCE_FACTOR := 0.20
-const TRACTOR_MAX_DISTANCE_FACTOR := 0.95
+const TRACTOR_MIN_DISTANCE_FACTOR := 0.12
+const TRACTOR_MAX_DISTANCE_FACTOR := 0.52
+const TRACTOR_FIELD_NECK_RATIO := 0.09
+const TRACTOR_FIELD_BULB_RATIO := 0.35
 const TRACTOR_MAX_PULL_RATIO := 0.30
 const TRACTOR_DEFAULT_STRENGTH := 0.45
 
@@ -91,6 +90,7 @@ var run_serial := 0
 var tractor_beam_enabled := true
 var tractor_beam_strength := TRACTOR_DEFAULT_STRENGTH
 var tractor_target: ColorPlanet
+var tractor_course_direction := Vector2.UP
 var best_reset_confirmation_until := 0
 
 var touch_id := -1
@@ -107,6 +107,9 @@ var overlay_shade: ColorRect
 var message_label: Label
 var countdown_label: Label
 var shout_stream: AudioStreamWAV
+var selector_click_stream: AudioStreamWAV
+var countdown_beep_stream: AudioStreamWAV
+var countdown_boop_stream: AudioStreamWAV
 var tts_voice := ""
 var milky_way_texture: Texture2D
 
@@ -114,6 +117,9 @@ var milky_way_texture: Texture2D
 func _ready() -> void:
 	font = ThemeDB.fallback_font
 	shout_stream = _make_shout_stream()
+	selector_click_stream = _make_mouse_click_stream()
+	countdown_beep_stream = _make_tone_stream(880.0, 880.0, 0.11, 0.42)
+	countdown_boop_stream = _make_tone_stream(520.0, 255.0, 0.28, 0.48)
 	_setup_tts()
 	_make_stars()
 	_load_settings()
@@ -142,7 +148,7 @@ func _process(delta: float) -> void:
 				if countdown_value <= 0:
 					_launch_run()
 				else:
-					_play_sfx("countdown", 1.0 + float(5 - countdown_value) * 0.08, -4.0)
+					_play_countdown_tone(false)
 		GameState.PLAYING:
 			elapsed_time += delta
 			var movement := _movement_input()
@@ -208,7 +214,7 @@ func _update_overlay() -> void:
 	if state == GameState.READY:
 		overlay_shade.visible = true
 		message_label.visible = true
-		message_label.text = "PRESS ANY KEY OR GAMEPAD BUTTON\nTO START  5  •  4  •  3  •  2  •  1"
+		message_label.text = "PRESS ANY KEY, GAMEPAD BUTTON, OR TAP\nTO START"
 		message_label.modulate = palette[selected_color_index]
 	elif state == GameState.COUNTDOWN:
 		countdown_label.visible = true
@@ -221,7 +227,7 @@ func _update_overlay() -> void:
 	elif state == GameState.PAUSED:
 		overlay_shade.visible = true
 		message_label.visible = true
-		message_label.text = "FLIGHT PAUSED\nCONTINUE WHEN YOU'RE READY"
+		message_label.text = "FLIGHT PAUSED\nPRESS \"RESUME\" BUTTON WHEN YOU ARE READY"
 		message_label.modulate = palette[selected_color_index]
 
 
@@ -375,6 +381,7 @@ func _prepare_run() -> void:
 	ship.scale = Vector2.ONE
 	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
 	ship.stop()
+	tractor_course_direction = Vector2.UP
 	_clear_touch()
 
 
@@ -384,13 +391,13 @@ func _begin_countdown() -> void:
 	state = GameState.COUNTDOWN
 	countdown_value = 5
 	countdown_phase = 0.0
-	_play_sfx("countdown", 1.0, -4.0)
+	_play_countdown_tone(false)
 
 
 func _launch_run() -> void:
 	state = GameState.PLAYING
 	countdown_phase = 0.0
-	_play_sfx("start", 1.0, -3.0)
+	_play_countdown_tone(true)
 
 
 func _reset_run() -> void:
@@ -512,11 +519,13 @@ func _update_tractor_beam(delta: float, movement: Vector2) -> void:
 		course_direction = movement.normalized()
 	if course_direction.length_squared() < 0.0001:
 		return
+	tractor_course_direction = course_direction
 	var candidate := _best_tractor_candidate(course_direction)
 	if candidate.is_empty():
 		return
 	tractor_target = candidate["planet"]
-	var alignment: float = 1.0 - float(candidate["angle_normalized"])
+	# A target near the pear boundary still receives a gentle pull instead of dropping to zero.
+	var alignment := lerpf(1.0, 0.25, float(candidate["field_normalized"]))
 	var distance_factor := lerpf(1.0, 0.38, float(candidate["distance_normalized"]))
 	var pull_speed := clampf(
 		ship.max_speed * TRACTOR_MAX_PULL_RATIO * tractor_beam_strength * alignment * distance_factor,
@@ -529,6 +538,14 @@ func _update_tractor_beam(delta: float, movement: Vector2) -> void:
 func _tractor_max_distance(viewport_size: Vector2) -> float:
 	var distance_factor := lerpf(TRACTOR_MIN_DISTANCE_FACTOR, TRACTOR_MAX_DISTANCE_FACTOR, tractor_beam_strength)
 	return viewport_size.length() * distance_factor
+
+
+func _tractor_field_half_width(forward_normalized: float, max_distance: float) -> float:
+	var progress := clampf(forward_normalized, 0.0, 1.0)
+	var bulb := pow(maxf(0.0, sin(PI * progress)), 0.68)
+	var taper := 1.0 - progress * 0.18
+	var neck := TRACTOR_FIELD_NECK_RATIO * (1.0 - progress)
+	return max_distance * (neck + TRACTOR_FIELD_BULB_RATIO * bulb * taper)
 
 
 func _best_tractor_candidate(course_direction: Vector2) -> Dictionary:
@@ -554,24 +571,25 @@ func _best_tractor_candidate(course_direction: Vector2) -> Dictionary:
 			continue
 		var screen_delta := target_screen - ship_screen
 		var screen_distance := screen_delta.length()
-		if screen_distance <= 0.001 or screen_distance > max_distance:
+		if screen_distance <= 0.001:
 			continue
-		var target_screen_direction := screen_delta / screen_distance
-		var forward_dot := course_screen.dot(target_screen_direction)
-		if forward_dot <= 0.0:
+		var forward_distance := screen_delta.dot(course_screen)
+		if forward_distance <= 0.0 or forward_distance > max_distance:
 			continue
-		var angle := acos(clampf(forward_dot, -1.0, 1.0))
-		if angle > TRACTOR_MAX_ANGLE:
+		var forward_normalized := forward_distance / max_distance
+		var half_width := _tractor_field_half_width(forward_normalized, max_distance)
+		var lateral_distance := absf(course_screen.cross(screen_delta))
+		if lateral_distance > half_width:
 			continue
-		var angle_normalized := angle / TRACTOR_MAX_ANGLE
-		var distance_normalized := screen_distance / max_distance
-		# Bearing remains dominant; distance gently favors nearer targets on similar courses.
-		var score := angle_normalized * 0.80 + distance_normalized * 0.20
+		var field_normalized := clampf(lateral_distance / maxf(half_width, 1.0), 0.0, 1.0)
+		var distance_normalized := clampf(screen_distance / max_distance, 0.0, 1.0)
+		# Course alignment remains dominant; distance breaks ties between similar bearings.
+		var score := field_normalized * 0.80 + distance_normalized * 0.20
 		if score < best_score:
 			best_score = score
 			best_candidate = {
 				"planet": planet,
-				"angle_normalized": angle_normalized,
+				"field_normalized": field_normalized,
 				"distance_normalized": distance_normalized,
 			}
 	return best_candidate
@@ -786,19 +804,19 @@ func _handle_results_click(position: Vector2) -> void:
 func _change_color(step: int) -> void:
 	selected_color_index = wrapi(selected_color_index + step, 0, palette.size())
 	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
-	_play_sfx("click", 0.96 + float(selected_color_index) * 0.025, -7.0)
+	_play_selector_click()
 
 
 func _change_ship(step: int) -> void:
 	selected_ship_index = wrapi(selected_ship_index + step, 0, ship_names.size())
 	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
-	_play_sfx("click", 0.88 + float(selected_ship_index) * 0.07, -7.0)
+	_play_selector_click()
 
 
 func _change_pilot(step: int) -> void:
 	selected_pilot_index = wrapi(selected_pilot_index + step, 0, pilot_names.size())
 	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
-	_play_sfx("click", 0.92 + float(selected_pilot_index) * 0.09, -7.0)
+	_play_selector_click()
 
 
 func _can_adjust_tractor_beam() -> bool:
@@ -833,6 +851,80 @@ func _request_best_score_reset() -> void:
 	else:
 		best_reset_confirmation_until = now + 2500
 		_play_sfx("click", 1.02, -6.0)
+
+
+func _make_mouse_click_stream() -> AudioStreamWAV:
+	# Two short, damped transients mimic a mechanical mouse press and release.
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = SHOUT_SAMPLE_RATE
+	stream.stereo = false
+	var duration := 0.070
+	var sample_count := int(duration * float(SHOUT_SAMPLE_RATE))
+	var samples := PackedByteArray()
+	samples.resize(sample_count * 2)
+	for index in range(sample_count):
+		var time := float(index) / float(SHOUT_SAMPLE_RATE)
+		var press := exp(-time * 105.0) * (
+			sin(time * TAU * 2920.0) * 0.52 + sin(time * TAU * 1680.0) * 0.26
+		)
+		var release_time := time - 0.032
+		var release := 0.0
+		if release_time >= 0.0:
+			release = exp(-release_time * 145.0) * (
+				sin(release_time * TAU * 2380.0) * 0.30 + sin(release_time * TAU * 1120.0) * 0.16
+			)
+		var value := clampf(press + release, -0.72, 0.72)
+		var pcm := int(round(value * 32767.0))
+		samples[index * 2] = pcm & 0xff
+		samples[index * 2 + 1] = (pcm >> 8) & 0xff
+	stream.data = samples
+	return stream
+
+
+func _make_tone_stream(start_frequency: float, end_frequency: float, duration: float, amplitude: float) -> AudioStreamWAV:
+	# Smooth envelopes keep the five beeps and final descending boop crisp without clicks.
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = SHOUT_SAMPLE_RATE
+	stream.stereo = false
+	var sample_count := int(duration * float(SHOUT_SAMPLE_RATE))
+	var samples := PackedByteArray()
+	samples.resize(sample_count * 2)
+	var phase := 0.0
+	for index in range(sample_count):
+		var time := float(index) / float(SHOUT_SAMPLE_RATE)
+		var progress := time / duration
+		var frequency := lerpf(start_frequency, end_frequency, progress)
+		phase += TAU * frequency / float(SHOUT_SAMPLE_RATE)
+		var attack := clampf(time / 0.008, 0.0, 1.0)
+		var release := clampf((duration - time) / minf(0.045, duration * 0.35), 0.0, 1.0)
+		var tone := sin(phase) * 0.82 + sin(phase * 2.0) * 0.12
+		var value := clampf(tone * attack * release * amplitude, -1.0, 1.0)
+		var pcm := int(round(value * 32767.0))
+		samples[index * 2] = pcm & 0xff
+		samples[index * 2 + 1] = (pcm >> 8) & 0xff
+	stream.data = samples
+	return stream
+
+
+func _play_generated_stream(stream: AudioStreamWAV, volume_db: float) -> void:
+	if stream == null:
+		return
+	var player := AudioStreamPlayer.new()
+	player.stream = stream
+	player.volume_db = volume_db
+	add_child(player)
+	player.finished.connect(player.queue_free)
+	player.play()
+
+
+func _play_selector_click() -> void:
+	_play_generated_stream(selector_click_stream, -8.0)
+
+
+func _play_countdown_tone(final_boop: bool) -> void:
+	_play_generated_stream(countdown_boop_stream if final_boop else countdown_beep_stream, -5.0)
 
 
 func _play_sfx(effect: String, pitch := 1.0, volume_db := 0.0) -> void:
@@ -976,14 +1068,14 @@ func _section_label(rect: Rect2, label: String) -> void:
 	_outlined_rect_text(rect, label, 20, accent.lightened(0.45))
 
 
-func _draw_planet_letter(center: Vector2, radius: float, color: Color) -> void:
+func _draw_planet_letter(center: Vector2, radius: float, planet_color: Color, ring_color: Color) -> void:
 	draw_set_transform(center, -0.30, Vector2(1.0, 0.38))
-	draw_arc(Vector2.ZERO, radius * 1.55, 0.0, TAU, 42, Color(color.lightened(0.52), 0.82), 4.0, true)
+	draw_arc(Vector2.ZERO, radius * 1.62, 0.0, TAU, 42, Color(ring_color, 0.92), 4.5, true)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	draw_circle(center + Vector2(2.5, 3.0), radius + 1.5, Color(0.0, 0.0, 0.04, 0.86))
-	draw_circle(center, radius, color)
-	draw_circle(center - Vector2(radius * 0.24, radius * 0.26), radius * 0.50, color.lightened(0.34))
-	draw_circle(center + Vector2(radius * 0.25, radius * 0.14), radius * 0.13, Color(color.darkened(0.30), 0.76))
+	draw_circle(center, radius, planet_color)
+	draw_circle(center - Vector2(radius * 0.24, radius * 0.26), radius * 0.50, planet_color.lightened(0.34))
+	draw_circle(center + Vector2(radius * 0.25, radius * 0.14), radius * 0.13, Color(planet_color.darkened(0.30), 0.76))
 	draw_arc(center, radius, 0.0, TAU, 30, Color.WHITE, 1.6, true)
 
 
@@ -991,21 +1083,21 @@ func _draw_brand_title(baseline_y: float, size: int, color: Color) -> void:
 	var astr_width := font.get_string_size("ASTR", HORIZONTAL_ALIGNMENT_LEFT, -1.0, size).x
 	var t_width := font.get_string_size("T", HORIZONTAL_ALIGNMENT_LEFT, -1.0, size).x
 	var ps_width := font.get_string_size("PS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, size).x
-	var planet_width := float(size) * 0.82
+	var planet_width := float(size) * 0.94
 	var total_width := astr_width + t_width + ps_width + planet_width * 2.0 + 12.0
 	var x := (VIEW_SIZE.x - total_width) * 0.5
-	var planet_center_y := baseline_y - float(size) * 0.35
-	var radius := float(size) * 0.31
+	var planet_center_y := baseline_y - float(size) * 0.36
+	var radius := float(size) * 0.35
 
 	draw_string(font, Vector2(x + 3.0, baseline_y + 3.0), "ASTR", HORIZONTAL_ALIGNMENT_LEFT, astr_width, size, Color(0.0, 0.0, 0.04, 0.90))
 	draw_string(font, Vector2(x, baseline_y), "ASTR", HORIZONTAL_ALIGNMENT_LEFT, astr_width, size, color)
 	x += astr_width + 3.0
-	_draw_planet_letter(Vector2(x + planet_width * 0.5, planet_center_y), radius, color)
+	_draw_planet_letter(Vector2(x + planet_width * 0.5, planet_center_y), radius, Color("73caff"), Color("ffc857"))
 	x += planet_width + 3.0
 	draw_string(font, Vector2(x + 3.0, baseline_y + 3.0), "T", HORIZONTAL_ALIGNMENT_LEFT, t_width, size, Color(0.0, 0.0, 0.04, 0.90))
 	draw_string(font, Vector2(x, baseline_y), "T", HORIZONTAL_ALIGNMENT_LEFT, t_width, size, color)
 	x += t_width + 3.0
-	_draw_planet_letter(Vector2(x + planet_width * 0.5, planet_center_y), radius, color.lightened(0.10))
+	_draw_planet_letter(Vector2(x + planet_width * 0.5, planet_center_y), radius, Color("a879ff"), Color("41f4c6"))
 	x += planet_width + 3.0
 	draw_string(font, Vector2(x + 3.0, baseline_y + 3.0), "PS", HORIZONTAL_ALIGNMENT_LEFT, ps_width, size, Color(0.0, 0.0, 0.04, 0.90))
 	draw_string(font, Vector2(x, baseline_y), "PS", HORIZONTAL_ALIGNMENT_LEFT, ps_width, size, color)
@@ -1032,6 +1124,43 @@ func _draw_milky_way_background() -> void:
 	draw_set_transform(VIEW_SIZE * 0.5, PI * 0.5, Vector2.ONE * cover_scale)
 	draw_texture(milky_way_texture, -source_size * 0.5, Color(0.66, 0.68, 0.78, 0.48))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_tractor_debug_field() -> void:
+	if not OS.is_debug_build() or not tractor_beam_enabled or tractor_beam_strength <= 0.0:
+		return
+	if tractor_course_direction.length_squared() < 0.0001:
+		return
+	var canvas_transform := get_viewport().get_canvas_transform()
+	var inverse_canvas := canvas_transform.affine_inverse()
+	var ship_screen := canvas_transform * ship.global_position
+	var course_screen := (canvas_transform * (ship.global_position + tractor_course_direction)) - ship_screen
+	if course_screen.length_squared() < 0.0001:
+		return
+	course_screen = course_screen.normalized()
+	var perpendicular := course_screen.orthogonal()
+	var max_distance := _tractor_max_distance(get_viewport_rect().size)
+	var left_edge := PackedVector2Array()
+	var right_edge := PackedVector2Array()
+	var steps := 30
+	for index in range(steps + 1):
+		var progress := float(index) / float(steps)
+		var forward := max_distance * progress
+		var half_width := _tractor_field_half_width(progress, max_distance)
+		var center_screen := ship_screen + course_screen * forward
+		left_edge.append(to_local(inverse_canvas * (center_screen - perpendicular * half_width)))
+		right_edge.append(to_local(inverse_canvas * (center_screen + perpendicular * half_width)))
+	var field_points := PackedVector2Array()
+	field_points.append_array(left_edge)
+	for index in range(right_edge.size() - 1, -1, -1):
+		field_points.append(right_edge[index])
+	var outline := field_points.duplicate()
+	outline.append(field_points[0])
+	var field_color: Color = palette[selected_color_index]
+	draw_colored_polygon(field_points, Color(field_color, 0.055))
+	draw_polyline(outline, Color(field_color.lightened(0.36), 0.50), 2.0, true)
+	var tip_local := to_local(inverse_canvas * (ship_screen + course_screen * max_distance))
+	draw_line(to_local(ship.global_position), tip_local, Color(field_color, 0.18), 1.0, true)
 
 
 func _draw_tractor_beam() -> void:
@@ -1072,6 +1201,7 @@ func _draw() -> void:
 		var twinkle := 0.58 + sin(input_hint_time * 1.8 + star["phase"]) * 0.25
 		draw_circle(star["position"], star["size"], Color(0.82, 0.90, 1.0, twinkle))
 	if state == GameState.PLAYING:
+		_draw_tractor_debug_field()
 		_draw_tractor_beam()
 
 	match state:

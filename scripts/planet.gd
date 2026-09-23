@@ -240,6 +240,8 @@ func _draw_black_hole() -> void:
 	var halo_color := Color("f4f8ff").lerp(captured_color.lightened(0.32), capture_progress * 0.82)
 	var disk_color := Color("e5a68d").lerp(captured_color.lightened(0.28), capture_progress)
 	var disk_shadow := Color("7a4039").lerp(captured_color.darkened(0.30), capture_progress)
+	var captured_horizon := Color.BLACK.lerp(captured_color, 0.50)
+	var horizon_color := base_color.lerp(captured_horizon, capture_progress)
 
 	# Broad, dim lensing rings establish the silhouette before the bright photon halo.
 	var outer_halo := _ellipse_points(radius * 1.28, radius * 1.48, 0.0, TAU, 72)
@@ -256,9 +258,9 @@ func _draw_black_hole() -> void:
 		var disk := _ellipse_points(float(band[0]), float(band[1]), PI, TAU, 56, -0.025)
 		draw_polyline(disk, band[3], float(band[2]), true)
 
-	# The event horizon remains black so it is identifiable after capture.
-	draw_circle(Vector2(2.0, 4.0), radius * 1.04, Color(0.0, 0.0, 0.0, 0.70))
-	draw_circle(Vector2.ZERO, radius, base_color)
+	# Capture shifts the event horizon halfway from black toward the ship color.
+	draw_circle(Vector2(2.0, 4.0), radius * 1.04, Color(horizon_color.darkened(0.48), 0.82))
+	draw_circle(Vector2.ZERO, radius, horizon_color)
 	var photon_ring := _ellipse_points(radius * 1.02, radius * 1.08, PI, TAU, 44)
 	draw_polyline(photon_ring, Color(halo_color, 0.98 * shimmer), 4.5, true)
 	var lower_lensing := _ellipse_points(radius * 0.92, radius * 1.04, 0.0, PI, 36)

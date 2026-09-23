@@ -16,10 +16,11 @@ asteroids before the meteor finale.
 Choose **Launch Mission**, then press any keyboard key, gamepad button, or tap to
 start the animated `5` to `1` countdown. The in-game header also provides Back,
 Reset, Pause/Resume, Close, and tractor-beam controls. The beam pulls at most
-one uncaptured target whose bearing is close to the ship's course and that is
-currently visible on screen. Its slider controls both pull strength and range;
-the slider and on/off state are saved between runs. Capturing a target speaks
-its English name through the device's text-to-speech voice.
+one uncaptured, currently visible target inside a course-aligned pear-shaped
+field. The field is wider close to the ship and tapers over its shortened
+range; debug builds show its outline. The slider controls both pull strength
+and range, and its value and on/off state are saved between runs. Capturing a
+target speaks its English name through the device's text-to-speech voice.
 
 ## Run locally
 
