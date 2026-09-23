@@ -1,6 +1,6 @@
-# PlaneTops
+# AstroTops
 
-PlaneTops is a fast top-down arcade prototype. Choose Trixie, an astronaut, or
+AstroTops is a fast top-down arcade prototype. Choose Trixie, an astronaut, or
 a little planet as pilot; select one of eight ships and ten paint colors; then
 fly through the Sun, eight planets, Moon, Haumea, a black hole, and two
 asteroids before the meteor finale.
@@ -13,7 +13,7 @@ asteroids before the meteor finale.
   pauses; B goes back
 - Touch or mouse: drag on the left side of the playfield
 
-Choose **Ready Ship**, then press any keyboard key, gamepad button, or tap to
+Choose **Launch Mission**, then press any keyboard key, gamepad button, or tap to
 start the animated `5` to `1` countdown. The in-game header also provides Back,
 Reset, Pause/Resume, Close, and tractor-beam controls. The beam pulls at most
 one uncaptured target whose bearing is close to the ship's course and that is
@@ -34,11 +34,11 @@ game at runtime.
 
 ## Prototype builds
 
-- Windows: `build/windows/PlaneTops.exe`
-- Android: `build/android/PlaneTops.apk`
+- Windows: `build/windows/AstroTops.exe`
+- Android: `build/android/AstroTops.apk`
 
 Install Godot's Android build template from
-**Project > Install Android Build Template** before exporting Android. PlaneTops
+**Project > Install Android Build Template** before exporting Android. AstroTops
 uses the Gradle exporter so Android's themed launcher icon is packaged correctly.
 
 The APK is a debug-signed ARM64 prototype intended for direct testing, not a

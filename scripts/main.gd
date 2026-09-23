@@ -17,9 +17,11 @@ const VIEW_SIZE := Vector2(1280.0, 720.0)
 const HUD_HEIGHT := 136.0
 const SHIP_BOUNDS := Rect2(35.0, 146.0, 1210.0, 536.0)
 const SHIP_START := Vector2(640.0, 410.0)
+const MENU_SHIP_POSITION := Vector2(640.0, 220.0)
+const MENU_SHIP_SCALE := Vector2(1.12, 1.12)
 const SHOUT_SAMPLE_RATE := 22050
 const SHOUT_DURATION := 1.15
-const SAVE_PATH := "user://planetops.cfg"
+const SAVE_PATH := "user://astrotops.cfg"
 const TRACTOR_MAX_ANGLE := 0.349066
 const TRACTOR_MIN_DISTANCE_FACTOR := 0.20
 const TRACTOR_MAX_DISTANCE_FACTOR := 0.95
@@ -30,21 +32,24 @@ const BACK_BUTTON := Rect2(704.0, 16.0, 128.0, 50.0)
 const RESET_BUTTON := Rect2(840.0, 16.0, 128.0, 50.0)
 const PAUSE_BUTTON := Rect2(976.0, 16.0, 128.0, 50.0)
 const CLOSE_BUTTON := Rect2(1112.0, 16.0, 128.0, 50.0)
-const TRACTOR_BEAM_BUTTON := Rect2(170.0, 90.0, 155.0, 36.0)
-const TRACTOR_SLIDER_TRACK := Rect2(500.0, 102.0, 280.0, 12.0)
-const TRACTOR_SLIDER_HIT := Rect2(482.0, 84.0, 316.0, 48.0)
+const TRACTOR_BEAM_BUTTON := Rect2(18.0, 92.0, 260.0, 34.0)
+const TRACTOR_SLIDER_TRACK := Rect2(390.0, 103.0, 360.0, 12.0)
+const TRACTOR_SLIDER_HIT := Rect2(370.0, 84.0, 400.0, 48.0)
 
-const SHIP_LEFT_BUTTON := Rect2(385.0, 318.0, 105.0, 52.0)
-const SHIP_NAME_BUTTON := Rect2(505.0, 318.0, 270.0, 52.0)
-const SHIP_RIGHT_BUTTON := Rect2(790.0, 318.0, 105.0, 52.0)
-const COLOR_LEFT_BUTTON := Rect2(385.0, 398.0, 105.0, 52.0)
-const COLOR_NAME_BUTTON := Rect2(505.0, 398.0, 270.0, 52.0)
-const COLOR_RIGHT_BUTTON := Rect2(790.0, 398.0, 105.0, 52.0)
-const PILOT_LEFT_BUTTON := Rect2(385.0, 478.0, 105.0, 52.0)
-const PILOT_NAME_BUTTON := Rect2(505.0, 478.0, 270.0, 52.0)
-const PILOT_RIGHT_BUTTON := Rect2(790.0, 478.0, 105.0, 52.0)
-const START_BUTTON := Rect2(360.0, 558.0, 260.0, 62.0)
-const RESET_BEST_BUTTON := Rect2(660.0, 558.0, 260.0, 62.0)
+const SHIP_LABEL := Rect2(326.0, 302.0, 120.0, 54.0)
+const SHIP_LEFT_BUTTON := Rect2(458.0, 302.0, 82.0, 54.0)
+const SHIP_NAME_BUTTON := Rect2(552.0, 302.0, 310.0, 54.0)
+const SHIP_RIGHT_BUTTON := Rect2(874.0, 302.0, 82.0, 54.0)
+const COLOR_LABEL := Rect2(326.0, 370.0, 120.0, 54.0)
+const COLOR_LEFT_BUTTON := Rect2(458.0, 370.0, 82.0, 54.0)
+const COLOR_NAME_BUTTON := Rect2(552.0, 370.0, 310.0, 54.0)
+const COLOR_RIGHT_BUTTON := Rect2(874.0, 370.0, 82.0, 54.0)
+const PILOT_LABEL := Rect2(326.0, 438.0, 120.0, 54.0)
+const PILOT_LEFT_BUTTON := Rect2(458.0, 438.0, 82.0, 54.0)
+const PILOT_NAME_BUTTON := Rect2(552.0, 438.0, 310.0, 54.0)
+const PILOT_RIGHT_BUTTON := Rect2(874.0, 438.0, 82.0, 54.0)
+const START_BUTTON := Rect2(485.0, 516.0, 310.0, 62.0)
+const RESET_BEST_BUTTON := Rect2(540.0, 636.0, 200.0, 32.0)
 const AGAIN_BUTTON := Rect2(400.0, 545.0, 230.0, 72.0)
 const MENU_BUTTON := Rect2(650.0, 545.0, 230.0, 72.0)
 
@@ -119,8 +124,8 @@ func _ready() -> void:
 	ship.z_index = 4
 	add_child(ship)
 	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
-	ship.position = Vector2(640.0, 235.0)
-	ship.scale = Vector2(1.18, 1.18)
+	ship.position = MENU_SHIP_POSITION
+	ship.scale = MENU_SHIP_SCALE
 	set_process_input(true)
 	_update_overlay()
 	queue_redraw()
@@ -165,8 +170,8 @@ func _setup_overlay() -> void:
 	add_child(overlay_layer)
 
 	overlay_shade = ColorRect.new()
-	overlay_shade.position = Vector2.ZERO
-	overlay_shade.size = VIEW_SIZE
+	overlay_shade.position = Vector2(0.0, HUD_HEIGHT)
+	overlay_shade.size = Vector2(VIEW_SIZE.x, VIEW_SIZE.y - HUD_HEIGHT)
 	overlay_shade.color = Color(0.01, 0.015, 0.06, 0.62)
 	overlay_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay_layer.add_child(overlay_shade)
@@ -216,7 +221,7 @@ func _update_overlay() -> void:
 	elif state == GameState.PAUSED:
 		overlay_shade.visible = true
 		message_label.visible = true
-		message_label.text = "PAUSED\nPRESS PAUSE TO RESUME"
+		message_label.text = "FLIGHT PAUSED\nCONTINUE WHEN YOU'RE READY"
 		message_label.modulate = palette[selected_color_index]
 
 
@@ -461,9 +466,9 @@ func _return_to_menu() -> void:
 	_clear_planets()
 	state = GameState.MENU
 	ship.visible = true
-	ship.position = Vector2(640.0, 235.0)
+	ship.position = MENU_SHIP_POSITION
 	ship.rotation = 0.0
-	ship.scale = Vector2(1.18, 1.18)
+	ship.scale = MENU_SHIP_SCALE
 	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
 	ship.stop()
 	_clear_touch()
@@ -915,20 +920,107 @@ func _center_text(text: String, y: float, size: int, color := Color.WHITE) -> vo
 	draw_string(font, Vector2(0.0, y), text, HORIZONTAL_ALIGNMENT_CENTER, VIEW_SIZE.x, size, color)
 
 
+func _chamfered_points(rect: Rect2, cut := 8.0) -> PackedVector2Array:
+	return PackedVector2Array([
+		rect.position + Vector2(cut, 0.0),
+		Vector2(rect.end.x - cut, rect.position.y),
+		Vector2(rect.end.x, rect.position.y + cut),
+		rect.end - Vector2(0.0, cut),
+		rect.end - Vector2(cut, 0.0),
+		Vector2(rect.position.x + cut, rect.end.y),
+		Vector2(rect.position.x, rect.end.y - cut),
+		rect.position + Vector2(0.0, cut),
+	])
+
+
+func _closed_outline(points: PackedVector2Array) -> PackedVector2Array:
+	var outline := points.duplicate()
+	outline.append(points[0])
+	return outline
+
+
+func _outlined_rect_text(rect: Rect2, label: String, size: int, color: Color) -> void:
+	var baseline := rect.position.y + (rect.size.y + float(size)) * 0.5 - 3.0
+	var shadow_position := Vector2(rect.position.x + 2.0, baseline + 2.0)
+	draw_string(font, shadow_position, label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, size, Color(0.0, 0.0, 0.04, 0.96))
+	draw_string(font, Vector2(rect.position.x, baseline), label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, size, color)
+
+
 func _button(rect: Rect2, label: String, color: Color, enabled := true) -> void:
-	var fill := Color(0.03, 0.04, 0.13, 0.94) if enabled else Color(0.03, 0.04, 0.08, 0.72)
+	var fill := Color(0.025, 0.035, 0.12, 0.96) if enabled else Color(0.025, 0.03, 0.07, 0.78)
 	var stroke := color if enabled else Color(color, 0.32)
 	var text_color := Color.WHITE if enabled else Color(0.70, 0.74, 0.84, 0.45)
-	draw_rect(rect, fill, true)
-	draw_rect(rect, stroke, false, 3.0)
-	var font_size := 16 if rect.position.y < 100.0 else 24
-	draw_string(font, Vector2(rect.position.x, rect.position.y + rect.size.y * 0.66), label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, font_size, text_color)
+	var points := _chamfered_points(rect, minf(9.0, rect.size.y * 0.24))
+	draw_colored_polygon(points, fill)
+	draw_polyline(_closed_outline(points), stroke, 3.0, true)
+	draw_line(rect.position + Vector2(13.0, 6.0), Vector2(rect.end.x - 13.0, rect.position.y + 6.0), Color(stroke.lightened(0.35), 0.42), 1.0, true)
+	var font_size := 15 if rect.size.y <= 38.0 else (20 if rect.size.y <= 54.0 else 22)
+	_outlined_rect_text(rect, label, font_size, text_color)
 
 
 func _selector(rect: Rect2, label: String) -> void:
-	draw_rect(rect, Color(palette[selected_color_index], 0.16), true)
-	draw_rect(rect, palette[selected_color_index], false, 3.0)
-	draw_string(font, Vector2(rect.position.x, rect.position.y + rect.size.y * 0.68), label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 21, Color.WHITE)
+	var accent: Color = palette[selected_color_index]
+	var points := _chamfered_points(rect, 9.0)
+	draw_colored_polygon(points, Color(accent, 0.17))
+	draw_polyline(_closed_outline(points), accent, 3.0, true)
+	draw_line(rect.position + Vector2(18.0, 7.0), Vector2(rect.end.x - 18.0, rect.position.y + 7.0), Color(accent.lightened(0.38), 0.42), 1.0, true)
+	_outlined_rect_text(rect, label, 21, Color.WHITE)
+
+
+func _section_label(rect: Rect2, label: String) -> void:
+	var accent: Color = palette[selected_color_index]
+	var points := _chamfered_points(rect, 8.0)
+	draw_colored_polygon(points, Color(0.02, 0.03, 0.10, 0.90))
+	draw_polyline(_closed_outline(points), Color(accent, 0.72), 2.0, true)
+	draw_rect(Rect2(rect.position + Vector2(8.0, 9.0), Vector2(4.0, rect.size.y - 18.0)), accent, true)
+	_outlined_rect_text(rect, label, 20, accent.lightened(0.45))
+
+
+func _draw_planet_letter(center: Vector2, radius: float, color: Color) -> void:
+	draw_set_transform(center, -0.30, Vector2(1.0, 0.38))
+	draw_arc(Vector2.ZERO, radius * 1.55, 0.0, TAU, 42, Color(color.lightened(0.52), 0.82), 4.0, true)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_circle(center + Vector2(2.5, 3.0), radius + 1.5, Color(0.0, 0.0, 0.04, 0.86))
+	draw_circle(center, radius, color)
+	draw_circle(center - Vector2(radius * 0.24, radius * 0.26), radius * 0.50, color.lightened(0.34))
+	draw_circle(center + Vector2(radius * 0.25, radius * 0.14), radius * 0.13, Color(color.darkened(0.30), 0.76))
+	draw_arc(center, radius, 0.0, TAU, 30, Color.WHITE, 1.6, true)
+
+
+func _draw_brand_title(baseline_y: float, size: int, color: Color) -> void:
+	var astr_width := font.get_string_size("ASTR", HORIZONTAL_ALIGNMENT_LEFT, -1.0, size).x
+	var t_width := font.get_string_size("T", HORIZONTAL_ALIGNMENT_LEFT, -1.0, size).x
+	var ps_width := font.get_string_size("PS", HORIZONTAL_ALIGNMENT_LEFT, -1.0, size).x
+	var planet_width := float(size) * 0.82
+	var total_width := astr_width + t_width + ps_width + planet_width * 2.0 + 12.0
+	var x := (VIEW_SIZE.x - total_width) * 0.5
+	var planet_center_y := baseline_y - float(size) * 0.35
+	var radius := float(size) * 0.31
+
+	draw_string(font, Vector2(x + 3.0, baseline_y + 3.0), "ASTR", HORIZONTAL_ALIGNMENT_LEFT, astr_width, size, Color(0.0, 0.0, 0.04, 0.90))
+	draw_string(font, Vector2(x, baseline_y), "ASTR", HORIZONTAL_ALIGNMENT_LEFT, astr_width, size, color)
+	x += astr_width + 3.0
+	_draw_planet_letter(Vector2(x + planet_width * 0.5, planet_center_y), radius, color)
+	x += planet_width + 3.0
+	draw_string(font, Vector2(x + 3.0, baseline_y + 3.0), "T", HORIZONTAL_ALIGNMENT_LEFT, t_width, size, Color(0.0, 0.0, 0.04, 0.90))
+	draw_string(font, Vector2(x, baseline_y), "T", HORIZONTAL_ALIGNMENT_LEFT, t_width, size, color)
+	x += t_width + 3.0
+	_draw_planet_letter(Vector2(x + planet_width * 0.5, planet_center_y), radius, color.lightened(0.10))
+	x += planet_width + 3.0
+	draw_string(font, Vector2(x + 3.0, baseline_y + 3.0), "PS", HORIZONTAL_ALIGNMENT_LEFT, ps_width, size, Color(0.0, 0.0, 0.04, 0.90))
+	draw_string(font, Vector2(x, baseline_y), "PS", HORIZONTAL_ALIGNMENT_LEFT, ps_width, size, color)
+
+
+func _draw_space_subtitle(text: String, baseline_y: float, size: int, color: Color) -> void:
+	var text_width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size).x
+	var x := (VIEW_SIZE.x - text_width) * 0.5
+	var line_y := baseline_y - float(size) * 0.32
+	draw_line(Vector2(x - 92.0, line_y), Vector2(x - 16.0, line_y), Color(color, 0.72), 2.0, true)
+	draw_line(Vector2(x + text_width + 16.0, line_y), Vector2(x + text_width + 92.0, line_y), Color(color, 0.72), 2.0, true)
+	draw_circle(Vector2(x - 102.0, line_y), 3.0, color)
+	draw_circle(Vector2(x + text_width + 102.0, line_y), 3.0, color)
+	draw_string(font, Vector2(x + 2.0, baseline_y + 2.0), text, HORIZONTAL_ALIGNMENT_LEFT, text_width, size, Color(0.0, 0.0, 0.04, 0.90))
+	draw_string(font, Vector2(x, baseline_y), text, HORIZONTAL_ALIGNMENT_LEFT, text_width, size, color)
 
 
 func _draw_milky_way_background() -> void:
@@ -998,34 +1090,42 @@ func _draw() -> void:
 
 
 func _draw_menu() -> void:
-	_center_text("PLANETOPS", 72.0, 58, Color("f3f7ff"))
-	_center_text("%s'S SOLAR SYSTEM RUSH" % pilot_names[selected_pilot_index].to_upper(), 108.0, 23, palette[selected_color_index])
-	_center_text("Paint every world. Beat your best time.", 140.0, 18, Color("aeb9d8"))
+	var accent: Color = palette[selected_color_index]
+	var title_panel := Rect2(320.0, 12.0, 640.0, 142.0)
+	var title_points := _chamfered_points(title_panel, 18.0)
+	draw_colored_polygon(title_points, Color(0.015, 0.025, 0.09, 0.68))
+	draw_polyline(_closed_outline(title_points), Color(accent, 0.34), 2.0, true)
+	_draw_brand_title(78.0, 60, Color("f4f8ff"))
+	_draw_space_subtitle("SPACE RUSH", 115.0, 24, accent.lightened(0.18))
+	_center_text("Paint every world. Beat your best time.", 145.0, 18, Color("c1cbea"))
 	_button(CLOSE_BUTTON, "CLOSE", Color("ff657a"))
-	_center_text("SHIP", 308.0, 17, Color("aeb9d8"))
+	_section_label(SHIP_LABEL, "SHIP")
 	_button(SHIP_LEFT_BUTTON, "<", palette[selected_color_index])
 	_button(SHIP_RIGHT_BUTTON, ">", palette[selected_color_index])
 	_selector(SHIP_NAME_BUTTON, ship_names[selected_ship_index])
-	_center_text("SHIP COLOR", 388.0, 17, Color("aeb9d8"))
+	_section_label(COLOR_LABEL, "COLOR")
 	_button(COLOR_LEFT_BUTTON, "<", palette[selected_color_index])
 	_button(COLOR_RIGHT_BUTTON, ">", palette[selected_color_index])
 	_selector(COLOR_NAME_BUTTON, color_names[selected_color_index])
-	_center_text("PILOT", 468.0, 17, Color("aeb9d8"))
+	_section_label(PILOT_LABEL, "PILOT")
 	_button(PILOT_LEFT_BUTTON, "<", palette[selected_color_index])
 	_button(PILOT_RIGHT_BUTTON, ">", palette[selected_color_index])
 	_selector(PILOT_NAME_BUTTON, pilot_names[selected_pilot_index])
-	_button(START_BUTTON, "READY SHIP", palette[selected_color_index])
-	var reset_label := "CONFIRM RESET" if Time.get_ticks_msec() <= best_reset_confirmation_until else "RESET BEST"
+	_button(START_BUTTON, "LAUNCH MISSION", palette[selected_color_index])
+	var reset_label := "TAP AGAIN TO RESET" if Time.get_ticks_msec() <= best_reset_confirmation_until else "RESET BEST TIME"
 	_button(RESET_BEST_BUTTON, reset_label, Color("ffc857"))
-	var best_label := "BEST  --:--.--" if best_time <= 0.0 else "BEST  %s" % _format_time(best_time)
-	_center_text(best_label, 652.0, 18, Color("dbe5ff"))
+	var best_label := "BEST TIME  --:--.--" if best_time <= 0.0 else "BEST TIME  %s" % _format_time(best_time)
+	_center_text(best_label, 618.0, 22, Color("e7edff"))
 	_center_text("WASD / arrows • Gamepad stick / D-pad • Touch drag • Q/E pilot", 704.0, 15, Color("7f8bae"))
 
 
 func _draw_game_hud() -> void:
 	draw_rect(Rect2(0.0, 0.0, VIEW_SIZE.x, HUD_HEIGHT), Color(0.015, 0.02, 0.08, 0.94), true)
+	draw_rect(Rect2(0.0, 0.0, VIEW_SIZE.x, 4.0), Color(palette[selected_color_index], 0.86), true)
 	draw_line(Vector2(0.0, 82.0), Vector2(VIEW_SIZE.x, 82.0), Color(0.42, 0.49, 0.72, 0.32), 2.0)
-	draw_string(font, Vector2(18.0, 49.0), "PLANETOPS", HORIZONTAL_ALIGNMENT_LEFT, 190.0, 23, palette[selected_color_index])
+	draw_string(font, Vector2(20.0, 51.0), "ASTROTOPS", HORIZONTAL_ALIGNMENT_LEFT, 190.0, 23, Color(0.0, 0.0, 0.04, 0.90))
+	draw_string(font, Vector2(18.0, 49.0), "ASTROTOPS", HORIZONTAL_ALIGNMENT_LEFT, 190.0, 23, palette[selected_color_index].lightened(0.18))
+	draw_arc(Vector2(123.0, 39.0), 15.0, -0.30, PI + 0.35, 22, Color(palette[selected_color_index], 0.55), 2.0, true)
 	var shown_time := final_time if state in [GameState.FINALE, GameState.RESULTS] else elapsed_time
 	draw_string(font, Vector2(210.0, 49.0), _format_time(shown_time), HORIZONTAL_ALIGNMENT_CENTER, 180.0, 27, Color.WHITE)
 	draw_string(font, Vector2(410.0, 48.0), "%d / %d TARGETS" % [captured_count, total_targets], HORIZONTAL_ALIGNMENT_CENTER, 275.0, 19, Color("dbe5ff"))
@@ -1035,15 +1135,15 @@ func _draw_game_hud() -> void:
 	_button(PAUSE_BUTTON, "RESUME" if state == GameState.PAUSED else "PAUSE", palette[selected_color_index], can_pause)
 	_button(CLOSE_BUTTON, "CLOSE", Color("ff657a"))
 	var can_adjust := _can_adjust_tractor_beam()
-	draw_string(font, Vector2(18.0, 114.0), "TRACTOR BEAM", HORIZONTAL_ALIGNMENT_LEFT, 145.0, 18, Color("dbe5ff"))
-	_button(TRACTOR_BEAM_BUTTON, "ON" if tractor_beam_enabled else "OFF", palette[selected_color_index], can_adjust)
-	draw_string(font, Vector2(338.0, 114.0), "POWER + RANGE %d%%" % int(round(tractor_beam_strength * 100.0)), HORIZONTAL_ALIGNMENT_LEFT, 158.0, 14, Color("b9c5e5"))
+	var beam_color: Color = palette[selected_color_index] if tractor_beam_enabled else Color("ff657a")
+	_button(TRACTOR_BEAM_BUTTON, "TRACTOR BEAM: ON" if tractor_beam_enabled else "TRACTOR BEAM: OFF", beam_color, can_adjust)
+	draw_string(font, Vector2(302.0, 116.0), "POWER", HORIZONTAL_ALIGNMENT_LEFT, 78.0, 18, Color(0.0, 0.0, 0.04, 0.92))
+	draw_string(font, Vector2(300.0, 114.0), "POWER", HORIZONTAL_ALIGNMENT_LEFT, 78.0, 18, palette[selected_color_index].lightened(0.38))
 	var slider_alpha := 1.0 if can_adjust else 0.34
 	draw_rect(TRACTOR_SLIDER_TRACK, Color(0.12, 0.15, 0.28, slider_alpha), true)
 	draw_rect(Rect2(TRACTOR_SLIDER_TRACK.position, Vector2(TRACTOR_SLIDER_TRACK.size.x * tractor_beam_strength, TRACTOR_SLIDER_TRACK.size.y)), Color(palette[selected_color_index], slider_alpha), true)
 	var knob_x := TRACTOR_SLIDER_TRACK.position.x + TRACTOR_SLIDER_TRACK.size.x * tractor_beam_strength
 	draw_circle(Vector2(knob_x, TRACTOR_SLIDER_TRACK.get_center().y), 10.0, Color(Color.WHITE, slider_alpha))
-	draw_string(font, Vector2(815.0, 114.0), "One visible target in course cone • M / gamepad X", HORIZONTAL_ALIGNMENT_LEFT, 440.0, 15, Color("7f8bae"))
 
 
 func _draw_touch_stick() -> void:
@@ -1062,6 +1162,6 @@ func _draw_results() -> void:
 	_center_text("SOLAR SYSTEM COMPLETE", 220.0, 43, palette[selected_color_index])
 	_center_text("%s painted every world" % pilot_names[selected_pilot_index], 264.0, 20, Color("b9c6e7"))
 	_center_text(_format_time(final_time), 375.0, 68, Color.WHITE)
-	_center_text("BEST  " + _format_time(best_time), 435.0, 23, Color("ffd777"))
+	_center_text("BEST TIME  " + _format_time(best_time), 435.0, 23, Color("ffd777"))
 	_button(AGAIN_BUTTON, "RUN AGAIN", palette[selected_color_index])
 	_button(MENU_BUTTON, "MENU", Color("8291b9"))

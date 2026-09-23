@@ -1,6 +1,6 @@
 # Contributing
 
-Contributions should keep PlaneTops simple, responsive, and usable with a
+Contributions should keep AstroTops simple, responsive, and usable with a
 keyboard, gamepad, or touch input.
 
 ## Rules

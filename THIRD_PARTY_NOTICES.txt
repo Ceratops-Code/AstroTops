@@ -1,7 +1,7 @@
 Godot Engine
 ============
 
-PlaneTops uses the Godot Engine, available under the following license:
+AstroTops uses the Godot Engine, available under the following license:
 
 Copyright (c) 2014-present Godot Engine contributors.
 Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.
@@ -27,7 +27,7 @@ SOFTWARE.
 Kenney CC0 Assets
 =================
 
-PlaneTops includes selected ship graphics from "Space Shooter Remastered" and
+AstroTops includes selected ship graphics from "Space Shooter Remastered" and
 selected audio from "Sci-Fi Sounds" and "Interface Sounds", created and
 distributed by Kenney (https://kenney.nl/).
 
