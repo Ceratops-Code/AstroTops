@@ -12,8 +12,8 @@ const SHIP_TEXTURES := [
 const SHIP_STYLE_COUNT := 8
 const COCKPIT_RADII := [13.0, 13.0, 13.0, 15.0, 13.0, 13.0, 13.0, 12.0]
 const COCKPIT_OFFSETS := [
-	Vector2(0.0, 8.0), Vector2(0.0, 7.0), Vector2(0.0, 8.0), Vector2(0.0, 2.0),
-	Vector2(0.0, 10.0), Vector2(0.0, 9.0), Vector2(0.0, 7.0), Vector2(0.0, 6.0),
+	Vector2(-1.0, 8.0), Vector2(1.0, 7.0), Vector2(0.0, 6.0), Vector2(-1.0, 1.0),
+	Vector2(0.0, 10.0), Vector2(1.0, 9.0), Vector2(-1.0, 5.0), Vector2(1.0, 4.0),
 ]
 const PROCEDURAL_SIZES := [
 	Vector2(68.0, 78.0), Vector2(82.0, 76.0), Vector2(92.0, 72.0), Vector2(64.0, 82.0),
