@@ -1,4 +1,4 @@
-class_name TrixieShip
+class_name PlayerShip
 extends Node2D
 
 
@@ -21,6 +21,7 @@ const PROCEDURAL_SIZES := [
 
 var ship_color := Color("41f4c6")
 var ship_style := 0
+var pilot_style := 0
 var velocity := Vector2.ZERO
 var max_speed := 330.0
 var acceleration := 980.0
@@ -31,10 +32,11 @@ var thrust_amount := 0.0
 var trixie_texture: Texture2D = preload("res://assets/trixie.png")
 
 
-func configure(color: Color, bounds: Rect2, style_index := 0) -> void:
+func configure(color: Color, bounds: Rect2, style_index := 0, pilot_index := 0) -> void:
 	ship_color = color
 	movement_bounds = bounds
 	ship_style = clampi(style_index, 0, SHIP_STYLE_COUNT - 1)
+	pilot_style = clampi(pilot_index, 0, 2)
 	queue_redraw()
 
 
@@ -77,14 +79,51 @@ func _draw() -> void:
 	draw_circle(cockpit, cockpit_radius + 3.5, Color(0.01, 0.02, 0.09, 0.92))
 	draw_circle(cockpit, cockpit_radius + 1.5, ship_color)
 	draw_circle(cockpit, cockpit_radius, Color("79d9ff"))
-	draw_texture_rect_region(
-		trixie_texture,
-		Rect2(cockpit - Vector2(11.0, 11.0), Vector2(22.0, 21.0)),
-		TRIXIE_REGION,
-		Color.WHITE
-	)
+	_draw_pilot(cockpit, cockpit_radius)
 	draw_arc(cockpit, cockpit_radius + 1.0, PI, TAU, 24, Color(1.0, 1.0, 1.0, 0.72), 2.2, true)
 	draw_arc(Vector2.ZERO, maxf(target_size.x, target_size.y) * 0.48, -0.15, PI + 0.15, 38, Color(ship_color, 0.76), 2.0, true)
+
+
+func _draw_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
+	match pilot_style:
+		0:
+			draw_texture_rect_region(
+				trixie_texture,
+				Rect2(cockpit - Vector2(11.0, 11.0), Vector2(22.0, 21.0)),
+				TRIXIE_REGION,
+				Color.WHITE
+			)
+		1:
+			_draw_astronaut_pilot(cockpit, cockpit_radius)
+		2:
+			_draw_planet_pilot(cockpit, cockpit_radius)
+
+
+func _draw_astronaut_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
+	draw_circle(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.76, Color("f1f4fa"))
+	draw_circle(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.58, Color("263b67"))
+	draw_circle(cockpit + Vector2(0.0, 2.0), cockpit_radius * 0.43, Color("d99a70"))
+	draw_circle(cockpit + Vector2(-3.0, 1.0), 1.2, Color("17192b"))
+	draw_circle(cockpit + Vector2(3.0, 1.0), 1.2, Color("17192b"))
+	draw_arc(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.64, PI + 0.22, TAU - 0.22, 18, Color(1.0, 1.0, 1.0, 0.82), 1.5, true)
+
+
+func _draw_planet_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
+	var planet_radius := cockpit_radius * 0.58
+	var ring := PackedVector2Array()
+	for index in range(25):
+		var angle := TAU * float(index) / 24.0
+		ring.append(cockpit + Vector2(cos(angle) * planet_radius * 1.42, sin(angle) * planet_radius * 0.42).rotated(-0.28))
+	draw_polyline(ring, Color("ffe18a"), 2.2, true)
+	draw_circle(cockpit, planet_radius, Color("7258d8"))
+	draw_colored_polygon(PackedVector2Array([
+		cockpit + Vector2(-planet_radius * 0.70, -planet_radius * 0.18),
+		cockpit + Vector2(-planet_radius * 0.18, -planet_radius * 0.58),
+		cockpit + Vector2(planet_radius * 0.12, -planet_radius * 0.10),
+		cockpit + Vector2(-planet_radius * 0.20, planet_radius * 0.20),
+	]), Color("75e0a0"))
+	draw_circle(cockpit + Vector2(-2.6, 0.8), 1.15, Color("11152b"))
+	draw_circle(cockpit + Vector2(2.6, 0.8), 1.15, Color("11152b"))
 
 
 func _ship_target_size() -> Vector2:

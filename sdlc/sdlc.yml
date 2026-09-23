@@ -43,7 +43,7 @@ repository:
       no-op: No repository test command has been detected or declared.
 deliverables:
   apps:
-    cosmotops:
+    planetops:
       source: .
       manifest: export_presets.cfg
       prerequisites: []
@@ -88,7 +88,7 @@ deliverables:
                 - --install-android-build-template
                 - --export-debug
                 - Android
-                - build/android/Cosmotops.apk
+                - build/android/PlaneTops.apk
             - run:
                 - "{adb_executable}"
                 - connect
@@ -99,7 +99,7 @@ deliverables:
                 - "{device}"
                 - install
                 - -r
-                - build/android/Cosmotops.apk
+                - build/android/PlaneTops.apk
             - run:
                 - "{adb_executable}"
                 - -s
@@ -109,7 +109,7 @@ deliverables:
                 - start
                 - -W
                 - -n
-                - com.ceratopscode.cosmotops/com.godot.game.GodotAppLauncher
+                - com.ceratopscode.planetops/com.godot.game.GodotAppLauncher
             - run:
                 - "{adb_executable}"
                 - -s
@@ -117,4 +117,4 @@ deliverables:
                 - shell
                 - pm
                 - path
-                - com.ceratopscode.cosmotops
+                - com.ceratopscode.planetops

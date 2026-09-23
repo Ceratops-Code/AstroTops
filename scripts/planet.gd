@@ -73,7 +73,7 @@ func configure(new_name: String, new_radius: float, new_style: String, new_seed:
 		"moon":
 			base_color = Color("b7b7ae")
 			accent_color = Color("e3e1d8")
-		"makemake":
+		"haumea":
 			base_color = Color("b86446")
 			accent_color = Color("e4a47c")
 		"asteroid_a", "asteroid_b":
@@ -90,7 +90,7 @@ func _ready() -> void:
 		"mercury": crater_count = 6
 		"moon": crater_count = 5
 		"mars": crater_count = 2
-		"makemake": crater_count = 2
+		"haumea": crater_count = 2
 		"asteroid_a", "asteroid_b": crater_count = 3
 	for index in range(crater_count):
 		var angle := rng.randf_range(0.0, TAU)
@@ -176,8 +176,8 @@ func _draw() -> void:
 		_draw_sun(color)
 	elif body_style.begins_with("asteroid"):
 		_draw_asteroid(color)
-	elif body_style == "makemake":
-		_draw_makemake(color)
+	elif body_style == "haumea":
+		_draw_haumea(color)
 	else:
 		_draw_round_world(color)
 
@@ -237,7 +237,7 @@ func _draw_sun(color: Color) -> void:
 
 func _draw_black_hole() -> void:
 	var shimmer := 0.94 + sin(pulse_time * 1.7) * 0.06
-	var halo_color := accent_color.lerp(Color("f4f8ff"), 0.35)
+	var halo_color := Color("f4f8ff").lerp(captured_color.lightened(0.32), capture_progress * 0.82)
 	var disk_color := Color("e5a68d").lerp(captured_color.lightened(0.28), capture_progress)
 	var disk_shadow := Color("7a4039").lerp(captured_color.darkened(0.30), capture_progress)
 
@@ -339,7 +339,7 @@ func _draw_ring(color: Color, front: bool) -> void:
 	draw_polyline(ring_points, Color(color.darkened(0.42), 0.82), maxf(1.2, ring_width * 0.20), true)
 
 
-func _draw_makemake(color: Color) -> void:
+func _draw_haumea(color: Color) -> void:
 	var shadow := _ellipse_points(radius * 1.30, radius * 0.86, 0.0, TAU, 36, -0.13, Vector2(3.0, 5.0))
 	draw_colored_polygon(shadow, Color(0.0, 0.0, 0.12, 0.78))
 	var body := _ellipse_points(radius * 1.28, radius * 0.84, 0.0, TAU, 36, -0.13)
@@ -366,10 +366,24 @@ func _draw_label() -> void:
 		half_height = radius * 1.50
 	if ringed:
 		half_height = maxf(half_height, absf(ring_rx * sin(ring_angle)) + absf(ring_ry * cos(ring_angle)))
-	var label_y := half_height + 18.0
+	var label_y := half_height + 23.0
 	var label_color := Color("eef3ff") if not captured else captured_color.lightened(0.38)
-	draw_string(font, Vector2(-70.0, label_y), body_name, HORIZONTAL_ALIGNMENT_CENTER, 140.0, 13, Color(0.0, 0.0, 0.0, 0.92))
-	draw_string(font, Vector2(-70.0, label_y - 1.5), body_name, HORIZONTAL_ALIGNMENT_CENTER, 140.0, 13, label_color)
+	draw_string(font, Vector2(-95.0, label_y), body_name, HORIZONTAL_ALIGNMENT_CENTER, 190.0, 20, Color(0.0, 0.0, 0.0, 0.92))
+	draw_string(font, Vector2(-95.0, label_y - 1.5), body_name, HORIZONTAL_ALIGNMENT_CENTER, 190.0, 20, label_color)
+
+
+func capture_radius() -> float:
+	return radius * 1.3 if body_style.begins_with("asteroid") else radius
+
+
+func visual_extent() -> float:
+	if body_style == "black_hole":
+		return radius * 2.15
+	if ringed:
+		return ring_rx
+	if body_style == "haumea":
+		return radius * 1.3
+	return radius
 
 
 func _draw_explosion() -> void:

@@ -14,23 +14,37 @@ const SFX_STREAMS := {
 }
 
 const VIEW_SIZE := Vector2(1280.0, 720.0)
-const SHIP_BOUNDS := Rect2(35.0, 92.0, 1210.0, 590.0)
-const SHIP_START := Vector2(640.0, 390.0)
+const HUD_HEIGHT := 136.0
+const SHIP_BOUNDS := Rect2(35.0, 146.0, 1210.0, 536.0)
+const SHIP_START := Vector2(640.0, 410.0)
 const SHOUT_SAMPLE_RATE := 22050
 const SHOUT_DURATION := 1.15
+const SAVE_PATH := "user://planetops.cfg"
+const TRACTOR_MAX_ANGLE := 0.349066
+const TRACTOR_MIN_DISTANCE_FACTOR := 0.20
+const TRACTOR_MAX_DISTANCE_FACTOR := 0.95
+const TRACTOR_MAX_PULL_RATIO := 0.30
+const TRACTOR_DEFAULT_STRENGTH := 0.45
 
 const BACK_BUTTON := Rect2(704.0, 16.0, 128.0, 50.0)
 const RESET_BUTTON := Rect2(840.0, 16.0, 128.0, 50.0)
 const PAUSE_BUTTON := Rect2(976.0, 16.0, 128.0, 50.0)
 const CLOSE_BUTTON := Rect2(1112.0, 16.0, 128.0, 50.0)
+const TRACTOR_BEAM_BUTTON := Rect2(170.0, 90.0, 155.0, 36.0)
+const TRACTOR_SLIDER_TRACK := Rect2(500.0, 102.0, 280.0, 12.0)
+const TRACTOR_SLIDER_HIT := Rect2(482.0, 84.0, 316.0, 48.0)
 
-const SHIP_LEFT_BUTTON := Rect2(385.0, 370.0, 105.0, 58.0)
-const SHIP_NAME_BUTTON := Rect2(505.0, 370.0, 270.0, 58.0)
-const SHIP_RIGHT_BUTTON := Rect2(790.0, 370.0, 105.0, 58.0)
-const COLOR_LEFT_BUTTON := Rect2(385.0, 475.0, 105.0, 58.0)
-const COLOR_NAME_BUTTON := Rect2(505.0, 475.0, 270.0, 58.0)
-const COLOR_RIGHT_BUTTON := Rect2(790.0, 475.0, 105.0, 58.0)
-const START_BUTTON := Rect2(490.0, 565.0, 300.0, 72.0)
+const SHIP_LEFT_BUTTON := Rect2(385.0, 318.0, 105.0, 52.0)
+const SHIP_NAME_BUTTON := Rect2(505.0, 318.0, 270.0, 52.0)
+const SHIP_RIGHT_BUTTON := Rect2(790.0, 318.0, 105.0, 52.0)
+const COLOR_LEFT_BUTTON := Rect2(385.0, 398.0, 105.0, 52.0)
+const COLOR_NAME_BUTTON := Rect2(505.0, 398.0, 270.0, 52.0)
+const COLOR_RIGHT_BUTTON := Rect2(790.0, 398.0, 105.0, 52.0)
+const PILOT_LEFT_BUTTON := Rect2(385.0, 478.0, 105.0, 52.0)
+const PILOT_NAME_BUTTON := Rect2(505.0, 478.0, 270.0, 52.0)
+const PILOT_RIGHT_BUTTON := Rect2(790.0, 478.0, 105.0, 52.0)
+const START_BUTTON := Rect2(360.0, 558.0, 260.0, 62.0)
+const RESET_BEST_BUTTON := Rect2(660.0, 558.0, 260.0, 62.0)
 const AGAIN_BUTTON := Rect2(400.0, 545.0, 230.0, 72.0)
 const MENU_BUTTON := Rect2(650.0, 545.0, 230.0, 72.0)
 
@@ -51,10 +65,12 @@ var ship_names := [
 	"Arrow Scout", "Dart Runner", "Nova Wing", "Orbit Saucer",
 	"Comet Spear", "Twin Comet", "Star Skimmer", "Rocket Pod",
 ]
+var pilot_names := ["Trixie", "Astronaut", "Planet"]
 var selected_color_index := 0
 var selected_ship_index := 0
+var selected_pilot_index := 0
 
-var ship: TrixieShip
+var ship: PlayerShip
 var planets: Array[ColorPlanet] = []
 var stars: Array[Dictionary] = []
 var elapsed_time := 0.0
@@ -67,12 +83,18 @@ var countdown_phase := 0.0
 var finale_impacts := 0
 var input_hint_time := 0.0
 var run_serial := 0
+var tractor_beam_enabled := true
+var tractor_beam_strength := TRACTOR_DEFAULT_STRENGTH
+var tractor_target: ColorPlanet
+var best_reset_confirmation_until := 0
 
 var touch_id := -1
 var touch_origin := Vector2.ZERO
 var touch_position := Vector2.ZERO
 var touch_vector := Vector2.ZERO
 var mouse_steering := false
+var tractor_slider_touch_id := -1
+var tractor_slider_mouse_dragging := false
 
 var font: Font
 var overlay_layer: CanvasLayer
@@ -81,6 +103,7 @@ var message_label: Label
 var countdown_label: Label
 var shout_stream: AudioStreamWAV
 var tts_voice := ""
+var milky_way_texture: Texture2D
 
 
 func _ready() -> void:
@@ -88,13 +111,15 @@ func _ready() -> void:
 	shout_stream = _make_shout_stream()
 	_setup_tts()
 	_make_stars()
-	_load_best_time()
+	_load_settings()
+	if ResourceLoader.exists("res://assets/milky_way_background.jpg"):
+		milky_way_texture = load("res://assets/milky_way_background.jpg")
 	_setup_overlay()
 	ship = ShipScene.new()
 	ship.z_index = 4
 	add_child(ship)
-	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index)
-	ship.position = Vector2(640.0, 270.0)
+	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
+	ship.position = Vector2(640.0, 235.0)
 	ship.scale = Vector2(1.18, 1.18)
 	set_process_input(true)
 	_update_overlay()
@@ -115,7 +140,9 @@ func _process(delta: float) -> void:
 					_play_sfx("countdown", 1.0 + float(5 - countdown_value) * 0.08, -4.0)
 		GameState.PLAYING:
 			elapsed_time += delta
-			ship.move_ship(_movement_input(), delta)
+			var movement := _movement_input()
+			ship.move_ship(movement, delta)
+			_update_tractor_beam(delta, movement)
 			_check_planet_contacts()
 		GameState.MENU:
 			ship.rotation = lerp_angle(ship.rotation, sin(input_hint_time * 0.6) * 0.08, delta * 2.0)
@@ -204,18 +231,26 @@ func _make_stars() -> void:
 		})
 
 
-func _load_best_time() -> void:
+func _load_settings() -> void:
 	var config := ConfigFile.new()
-	if config.load("user://scores.cfg") == OK:
+	if config.load(SAVE_PATH) == OK:
 		best_time = float(config.get_value("times", "best", 0.0))
+		tractor_beam_enabled = bool(config.get_value("tractor_beam", "enabled", true))
+		tractor_beam_strength = clampf(float(config.get_value("tractor_beam", "strength", TRACTOR_DEFAULT_STRENGTH)), 0.0, 1.0)
+
+
+func _save_settings() -> void:
+	var config := ConfigFile.new()
+	config.set_value("times", "best", best_time)
+	config.set_value("tractor_beam", "enabled", tractor_beam_enabled)
+	config.set_value("tractor_beam", "strength", tractor_beam_strength)
+	config.save(SAVE_PATH)
 
 
 func _save_best_time() -> void:
 	if best_time <= 0.0 or final_time < best_time:
 		best_time = final_time
-		var config := ConfigFile.new()
-		config.set_value("times", "best", best_time)
-		config.save("user://scores.cfg")
+		_save_settings()
 
 
 func _body_specs() -> Array[Dictionary]:
@@ -232,9 +267,9 @@ func _body_specs() -> Array[Dictionary]:
 		{"name": "Mars", "radius": 22.0, "style": "mars"},
 		{"name": "Mercury", "radius": 17.0, "style": "mercury"},
 		{"name": "Moon", "radius": 15.0, "style": "moon"},
-		{"name": "Makemake", "radius": 13.0, "style": "makemake"},
-		{"name": "Asteroid A", "radius": 13.0, "style": "asteroid_a"},
-		{"name": "Asteroid B", "radius": 11.0, "style": "asteroid_b"},
+		{"name": "Haumea", "radius": 13.0, "style": "haumea"},
+		{"name": "Asteroid", "radius": 13.0, "style": "asteroid_a"},
+		{"name": "Asteroid", "radius": 11.0, "style": "asteroid_b"},
 	]
 
 
@@ -268,7 +303,7 @@ func _random_target_positions(specs: Array[Dictionary], rng: RandomNumberGenerat
 			for candidate_attempt in range(500):
 				candidate = Vector2(
 					rng.randf_range(maxf(82.0, extent + 20.0), minf(1198.0, VIEW_SIZE.x - extent - 20.0)),
-					rng.randf_range(105.0 + extent, VIEW_SIZE.y - extent - 36.0)
+					rng.randf_range(HUD_HEIGHT + extent + 18.0, VIEW_SIZE.y - extent - 36.0)
 				)
 				if candidate.distance_to(SHIP_START) < extent + 92.0:
 					continue
@@ -304,11 +339,12 @@ func _layout_extent(spec: Dictionary) -> float:
 		"black_hole": return radius * 2.25
 		"saturn": return radius * 1.75
 		"uranus": return radius * 1.38
-		"makemake": return radius * 1.30
+		"haumea": return radius * 1.30
 		_: return radius
 
 
 func _clear_planets() -> void:
+	tractor_target = null
 	for planet in planets:
 		if is_instance_valid(planet):
 			planet.queue_free()
@@ -332,7 +368,7 @@ func _prepare_run() -> void:
 	ship.position = SHIP_START
 	ship.rotation = 0.0
 	ship.scale = Vector2.ONE
-	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index)
+	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
 	ship.stop()
 	_clear_touch()
 
@@ -373,7 +409,7 @@ func _check_planet_contacts() -> void:
 	for planet in planets:
 		if not is_instance_valid(planet) or planet.captured:
 			continue
-		if ship.position.distance_to(planet.position) <= planet.radius + ship.hit_radius * 0.72:
+		if ship.position.distance_to(planet.position) <= planet.capture_radius() + ship.hit_radius * 0.72:
 			if planet.capture(palette[selected_color_index]):
 				captured_count += 1
 				_speak_target_name(planet.body_name)
@@ -383,6 +419,7 @@ func _check_planet_contacts() -> void:
 
 func _finish_run() -> void:
 	state = GameState.FINALE
+	tractor_target = null
 	final_time = elapsed_time
 	ship.stop()
 	_save_best_time()
@@ -424,10 +461,10 @@ func _return_to_menu() -> void:
 	_clear_planets()
 	state = GameState.MENU
 	ship.visible = true
-	ship.position = Vector2(640.0, 270.0)
+	ship.position = Vector2(640.0, 235.0)
 	ship.rotation = 0.0
 	ship.scale = Vector2(1.18, 1.18)
-	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index)
+	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
 	ship.stop()
 	_clear_touch()
 
@@ -461,6 +498,80 @@ func _movement_input() -> Vector2:
 	return movement.limit_length(1.0)
 
 
+func _update_tractor_beam(delta: float, movement: Vector2) -> void:
+	tractor_target = null
+	if not tractor_beam_enabled or tractor_beam_strength <= 0.0:
+		return
+	var course_direction := ship.velocity.normalized()
+	if ship.velocity.length() < 36.0:
+		course_direction = movement.normalized()
+	if course_direction.length_squared() < 0.0001:
+		return
+	var candidate := _best_tractor_candidate(course_direction)
+	if candidate.is_empty():
+		return
+	tractor_target = candidate["planet"]
+	var alignment: float = 1.0 - float(candidate["angle_normalized"])
+	var distance_factor := lerpf(1.0, 0.38, float(candidate["distance_normalized"]))
+	var pull_speed := clampf(
+		ship.max_speed * TRACTOR_MAX_PULL_RATIO * tractor_beam_strength * alignment * distance_factor,
+		0.0,
+		ship.max_speed * TRACTOR_MAX_PULL_RATIO
+	)
+	tractor_target.global_position = tractor_target.global_position.move_toward(ship.global_position, pull_speed * delta)
+
+
+func _tractor_max_distance(viewport_size: Vector2) -> float:
+	var distance_factor := lerpf(TRACTOR_MIN_DISTANCE_FACTOR, TRACTOR_MAX_DISTANCE_FACTOR, tractor_beam_strength)
+	return viewport_size.length() * distance_factor
+
+
+func _best_tractor_candidate(course_direction: Vector2) -> Dictionary:
+	var canvas_transform := get_viewport().get_canvas_transform()
+	var viewport_rect := Rect2(Vector2.ZERO, get_viewport_rect().size)
+	var ship_screen := canvas_transform * ship.global_position
+	var course_screen := (canvas_transform * (ship.global_position + course_direction)) - ship_screen
+	if course_screen.length_squared() < 0.0001:
+		return {}
+	course_screen = course_screen.normalized()
+	var max_distance := _tractor_max_distance(viewport_rect.size)
+	var best_score := INF
+	var best_candidate := {}
+	for planet in planets:
+		if not is_instance_valid(planet) or planet.captured or not planet.is_visible_in_tree():
+			continue
+		var target_screen := canvas_transform * planet.global_position
+		var visual_extent := planet.visual_extent()
+		var extent_x_screen := canvas_transform * planet.to_global(Vector2(visual_extent, 0.0))
+		var extent_y_screen := canvas_transform * planet.to_global(Vector2(0.0, visual_extent))
+		var visibility_margin := maxf(target_screen.distance_to(extent_x_screen), target_screen.distance_to(extent_y_screen))
+		if not viewport_rect.grow(visibility_margin).has_point(target_screen):
+			continue
+		var screen_delta := target_screen - ship_screen
+		var screen_distance := screen_delta.length()
+		if screen_distance <= 0.001 or screen_distance > max_distance:
+			continue
+		var target_screen_direction := screen_delta / screen_distance
+		var forward_dot := course_screen.dot(target_screen_direction)
+		if forward_dot <= 0.0:
+			continue
+		var angle := acos(clampf(forward_dot, -1.0, 1.0))
+		if angle > TRACTOR_MAX_ANGLE:
+			continue
+		var angle_normalized := angle / TRACTOR_MAX_ANGLE
+		var distance_normalized := screen_distance / max_distance
+		# Bearing remains dominant; distance gently favors nearer targets on similar courses.
+		var score := angle_normalized * 0.80 + distance_normalized * 0.20
+		if score < best_score:
+			best_score = score
+			best_candidate = {
+				"planet": planet,
+				"angle_normalized": angle_normalized,
+				"distance_normalized": distance_normalized,
+			}
+	return best_candidate
+
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if state == GameState.READY:
@@ -476,6 +587,8 @@ func _input(event: InputEvent) -> void:
 				_return_to_menu()
 		elif event.keycode == KEY_P and state in [GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED]:
 			_toggle_pause()
+		elif event.keycode == KEY_M and _can_adjust_tractor_beam():
+			_toggle_tractor_beam()
 		elif event.keycode == KEY_R and state != GameState.MENU:
 			_reset_run()
 		elif state == GameState.MENU:
@@ -487,6 +600,10 @@ func _input(event: InputEvent) -> void:
 				_change_ship(-1)
 			elif event.keycode in [KEY_DOWN, KEY_S]:
 				_change_ship(1)
+			elif event.keycode == KEY_Q:
+				_change_pilot(-1)
+			elif event.keycode == KEY_E:
+				_change_pilot(1)
 			elif event.keycode in [KEY_ENTER, KEY_SPACE]:
 				_play_sfx("click", 1.0, -5.0)
 				_prepare_run()
@@ -506,6 +623,8 @@ func _input(event: InputEvent) -> void:
 				_return_to_menu()
 		elif event.button_index == JOY_BUTTON_START and state in [GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED]:
 			_toggle_pause()
+		elif event.button_index == JOY_BUTTON_X and _can_adjust_tractor_beam():
+			_toggle_tractor_beam()
 		elif state == GameState.MENU and event.button_index == JOY_BUTTON_DPAD_LEFT:
 			_change_color(-1)
 		elif state == GameState.MENU and event.button_index == JOY_BUTTON_DPAD_RIGHT:
@@ -514,24 +633,38 @@ func _input(event: InputEvent) -> void:
 			_change_ship(-1)
 		elif state == GameState.MENU and event.button_index == JOY_BUTTON_DPAD_DOWN:
 			_change_ship(1)
+		elif state == GameState.MENU and event.button_index == JOY_BUTTON_LEFT_SHOULDER:
+			_change_pilot(-1)
+		elif state == GameState.MENU and event.button_index == JOY_BUTTON_RIGHT_SHOULDER:
+			_change_pilot(1)
 		elif event.button_index == JOY_BUTTON_A and state in [GameState.MENU, GameState.RESULTS]:
 			_play_sfx("click", 1.0, -5.0)
 			_prepare_run()
 
 	elif event is InputEventScreenTouch:
 		_handle_pointer(event.position, event.pressed, event.index)
-	elif event is InputEventScreenDrag and event.index == touch_id:
-		touch_position = event.position
-		_update_touch_vector()
+	elif event is InputEventScreenDrag:
+		if event.index == tractor_slider_touch_id:
+			_update_tractor_strength_from_x(event.position.x)
+		elif event.index == touch_id:
+			touch_position = event.position
+			_update_touch_vector()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		_handle_mouse_pointer(event.position, event.pressed)
-	elif event is InputEventMouseMotion and mouse_steering:
-		touch_position = event.position
-		_update_touch_vector()
+	elif event is InputEventMouseMotion:
+		if tractor_slider_mouse_dragging:
+			_update_tractor_strength_from_x(event.position.x)
+		elif mouse_steering:
+			touch_position = event.position
+			_update_touch_vector()
 
 
 func _handle_pointer(position: Vector2, pressed: bool, pointer_id: int) -> void:
 	if pressed:
+		if _can_adjust_tractor_beam() and TRACTOR_SLIDER_HIT.has_point(position):
+			tractor_slider_touch_id = pointer_id
+			_update_tractor_strength_from_x(position.x)
+			return
 		if _handle_system_button(position):
 			return
 		if state == GameState.MENU:
@@ -545,12 +678,20 @@ func _handle_pointer(position: Vector2, pressed: bool, pointer_id: int) -> void:
 			touch_origin = position
 			touch_position = position
 	else:
+		if pointer_id == tractor_slider_touch_id:
+			tractor_slider_touch_id = -1
+			_save_settings()
+			return
 		if pointer_id == touch_id:
 			_clear_touch()
 
 
 func _handle_mouse_pointer(position: Vector2, pressed: bool) -> void:
 	if pressed:
+		if _can_adjust_tractor_beam() and TRACTOR_SLIDER_HIT.has_point(position):
+			tractor_slider_mouse_dragging = true
+			_update_tractor_strength_from_x(position.x)
+			return
 		if _handle_system_button(position):
 			return
 		if state == GameState.MENU:
@@ -564,6 +705,10 @@ func _handle_mouse_pointer(position: Vector2, pressed: bool) -> void:
 			touch_origin = position
 			touch_position = position
 	else:
+		if tractor_slider_mouse_dragging:
+			tractor_slider_mouse_dragging = false
+			_save_settings()
+			return
 		mouse_steering = false
 		if touch_id == -1:
 			_clear_touch()
@@ -582,6 +727,9 @@ func _handle_system_button(position: Vector2) -> bool:
 	if RESET_BUTTON.has_point(position):
 		_reset_run()
 		return true
+	if TRACTOR_BEAM_BUTTON.has_point(position) and _can_adjust_tractor_beam():
+		_toggle_tractor_beam()
+		return true
 	if PAUSE_BUTTON.has_point(position) and state in [GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED]:
 		_toggle_pause()
 		return true
@@ -598,6 +746,8 @@ func _clear_touch() -> void:
 	touch_id = -1
 	touch_vector = Vector2.ZERO
 	mouse_steering = false
+	tractor_slider_touch_id = -1
+	tractor_slider_mouse_dragging = false
 
 
 func _handle_menu_click(position: Vector2) -> void:
@@ -609,9 +759,15 @@ func _handle_menu_click(position: Vector2) -> void:
 		_change_color(-1)
 	elif COLOR_RIGHT_BUTTON.has_point(position):
 		_change_color(1)
+	elif PILOT_LEFT_BUTTON.has_point(position):
+		_change_pilot(-1)
+	elif PILOT_RIGHT_BUTTON.has_point(position):
+		_change_pilot(1)
 	elif START_BUTTON.has_point(position):
 		_play_sfx("click", 1.0, -5.0)
 		_prepare_run()
+	elif RESET_BEST_BUTTON.has_point(position):
+		_request_best_score_reset()
 
 
 func _handle_results_click(position: Vector2) -> void:
@@ -624,14 +780,54 @@ func _handle_results_click(position: Vector2) -> void:
 
 func _change_color(step: int) -> void:
 	selected_color_index = wrapi(selected_color_index + step, 0, palette.size())
-	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index)
+	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
 	_play_sfx("click", 0.96 + float(selected_color_index) * 0.025, -7.0)
 
 
 func _change_ship(step: int) -> void:
 	selected_ship_index = wrapi(selected_ship_index + step, 0, ship_names.size())
-	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index)
+	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
 	_play_sfx("click", 0.88 + float(selected_ship_index) * 0.07, -7.0)
+
+
+func _change_pilot(step: int) -> void:
+	selected_pilot_index = wrapi(selected_pilot_index + step, 0, pilot_names.size())
+	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
+	_play_sfx("click", 0.92 + float(selected_pilot_index) * 0.09, -7.0)
+
+
+func _can_adjust_tractor_beam() -> bool:
+	return state in [GameState.READY, GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED]
+
+
+func _toggle_tractor_beam() -> void:
+	tractor_beam_enabled = not tractor_beam_enabled
+	if not tractor_beam_enabled:
+		tractor_target = null
+	_save_settings()
+	_play_sfx("click", 1.08 if tractor_beam_enabled else 0.86, -6.0)
+
+
+func _update_tractor_strength_from_x(pointer_x: float) -> void:
+	tractor_beam_strength = clampf(
+		(pointer_x - TRACTOR_SLIDER_TRACK.position.x) / TRACTOR_SLIDER_TRACK.size.x,
+		0.0,
+		1.0
+	)
+	if tractor_beam_strength <= 0.0:
+		tractor_target = null
+
+
+func _request_best_score_reset() -> void:
+	var now := Time.get_ticks_msec()
+	if now <= best_reset_confirmation_until:
+		best_time = 0.0
+		best_reset_confirmation_until = 0
+		_save_settings()
+		_play_sfx("click", 0.82, -5.0)
+	else:
+		best_reset_confirmation_until = now + 2500
+		_play_sfx("click", 1.02, -6.0)
 
 
 func _play_sfx(effect: String, pitch := 1.0, volume_db := 0.0) -> void:
@@ -661,7 +857,8 @@ func _speak_target_name(target_name: String) -> void:
 	if tts_voice.is_empty():
 		return
 	# Queue names so rapid captures remain intelligible instead of talking over one another.
-	DisplayServer.tts_speak(target_name, tts_voice, 55, 1.0, 1.08, captured_count, false)
+	var spoken_name := "how MAY uh" if target_name == "Haumea" else target_name
+	DisplayServer.tts_speak(spoken_name, tts_voice, 55, 1.0, 1.08, captured_count, false)
 
 
 func _stop_target_speech() -> void:
@@ -728,13 +925,62 @@ func _button(rect: Rect2, label: String, color: Color, enabled := true) -> void:
 	draw_string(font, Vector2(rect.position.x, rect.position.y + rect.size.y * 0.66), label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, font_size, text_color)
 
 
+func _selector(rect: Rect2, label: String) -> void:
+	draw_rect(rect, Color(palette[selected_color_index], 0.16), true)
+	draw_rect(rect, palette[selected_color_index], false, 3.0)
+	draw_string(font, Vector2(rect.position.x, rect.position.y + rect.size.y * 0.68), label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 21, Color.WHITE)
+
+
+func _draw_milky_way_background() -> void:
+	if milky_way_texture == null:
+		return
+	var source_size := milky_way_texture.get_size()
+	var rotated_size := Vector2(source_size.y, source_size.x)
+	var cover_scale := maxf(VIEW_SIZE.x / rotated_size.x, VIEW_SIZE.y / rotated_size.y)
+	draw_set_transform(VIEW_SIZE * 0.5, PI * 0.5, Vector2.ONE * cover_scale)
+	draw_texture(milky_way_texture, -source_size * 0.5, Color(0.66, 0.68, 0.78, 0.48))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_tractor_beam() -> void:
+	if not tractor_beam_enabled or tractor_beam_strength <= 0.0:
+		return
+	if not is_instance_valid(tractor_target) or tractor_target.captured or tractor_target.exploding:
+		return
+	var beam_start := to_local(ship.global_position)
+	var beam_end := to_local(tractor_target.global_position)
+	var beam_delta := beam_end - beam_start
+	if beam_delta.length_squared() < 1.0:
+		return
+	var perpendicular := beam_delta.normalized().orthogonal()
+	var beam_color: Color = palette[selected_color_index]
+	var wave_size := lerpf(2.0, 6.5, tractor_beam_strength)
+	var beam_points := PackedVector2Array()
+	for index in range(25):
+		var amount := float(index) / 24.0
+		var wave := sin(input_hint_time * 9.0 - amount * 17.0) * wave_size * sin(PI * amount)
+		beam_points.append(beam_start.lerp(beam_end, amount) + perpendicular * wave)
+	draw_polyline(beam_points, Color(beam_color, 0.13 + tractor_beam_strength * 0.10), 10.0, true)
+	draw_polyline(beam_points, Color(beam_color.lightened(0.38), 0.52 + tractor_beam_strength * 0.28), 2.2, true)
+	for index in range(4):
+		var amount := fposmod(input_hint_time * 0.92 + float(index) * 0.25, 1.0)
+		var pulse_wave := sin(input_hint_time * 9.0 - amount * 17.0) * wave_size * sin(PI * amount)
+		var pulse_position := beam_end.lerp(beam_start, amount) + perpendicular * pulse_wave
+		draw_circle(pulse_position, 2.5 + tractor_beam_strength * 2.0, Color(beam_color.lightened(0.55), 0.88))
+	var reticle_radius := tractor_target.capture_radius() + 6.0 + sin(input_hint_time * 7.0) * 2.0
+	draw_arc(beam_end, reticle_radius, 0.0, TAU, 40, Color(beam_color.lightened(0.30), 0.72), 2.0, true)
+
+
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, VIEW_SIZE), Color("050618"), true)
+	_draw_milky_way_background()
 	draw_circle(Vector2(225.0, 220.0), 230.0, Color(0.16, 0.08, 0.35, 0.13))
 	draw_circle(Vector2(1050.0, 555.0), 280.0, Color(0.02, 0.36, 0.43, 0.09))
 	for star in stars:
 		var twinkle := 0.58 + sin(input_hint_time * 1.8 + star["phase"]) * 0.25
 		draw_circle(star["position"], star["size"], Color(0.82, 0.90, 1.0, twinkle))
+	if state == GameState.PLAYING:
+		_draw_tractor_beam()
 
 	match state:
 		GameState.MENU:
@@ -745,36 +991,41 @@ func _draw() -> void:
 				_draw_touch_stick()
 		GameState.FINALE:
 			_draw_game_hud()
-			_center_text("SOLAR SYSTEM PAINTED!", 112.0, 30, palette[selected_color_index])
+			_center_text("SOLAR SYSTEM PAINTED!", 172.0, 30, palette[selected_color_index])
 		GameState.RESULTS:
 			_draw_game_hud()
 			_draw_results()
 
 
 func _draw_menu() -> void:
-	_center_text("COSMOTOPS", 88.0, 64, Color("f3f7ff"))
-	_center_text("TRIXIE'S SOLAR SYSTEM RUSH", 130.0, 25, palette[selected_color_index])
-	_center_text("Paint every world. Beat your best time.", 166.0, 19, Color("aeb9d8"))
+	_center_text("PLANETOPS", 72.0, 58, Color("f3f7ff"))
+	_center_text("%s'S SOLAR SYSTEM RUSH" % pilot_names[selected_pilot_index].to_upper(), 108.0, 23, palette[selected_color_index])
+	_center_text("Paint every world. Beat your best time.", 140.0, 18, Color("aeb9d8"))
 	_button(CLOSE_BUTTON, "CLOSE", Color("ff657a"))
-	_center_text("TRIXIE'S SHIP", 350.0, 17, Color("aeb9d8"))
+	_center_text("SHIP", 308.0, 17, Color("aeb9d8"))
 	_button(SHIP_LEFT_BUTTON, "<", palette[selected_color_index])
 	_button(SHIP_RIGHT_BUTTON, ">", palette[selected_color_index])
-	draw_rect(SHIP_NAME_BUTTON, Color(palette[selected_color_index], 0.16), true)
-	draw_rect(SHIP_NAME_BUTTON, palette[selected_color_index], false, 3.0)
-	draw_string(font, Vector2(SHIP_NAME_BUTTON.position.x, 408.0), ship_names[selected_ship_index], HORIZONTAL_ALIGNMENT_CENTER, SHIP_NAME_BUTTON.size.x, 21, Color.WHITE)
-	_center_text("SHIP COLOR", 457.0, 17, Color("aeb9d8"))
+	_selector(SHIP_NAME_BUTTON, ship_names[selected_ship_index])
+	_center_text("SHIP COLOR", 388.0, 17, Color("aeb9d8"))
 	_button(COLOR_LEFT_BUTTON, "<", palette[selected_color_index])
 	_button(COLOR_RIGHT_BUTTON, ">", palette[selected_color_index])
-	draw_rect(COLOR_NAME_BUTTON, Color(palette[selected_color_index], 0.16), true)
-	draw_rect(COLOR_NAME_BUTTON, palette[selected_color_index], false, 3.0)
-	draw_string(font, Vector2(COLOR_NAME_BUTTON.position.x, 513.0), color_names[selected_color_index], HORIZONTAL_ALIGNMENT_CENTER, COLOR_NAME_BUTTON.size.x, 21, Color.WHITE)
+	_selector(COLOR_NAME_BUTTON, color_names[selected_color_index])
+	_center_text("PILOT", 468.0, 17, Color("aeb9d8"))
+	_button(PILOT_LEFT_BUTTON, "<", palette[selected_color_index])
+	_button(PILOT_RIGHT_BUTTON, ">", palette[selected_color_index])
+	_selector(PILOT_NAME_BUTTON, pilot_names[selected_pilot_index])
 	_button(START_BUTTON, "READY SHIP", palette[selected_color_index])
-	_center_text("WASD / arrows • Gamepad stick / D-pad • Touch drag", 692.0, 16, Color("7f8bae"))
+	var reset_label := "CONFIRM RESET" if Time.get_ticks_msec() <= best_reset_confirmation_until else "RESET BEST"
+	_button(RESET_BEST_BUTTON, reset_label, Color("ffc857"))
+	var best_label := "BEST  --:--.--" if best_time <= 0.0 else "BEST  %s" % _format_time(best_time)
+	_center_text(best_label, 652.0, 18, Color("dbe5ff"))
+	_center_text("WASD / arrows • Gamepad stick / D-pad • Touch drag • Q/E pilot", 704.0, 15, Color("7f8bae"))
 
 
 func _draw_game_hud() -> void:
-	draw_rect(Rect2(0.0, 0.0, VIEW_SIZE.x, 82.0), Color(0.015, 0.02, 0.08, 0.94), true)
-	draw_string(font, Vector2(18.0, 49.0), "COSMOTOPS", HORIZONTAL_ALIGNMENT_LEFT, 190.0, 23, palette[selected_color_index])
+	draw_rect(Rect2(0.0, 0.0, VIEW_SIZE.x, HUD_HEIGHT), Color(0.015, 0.02, 0.08, 0.94), true)
+	draw_line(Vector2(0.0, 82.0), Vector2(VIEW_SIZE.x, 82.0), Color(0.42, 0.49, 0.72, 0.32), 2.0)
+	draw_string(font, Vector2(18.0, 49.0), "PLANETOPS", HORIZONTAL_ALIGNMENT_LEFT, 190.0, 23, palette[selected_color_index])
 	var shown_time := final_time if state in [GameState.FINALE, GameState.RESULTS] else elapsed_time
 	draw_string(font, Vector2(210.0, 49.0), _format_time(shown_time), HORIZONTAL_ALIGNMENT_CENTER, 180.0, 27, Color.WHITE)
 	draw_string(font, Vector2(410.0, 48.0), "%d / %d TARGETS" % [captured_count, total_targets], HORIZONTAL_ALIGNMENT_CENTER, 275.0, 19, Color("dbe5ff"))
@@ -783,6 +1034,16 @@ func _draw_game_hud() -> void:
 	var can_pause := state in [GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED]
 	_button(PAUSE_BUTTON, "RESUME" if state == GameState.PAUSED else "PAUSE", palette[selected_color_index], can_pause)
 	_button(CLOSE_BUTTON, "CLOSE", Color("ff657a"))
+	var can_adjust := _can_adjust_tractor_beam()
+	draw_string(font, Vector2(18.0, 114.0), "TRACTOR BEAM", HORIZONTAL_ALIGNMENT_LEFT, 145.0, 18, Color("dbe5ff"))
+	_button(TRACTOR_BEAM_BUTTON, "ON" if tractor_beam_enabled else "OFF", palette[selected_color_index], can_adjust)
+	draw_string(font, Vector2(338.0, 114.0), "POWER + RANGE %d%%" % int(round(tractor_beam_strength * 100.0)), HORIZONTAL_ALIGNMENT_LEFT, 158.0, 14, Color("b9c5e5"))
+	var slider_alpha := 1.0 if can_adjust else 0.34
+	draw_rect(TRACTOR_SLIDER_TRACK, Color(0.12, 0.15, 0.28, slider_alpha), true)
+	draw_rect(Rect2(TRACTOR_SLIDER_TRACK.position, Vector2(TRACTOR_SLIDER_TRACK.size.x * tractor_beam_strength, TRACTOR_SLIDER_TRACK.size.y)), Color(palette[selected_color_index], slider_alpha), true)
+	var knob_x := TRACTOR_SLIDER_TRACK.position.x + TRACTOR_SLIDER_TRACK.size.x * tractor_beam_strength
+	draw_circle(Vector2(knob_x, TRACTOR_SLIDER_TRACK.get_center().y), 10.0, Color(Color.WHITE, slider_alpha))
+	draw_string(font, Vector2(815.0, 114.0), "One visible target in course cone • M / gamepad X", HORIZONTAL_ALIGNMENT_LEFT, 440.0, 15, Color("7f8bae"))
 
 
 func _draw_touch_stick() -> void:
@@ -796,10 +1057,10 @@ func _draw_touch_stick() -> void:
 
 
 func _draw_results() -> void:
-	draw_rect(Rect2(300.0, 128.0, 680.0, 510.0), Color(0.025, 0.03, 0.12, 0.96), true)
-	draw_rect(Rect2(300.0, 128.0, 680.0, 510.0), palette[selected_color_index], false, 4.0)
+	draw_rect(Rect2(300.0, 148.0, 680.0, 490.0), Color(0.025, 0.03, 0.12, 0.96), true)
+	draw_rect(Rect2(300.0, 148.0, 680.0, 490.0), palette[selected_color_index], false, 4.0)
 	_center_text("SOLAR SYSTEM COMPLETE", 220.0, 43, palette[selected_color_index])
-	_center_text("Trixie painted every world", 264.0, 20, Color("b9c6e7"))
+	_center_text("%s painted every world" % pilot_names[selected_pilot_index], 264.0, 20, Color("b9c6e7"))
 	_center_text(_format_time(final_time), 375.0, 68, Color.WHITE)
 	_center_text("BEST  " + _format_time(best_time), 435.0, 23, Color("ffd777"))
 	_button(AGAIN_BUTTON, "RUN AGAIN", palette[selected_color_index])
