@@ -73,6 +73,9 @@ func configure(new_name: String, new_radius: float, new_style: String, new_seed:
 		"moon":
 			base_color = Color("b7b7ae")
 			accent_color = Color("e3e1d8")
+		"pluto":
+			base_color = Color("a8896d")
+			accent_color = Color("ead9c2")
 		"haumea":
 			base_color = Color("b86446")
 			accent_color = Color("e4a47c")
@@ -90,6 +93,7 @@ func _ready() -> void:
 		"mercury": crater_count = 6
 		"moon": crater_count = 5
 		"mars": crater_count = 2
+		"pluto": crater_count = 2
 		"haumea": crater_count = 2
 		"asteroid_a", "asteroid_b": crater_count = 3
 	for index in range(crater_count):
@@ -200,6 +204,8 @@ func _draw_round_world(color: Color) -> void:
 			_draw_band(radius * 0.28, radius * 0.12, _surface_color(accent_color, 0.08))
 		"earth":
 			_draw_earth_features()
+		"pluto":
+			_draw_pluto_features()
 		"mars":
 			_draw_mars_features(color)
 		"jupiter":
@@ -337,6 +343,25 @@ func _draw_earth_features() -> void:
 		Vector2(radius * 0.08, -radius * 0.60), Vector2(radius * 0.38, -radius * 0.50),
 		Vector2(radius * 0.64, -radius * 0.34),
 	]), Color(cloud, 0.45), maxf(1.0, radius * 0.04), true)
+
+
+func _draw_pluto_features() -> void:
+	var dark_plain := _surface_color(Color("765b4c"), 0.30)
+	var tombaugh_regio := _surface_color(accent_color, 0.08)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-radius * 0.72, -radius * 0.18), Vector2(-radius * 0.34, -radius * 0.48),
+		Vector2(radius * 0.02, -radius * 0.30), Vector2(-radius * 0.05, radius * 0.12),
+		Vector2(-radius * 0.48, radius * 0.22),
+	]), dark_plain)
+	# Pluto's bright heart-shaped Tombaugh Regio keeps the dwarf planet
+	# recognizable even at the game's deliberately compressed scale.
+	draw_circle(Vector2(radius * 0.04, -radius * 0.14), radius * 0.30, tombaugh_regio)
+	draw_circle(Vector2(radius * 0.34, -radius * 0.12), radius * 0.31, tombaugh_regio)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-radius * 0.21, -radius * 0.08), Vector2(radius * 0.61, -radius * 0.04),
+		Vector2(radius * 0.19, radius * 0.55),
+	]), tombaugh_regio)
+	draw_circle(Vector2(-radius * 0.32, radius * 0.36), radius * 0.12, dark_plain.lightened(0.10))
 
 
 func _draw_mars_features(color: Color) -> void:

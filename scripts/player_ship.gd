@@ -75,16 +75,14 @@ func _draw() -> void:
 
 	var cockpit: Vector2 = COCKPIT_OFFSETS[ship_style]
 	var cockpit_radius: float = COCKPIT_RADII[ship_style]
-	draw_circle(cockpit, cockpit_radius + 4.0, Color(0.0, 0.0, 0.0, 0.98))
-	draw_circle(cockpit, cockpit_radius + 2.7, ship_color)
-	draw_circle(cockpit, cockpit_radius, Color("010205"))
+	draw_circle(cockpit, cockpit_radius + 4.0, Color("010205"))
 	_draw_pilot(cockpit, cockpit_radius)
 
 
 func _draw_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
 	match pilot_style:
 		0:
-			var pilot_size := Vector2.ONE * cockpit_radius * 1.88
+			var pilot_size := Vector2.ONE * cockpit_radius * 2.04
 			draw_texture_rect_region(
 				trixie_texture,
 				Rect2(cockpit - pilot_size * 0.5 + Vector2(0.0, 0.5), pilot_size),
@@ -98,16 +96,16 @@ func _draw_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
 
 
 func _draw_astronaut_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
-	draw_circle(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.84, Color("f1f4fa"))
-	draw_circle(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.65, Color("263b67"))
-	draw_circle(cockpit + Vector2(0.0, 2.0), cockpit_radius * 0.48, Color("d99a70"))
+	draw_circle(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.90, Color("f1f4fa"))
+	draw_circle(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.70, Color("263b67"))
+	draw_circle(cockpit + Vector2(0.0, 2.0), cockpit_radius * 0.52, Color("d99a70"))
 	draw_circle(cockpit + Vector2(-3.0, 1.0), 1.2, Color("17192b"))
 	draw_circle(cockpit + Vector2(3.0, 1.0), 1.2, Color("17192b"))
-	draw_arc(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.71, PI + 0.22, TAU - 0.22, 18, Color(1.0, 1.0, 1.0, 0.82), 1.5, true)
+	draw_arc(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.77, PI + 0.22, TAU - 0.22, 18, Color(1.0, 1.0, 1.0, 0.82), 1.5, true)
 
 
 func _draw_planet_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
-	var planet_radius := cockpit_radius * 0.68
+	var planet_radius := cockpit_radius * 0.74
 	var ring := PackedVector2Array()
 	for index in range(25):
 		var angle := TAU * float(index) / 24.0

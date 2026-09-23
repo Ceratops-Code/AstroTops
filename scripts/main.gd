@@ -18,12 +18,18 @@ const MENU_SHIP_POSITION := Vector2(640.0, 220.0)
 const MENU_SHIP_SCALE := Vector2(1.28, 1.28)
 const SHOUT_SAMPLE_RATE := 22050
 const SHOUT_DURATION := 1.15
+const COUNTDOWN_BEEP_FREQUENCY := 880.0
+const COUNTDOWN_BEEP_DURATION := 0.11
 const SAVE_PATH := "user://astrotops.cfg"
 const TRACTOR_MIN_DISTANCE_FACTOR := 0.07
 const TRACTOR_MAX_DISTANCE_FACTOR := 0.30
 const TRACTOR_FIELD_BULB_RATIO := 0.46
 const TRACTOR_MAX_PULL_RATIO := 0.30
+const TRACTOR_PULL_BASE_SCALE := 0.85
+const TRACTOR_PULL_TAPER := 0.15
 const TRACTOR_DEFAULT_STRENGTH := 0.45
+const TTS_RATE := 1.0
+const TTS_START_GRACE_MSEC := 150
 
 const BACK_BUTTON := Rect2(704.0, 16.0, 128.0, 50.0)
 const RESET_BUTTON := Rect2(840.0, 16.0, 128.0, 50.0)
@@ -109,6 +115,10 @@ var ui_click_stream: AudioStreamWAV
 var countdown_beep_stream: AudioStreamWAV
 var countdown_boop_stream: AudioStreamWAV
 var tts_voice := ""
+var target_speech_queue: Array[String] = []
+var target_speech_active := false
+var target_speech_started_at_msec := 0
+var target_speech_utterance_id := 0
 var milky_way_texture: Texture2D
 
 
@@ -116,8 +126,18 @@ func _ready() -> void:
 	font = ThemeDB.fallback_font
 	shout_stream = _make_shout_stream()
 	ui_click_stream = _make_mouse_click_stream()
-	countdown_beep_stream = _make_tone_stream(880.0, 880.0, 0.11, 0.42)
-	countdown_boop_stream = _make_countdown_boop_stream()
+	countdown_beep_stream = _make_tone_stream(
+		COUNTDOWN_BEEP_FREQUENCY,
+		COUNTDOWN_BEEP_FREQUENCY,
+		COUNTDOWN_BEEP_DURATION,
+		0.42
+	)
+	countdown_boop_stream = _make_tone_stream(
+		COUNTDOWN_BEEP_FREQUENCY / 4.0,
+		COUNTDOWN_BEEP_FREQUENCY / 4.0,
+		COUNTDOWN_BEEP_DURATION,
+		0.42
+	)
 	_setup_tts()
 	_make_stars()
 	_load_settings()
@@ -137,6 +157,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	input_hint_time += delta
+	_update_target_speech()
 	match state:
 		GameState.COUNTDOWN:
 			countdown_phase += delta
@@ -276,6 +297,7 @@ func _body_specs() -> Array[Dictionary]:
 		{"name": "Mars", "radius": 22.0, "style": "mars"},
 		{"name": "Mercury", "radius": 17.0, "style": "mercury"},
 		{"name": "Moon", "radius": 15.0, "style": "moon"},
+		{"name": "Pluto", "radius": 14.0, "style": "pluto"},
 		{"name": "Haumea", "radius": 13.0, "style": "haumea"},
 		{"name": "Asteroid", "radius": 13.0, "style": "asteroid_a"},
 		{"name": "Asteroid", "radius": 11.0, "style": "asteroid_b"},
@@ -337,7 +359,7 @@ func _random_target_positions(specs: Array[Dictionary], rng: RandomNumberGenerat
 		Vector2(220.0, 560.0), Vector2(780.0, 170.0), Vector2(430.0, 180.0),
 		Vector2(1120.0, 390.0), Vector2(500.0, 580.0), Vector2(880.0, 560.0),
 		Vector2(330.0, 400.0), Vector2(820.0, 390.0), Vector2(500.0, 360.0),
-		Vector2(670.0, 590.0), Vector2(650.0, 140.0),
+		Vector2(670.0, 590.0), Vector2(650.0, 140.0), Vector2(650.0, 280.0),
 	]
 
 
@@ -525,12 +547,18 @@ func _update_tractor_beam(delta: float, movement: Vector2) -> void:
 	# A target near the pear boundary still receives a gentle pull instead of dropping to zero.
 	var alignment := lerpf(1.0, 0.25, float(candidate["field_normalized"]))
 	var distance_factor := lerpf(1.0, 0.38, float(candidate["distance_normalized"]))
+	var effective_power := _tractor_pull_power()
 	var pull_speed := clampf(
-		ship.max_speed * TRACTOR_MAX_PULL_RATIO * tractor_beam_strength * alignment * distance_factor,
+		ship.max_speed * TRACTOR_MAX_PULL_RATIO * effective_power * alignment * distance_factor,
 		0.0,
 		ship.max_speed * TRACTOR_MAX_PULL_RATIO
 	)
 	tractor_target.global_position = tractor_target.global_position.move_toward(ship.global_position, pull_speed * delta)
+
+
+func _tractor_pull_power() -> float:
+	var power := tractor_beam_strength
+	return power * (TRACTOR_PULL_BASE_SCALE - TRACTOR_PULL_TAPER * power)
 
 
 func _tractor_max_distance(viewport_size: Vector2) -> float:
@@ -910,35 +938,6 @@ func _make_tone_stream(start_frequency: float, end_frequency: float, duration: f
 	return stream
 
 
-func _make_countdown_boop_stream() -> AudioStreamWAV:
-	# A synthesized low, rounded "oo" follows the reference's roughly 96 Hz
-	# voice contour without embedding the user's literal recording.
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = SHOUT_SAMPLE_RATE
-	stream.stereo = false
-	var duration := 0.52
-	var sample_count := int(duration * float(SHOUT_SAMPLE_RATE))
-	var samples := PackedByteArray()
-	samples.resize(sample_count * 2)
-	var phase := 0.0
-	for index in range(sample_count):
-		var time := float(index) / float(SHOUT_SAMPLE_RATE)
-		var progress := time / duration
-		var pitch := lerpf(94.0, 99.0, progress) + sin(time * TAU * 2.4) * 0.8
-		phase += TAU * pitch / float(SHOUT_SAMPLE_RATE)
-		var attack := sin(clampf(time / 0.035, 0.0, 1.0) * PI * 0.5)
-		var release := sin(clampf((duration - time) / 0.15, 0.0, 1.0) * PI * 0.5)
-		var voice := sin(phase) * 0.68 + sin(phase * 2.0) * 0.18 + sin(phase * 3.0) * 0.07
-		var rounded_formant := sin(time * TAU * 385.0) * 0.045 + sin(time * TAU * 770.0) * 0.018
-		var value := clampf((voice + rounded_formant) * attack * release * 0.48, -1.0, 1.0)
-		var pcm := int(round(value * 32767.0))
-		samples[index * 2] = pcm & 0xff
-		samples[index * 2 + 1] = (pcm >> 8) & 0xff
-	stream.data = samples
-	return stream
-
-
 func _play_generated_stream(stream: AudioStreamWAV, volume_db: float) -> void:
 	if stream == null:
 		return
@@ -984,13 +983,51 @@ func _setup_tts() -> void:
 func _speak_target_name(target_name: String) -> void:
 	if tts_voice.is_empty():
 		return
-	# Favor the latest capture over a growing speech queue; an old name may be
-	# clipped, but a new capture is announced immediately instead of seconds late.
 	var spoken_name := "how MAY uh" if target_name == "Haumea" else target_name
-	DisplayServer.tts_speak(spoken_name, tts_voice, 58, 1.0, 1.18, captured_count, true)
+	target_speech_queue.append(spoken_name)
+	_update_target_speech()
+
+
+func _take_next_target_speech(backend_speaking: bool, now_msec: int) -> String:
+	if target_speech_active:
+		var startup_grace_elapsed := now_msec - target_speech_started_at_msec >= TTS_START_GRACE_MSEC
+		if backend_speaking or not startup_grace_elapsed:
+			return ""
+		target_speech_active = false
+	if target_speech_queue.is_empty():
+		return ""
+	target_speech_active = true
+	target_speech_started_at_msec = now_msec
+	target_speech_utterance_id += 1
+	return target_speech_queue.pop_front()
+
+
+func _update_target_speech() -> void:
+	if tts_voice.is_empty():
+		return
+	var spoken_name := _take_next_target_speech(
+		DisplayServer.tts_is_speaking(),
+		Time.get_ticks_msec()
+	)
+	if spoken_name.is_empty():
+		return
+	# Exactly one utterance is submitted at a time. Polling starts the next name
+	# on the first frame after the backend reports that the previous one ended.
+	DisplayServer.tts_speak(
+		spoken_name,
+		tts_voice,
+		58,
+		1.0,
+		TTS_RATE,
+		target_speech_utterance_id,
+		false
+	)
 
 
 func _stop_target_speech() -> void:
+	target_speech_queue.clear()
+	target_speech_active = false
+	target_speech_started_at_msec = 0
 	if not tts_voice.is_empty():
 		DisplayServer.tts_stop()
 

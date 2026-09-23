@@ -2,7 +2,7 @@
 
 AstroTops is a fast top-down arcade prototype. Choose Trixie, an astronaut, or
 a little planet as pilot; select one of eight ships and ten paint colors; then
-fly through the Sun, eight planets, Moon, Haumea, a black hole, and two
+fly through the Sun, eight planets, Moon, Pluto, Haumea, a black hole, and two
 asteroids before the meteor finale.
 
 ## Controls
@@ -19,8 +19,9 @@ Reset, Pause/Resume, Close, and tractor-beam controls. The beam pulls at most
 one uncaptured, currently visible target inside a course-aligned pear-shaped
 field. The field is wider close to the ship and tapers over its shortened
 range; debug builds show its outline. The slider controls both pull strength
-and range, and its value and on/off state are saved between runs. Capturing a
-target speaks its English name through the device's text-to-speech voice.
+and range, with pull strength rising on a gentler curve; its value and on/off
+state are saved between runs. Captured names use the device's English
+text-to-speech voice at normal speed, one at a time with no intentional gap.
 
 ## Run locally
 
