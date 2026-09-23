@@ -6,7 +6,7 @@ const ShipScene := preload("res://scripts/player_ship.gd")
 const MeteorScene := preload("res://scripts/meteor.gd")
 
 const SFX_STREAMS := {
-	"click": preload("res://assets/sfx_click.ogg"),
+	"countdown_boop": preload("res://assets/sfx_start.ogg"),
 	"meteor": preload("res://assets/sfx_meteor.ogg"),
 	"explosion": preload("res://assets/sfx_explosion.ogg"),
 }
@@ -16,14 +16,13 @@ const HUD_HEIGHT := 136.0
 const SHIP_BOUNDS := Rect2(35.0, 146.0, 1210.0, 536.0)
 const SHIP_START := Vector2(640.0, 410.0)
 const MENU_SHIP_POSITION := Vector2(640.0, 220.0)
-const MENU_SHIP_SCALE := Vector2(1.12, 1.12)
+const MENU_SHIP_SCALE := Vector2(1.28, 1.28)
 const SHOUT_SAMPLE_RATE := 22050
 const SHOUT_DURATION := 1.15
 const SAVE_PATH := "user://astrotops.cfg"
-const TRACTOR_MIN_DISTANCE_FACTOR := 0.12
-const TRACTOR_MAX_DISTANCE_FACTOR := 0.52
-const TRACTOR_FIELD_NECK_RATIO := 0.09
-const TRACTOR_FIELD_BULB_RATIO := 0.35
+const TRACTOR_MIN_DISTANCE_FACTOR := 0.07
+const TRACTOR_MAX_DISTANCE_FACTOR := 0.30
+const TRACTOR_FIELD_BULB_RATIO := 0.46
 const TRACTOR_MAX_PULL_RATIO := 0.30
 const TRACTOR_DEFAULT_STRENGTH := 0.45
 
@@ -107,9 +106,8 @@ var overlay_shade: ColorRect
 var message_label: Label
 var countdown_label: Label
 var shout_stream: AudioStreamWAV
-var selector_click_stream: AudioStreamWAV
+var ui_click_stream: AudioStreamWAV
 var countdown_beep_stream: AudioStreamWAV
-var countdown_boop_stream: AudioStreamWAV
 var tts_voice := ""
 var milky_way_texture: Texture2D
 
@@ -117,9 +115,8 @@ var milky_way_texture: Texture2D
 func _ready() -> void:
 	font = ThemeDB.fallback_font
 	shout_stream = _make_shout_stream()
-	selector_click_stream = _make_mouse_click_stream()
+	ui_click_stream = _make_mouse_click_stream()
 	countdown_beep_stream = _make_tone_stream(880.0, 880.0, 0.11, 0.42)
-	countdown_boop_stream = _make_tone_stream(520.0, 255.0, 0.28, 0.48)
 	_setup_tts()
 	_make_stars()
 	_load_settings()
@@ -401,7 +398,7 @@ func _launch_run() -> void:
 
 
 func _reset_run() -> void:
-	_play_sfx("click", 1.04, -5.0)
+	_play_ui_click()
 	_prepare_run()
 
 
@@ -411,10 +408,10 @@ func _toggle_pause() -> void:
 		state = GameState.PAUSED
 		ship.stop()
 		_clear_touch()
-		_play_sfx("click", 0.86, -5.0)
+		_play_ui_click()
 	elif state == GameState.PAUSED:
 		state = state_before_pause
-		_play_sfx("click", 1.10, -5.0)
+		_play_ui_click()
 
 
 func _check_planet_contacts() -> void:
@@ -469,7 +466,7 @@ func _show_results() -> void:
 
 func _return_to_menu() -> void:
 	_stop_target_speech()
-	_play_sfx("click", 0.92, -5.0)
+	_play_ui_click()
 	_clear_planets()
 	state = GameState.MENU
 	ship.visible = true
@@ -542,10 +539,12 @@ func _tractor_max_distance(viewport_size: Vector2) -> float:
 
 func _tractor_field_half_width(forward_normalized: float, max_distance: float) -> float:
 	var progress := clampf(forward_normalized, 0.0, 1.0)
-	var bulb := pow(maxf(0.0, sin(PI * progress)), 0.68)
-	var taper := 1.0 - progress * 0.18
-	var neck := TRACTOR_FIELD_NECK_RATIO * (1.0 - progress)
-	return max_distance * (neck + TRACTOR_FIELD_BULB_RATIO * bulb * taper)
+	# The ship sits at the broad end: the field swells immediately around nearby
+	# off-course targets, then narrows steadily toward its distant tip.
+	var rounded_profile := pow(maxf(0.0, sin(PI * progress)), 0.58)
+	var near_weight := lerpf(1.40, 0.35, progress)
+	var ship_socket := ship.hit_radius * 1.20 * (1.0 - progress)
+	return ship_socket + max_distance * TRACTOR_FIELD_BULB_RATIO * rounded_profile * near_weight
 
 
 func _best_tractor_candidate(course_direction: Vector2) -> Dictionary:
@@ -628,10 +627,10 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_E:
 				_change_pilot(1)
 			elif event.keycode in [KEY_ENTER, KEY_SPACE]:
-				_play_sfx("click", 1.0, -5.0)
+				_play_ui_click()
 				_prepare_run()
 		elif state == GameState.RESULTS and event.keycode in [KEY_ENTER, KEY_SPACE]:
-			_play_sfx("click", 1.0, -5.0)
+			_play_ui_click()
 			_prepare_run()
 
 	elif event is InputEventJoypadButton and event.pressed:
@@ -661,7 +660,7 @@ func _input(event: InputEvent) -> void:
 		elif state == GameState.MENU and event.button_index == JOY_BUTTON_RIGHT_SHOULDER:
 			_change_pilot(1)
 		elif event.button_index == JOY_BUTTON_A and state in [GameState.MENU, GameState.RESULTS]:
-			_play_sfx("click", 1.0, -5.0)
+			_play_ui_click()
 			_prepare_run()
 
 	elif event is InputEventScreenTouch:
@@ -685,6 +684,7 @@ func _input(event: InputEvent) -> void:
 func _handle_pointer(position: Vector2, pressed: bool, pointer_id: int) -> void:
 	if pressed:
 		if _can_adjust_tractor_beam() and TRACTOR_SLIDER_HIT.has_point(position):
+			_play_ui_click()
 			tractor_slider_touch_id = pointer_id
 			_update_tractor_strength_from_x(position.x)
 			return
@@ -712,6 +712,7 @@ func _handle_pointer(position: Vector2, pressed: bool, pointer_id: int) -> void:
 func _handle_mouse_pointer(position: Vector2, pressed: bool) -> void:
 	if pressed:
 		if _can_adjust_tractor_beam() and TRACTOR_SLIDER_HIT.has_point(position):
+			_play_ui_click()
 			tractor_slider_mouse_dragging = true
 			_update_tractor_strength_from_x(position.x)
 			return
@@ -739,7 +740,7 @@ func _handle_mouse_pointer(position: Vector2, pressed: bool) -> void:
 
 func _handle_system_button(position: Vector2) -> bool:
 	if CLOSE_BUTTON.has_point(position):
-		_play_sfx("click", 0.82, -5.0)
+		_play_ui_click()
 		get_tree().quit()
 		return true
 	if state == GameState.MENU:
@@ -787,7 +788,7 @@ func _handle_menu_click(position: Vector2) -> void:
 	elif PILOT_RIGHT_BUTTON.has_point(position):
 		_change_pilot(1)
 	elif START_BUTTON.has_point(position):
-		_play_sfx("click", 1.0, -5.0)
+		_play_ui_click()
 		_prepare_run()
 	elif RESET_BEST_BUTTON.has_point(position):
 		_request_best_score_reset()
@@ -795,7 +796,7 @@ func _handle_menu_click(position: Vector2) -> void:
 
 func _handle_results_click(position: Vector2) -> void:
 	if AGAIN_BUTTON.has_point(position):
-		_play_sfx("click", 1.0, -5.0)
+		_play_ui_click()
 		_prepare_run()
 	elif MENU_BUTTON.has_point(position):
 		_return_to_menu()
@@ -804,19 +805,19 @@ func _handle_results_click(position: Vector2) -> void:
 func _change_color(step: int) -> void:
 	selected_color_index = wrapi(selected_color_index + step, 0, palette.size())
 	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
-	_play_selector_click()
+	_play_ui_click()
 
 
 func _change_ship(step: int) -> void:
 	selected_ship_index = wrapi(selected_ship_index + step, 0, ship_names.size())
 	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
-	_play_selector_click()
+	_play_ui_click()
 
 
 func _change_pilot(step: int) -> void:
 	selected_pilot_index = wrapi(selected_pilot_index + step, 0, pilot_names.size())
 	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
-	_play_selector_click()
+	_play_ui_click()
 
 
 func _can_adjust_tractor_beam() -> bool:
@@ -828,7 +829,7 @@ func _toggle_tractor_beam() -> void:
 	if not tractor_beam_enabled:
 		tractor_target = null
 	_save_settings()
-	_play_sfx("click", 1.08 if tractor_beam_enabled else 0.86, -6.0)
+	_play_ui_click()
 
 
 func _update_tractor_strength_from_x(pointer_x: float) -> void:
@@ -847,10 +848,10 @@ func _request_best_score_reset() -> void:
 		best_time = 0.0
 		best_reset_confirmation_until = 0
 		_save_settings()
-		_play_sfx("click", 0.82, -5.0)
+		_play_ui_click()
 	else:
 		best_reset_confirmation_until = now + 2500
-		_play_sfx("click", 1.02, -6.0)
+		_play_ui_click()
 
 
 func _make_mouse_click_stream() -> AudioStreamWAV:
@@ -919,12 +920,15 @@ func _play_generated_stream(stream: AudioStreamWAV, volume_db: float) -> void:
 	player.play()
 
 
-func _play_selector_click() -> void:
-	_play_generated_stream(selector_click_stream, -8.0)
+func _play_ui_click() -> void:
+	_play_generated_stream(ui_click_stream, -8.0)
 
 
 func _play_countdown_tone(final_boop: bool) -> void:
-	_play_generated_stream(countdown_boop_stream if final_boop else countdown_beep_stream, -5.0)
+	if final_boop:
+		_play_sfx("countdown_boop", 1.0, -5.0)
+	else:
+		_play_generated_stream(countdown_beep_stream, -5.0)
 
 
 func _play_sfx(effect: String, pitch := 1.0, volume_db := 0.0) -> void:
@@ -953,9 +957,10 @@ func _setup_tts() -> void:
 func _speak_target_name(target_name: String) -> void:
 	if tts_voice.is_empty():
 		return
-	# Queue names so rapid captures remain intelligible instead of talking over one another.
+	# Favor the latest capture over a growing speech queue; an old name may be
+	# clipped, but a new capture is announced immediately instead of seconds late.
 	var spoken_name := "how MAY uh" if target_name == "Haumea" else target_name
-	DisplayServer.tts_speak(spoken_name, tts_voice, 55, 1.0, 1.08, captured_count, false)
+	DisplayServer.tts_speak(spoken_name, tts_voice, 58, 1.0, 1.18, captured_count, true)
 
 
 func _stop_target_speech() -> void:
@@ -1048,6 +1053,31 @@ func _button(rect: Rect2, label: String, color: Color, enabled := true) -> void:
 	draw_line(rect.position + Vector2(13.0, 6.0), Vector2(rect.end.x - 13.0, rect.position.y + 6.0), Color(stroke.lightened(0.35), 0.42), 1.0, true)
 	var font_size := 15 if rect.size.y <= 38.0 else (20 if rect.size.y <= 54.0 else 22)
 	_outlined_rect_text(rect, label, font_size, text_color)
+
+
+func _arrow_button(rect: Rect2, direction: float, color: Color) -> void:
+	var points := _chamfered_points(rect, minf(9.0, rect.size.y * 0.24))
+	draw_colored_polygon(points, Color(0.025, 0.035, 0.12, 0.96))
+	draw_polyline(_closed_outline(points), color, 3.0, true)
+	var center := rect.get_center()
+	var arrow := PackedVector2Array([
+		center + Vector2(15.0 * direction, 0.0),
+		center + Vector2(-3.0 * direction, -15.0),
+		center + Vector2(-3.0 * direction, -7.0),
+		center + Vector2(-14.0 * direction, -7.0),
+		center + Vector2(-14.0 * direction, 7.0),
+		center + Vector2(-3.0 * direction, 7.0),
+		center + Vector2(-3.0 * direction, 15.0),
+	])
+	draw_colored_polygon(arrow, color.lightened(0.20))
+	draw_polyline(_closed_outline(arrow), Color.WHITE, 1.2, true)
+	draw_line(
+		center - Vector2(23.0 * direction, 7.0),
+		center - Vector2(23.0 * direction, -7.0),
+		Color(color, 0.72),
+		2.0,
+		true
+	)
 
 
 func _selector(rect: Rect2, label: String) -> void:
@@ -1213,7 +1243,7 @@ func _draw() -> void:
 				_draw_touch_stick()
 		GameState.FINALE:
 			_draw_game_hud()
-			_center_text("SOLAR SYSTEM PAINTED!", 172.0, 30, palette[selected_color_index])
+			_center_text("CELESTIAL COURSE PAINTED!", 172.0, 30, palette[selected_color_index])
 		GameState.RESULTS:
 			_draw_game_hud()
 			_draw_results()
@@ -1226,20 +1256,20 @@ func _draw_menu() -> void:
 	draw_colored_polygon(title_points, Color(0.015, 0.025, 0.09, 0.68))
 	draw_polyline(_closed_outline(title_points), Color(accent, 0.34), 2.0, true)
 	_draw_brand_title(78.0, 60, Color("f4f8ff"))
-	_draw_space_subtitle("SPACE RUSH", 115.0, 24, accent.lightened(0.18))
-	_center_text("Paint every world. Beat your best time.", 145.0, 18, Color("c1cbea"))
+	_draw_space_subtitle("CELESTIAL RUSH", 115.0, 24, accent.lightened(0.18))
+	_center_text("Paint every target. Beat your best time.", 145.0, 18, Color("c1cbea"))
 	_button(CLOSE_BUTTON, "CLOSE", Color("ff657a"))
 	_section_label(SHIP_LABEL, "SHIP")
-	_button(SHIP_LEFT_BUTTON, "<", palette[selected_color_index])
-	_button(SHIP_RIGHT_BUTTON, ">", palette[selected_color_index])
+	_arrow_button(SHIP_LEFT_BUTTON, -1.0, palette[selected_color_index])
+	_arrow_button(SHIP_RIGHT_BUTTON, 1.0, palette[selected_color_index])
 	_selector(SHIP_NAME_BUTTON, ship_names[selected_ship_index])
 	_section_label(COLOR_LABEL, "COLOR")
-	_button(COLOR_LEFT_BUTTON, "<", palette[selected_color_index])
-	_button(COLOR_RIGHT_BUTTON, ">", palette[selected_color_index])
+	_arrow_button(COLOR_LEFT_BUTTON, -1.0, palette[selected_color_index])
+	_arrow_button(COLOR_RIGHT_BUTTON, 1.0, palette[selected_color_index])
 	_selector(COLOR_NAME_BUTTON, color_names[selected_color_index])
 	_section_label(PILOT_LABEL, "PILOT")
-	_button(PILOT_LEFT_BUTTON, "<", palette[selected_color_index])
-	_button(PILOT_RIGHT_BUTTON, ">", palette[selected_color_index])
+	_arrow_button(PILOT_LEFT_BUTTON, -1.0, palette[selected_color_index])
+	_arrow_button(PILOT_RIGHT_BUTTON, 1.0, palette[selected_color_index])
 	_selector(PILOT_NAME_BUTTON, pilot_names[selected_pilot_index])
 	_button(START_BUTTON, "LAUNCH MISSION", palette[selected_color_index])
 	var reset_label := "TAP AGAIN TO RESET" if Time.get_ticks_msec() <= best_reset_confirmation_until else "RESET BEST TIME"
@@ -1289,8 +1319,8 @@ func _draw_touch_stick() -> void:
 func _draw_results() -> void:
 	draw_rect(Rect2(300.0, 148.0, 680.0, 490.0), Color(0.025, 0.03, 0.12, 0.96), true)
 	draw_rect(Rect2(300.0, 148.0, 680.0, 490.0), palette[selected_color_index], false, 4.0)
-	_center_text("SOLAR SYSTEM COMPLETE", 220.0, 43, palette[selected_color_index])
-	_center_text("%s painted every world" % pilot_names[selected_pilot_index], 264.0, 20, Color("b9c6e7"))
+	_center_text("CELESTIAL COURSE COMPLETE", 220.0, 43, palette[selected_color_index])
+	_center_text("%s painted every target" % pilot_names[selected_pilot_index], 264.0, 20, Color("b9c6e7"))
 	_center_text(_format_time(final_time), 375.0, 68, Color.WHITE)
 	_center_text("BEST TIME  " + _format_time(best_time), 435.0, 23, Color("ffd777"))
 	_button(AGAIN_BUTTON, "RUN AGAIN", palette[selected_color_index])

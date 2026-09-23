@@ -11,6 +11,10 @@ const SHIP_TEXTURES := [
 ]
 const SHIP_STYLE_COUNT := 8
 const COCKPIT_RADII := [13.0, 13.0, 13.0, 15.0, 13.0, 13.0, 13.0, 12.0]
+const COCKPIT_OFFSETS := [
+	Vector2(0.0, 8.0), Vector2(0.0, 7.0), Vector2(0.0, 8.0), Vector2(0.0, 2.0),
+	Vector2(0.0, 10.0), Vector2(0.0, 9.0), Vector2(0.0, 7.0), Vector2(0.0, 6.0),
+]
 const PROCEDURAL_SIZES := [
 	Vector2(68.0, 78.0), Vector2(82.0, 76.0), Vector2(92.0, 72.0), Vector2(64.0, 82.0),
 ]
@@ -59,7 +63,6 @@ func stop() -> void:
 func _draw() -> void:
 	var target_size := _ship_target_size()
 	_draw_thruster_flames(target_size)
-	draw_circle(Vector2.ZERO, maxf(target_size.x, target_size.y) * 0.48, Color(ship_color, 0.12))
 
 	if ship_style < SHIP_TEXTURES.size():
 		var texture: Texture2D = SHIP_TEXTURES[ship_style]
@@ -70,22 +73,21 @@ func _draw() -> void:
 	else:
 		_draw_procedural_ship()
 
-	var cockpit := Vector2.ZERO
+	var cockpit: Vector2 = COCKPIT_OFFSETS[ship_style]
 	var cockpit_radius: float = COCKPIT_RADII[ship_style]
-	draw_circle(cockpit, cockpit_radius + 3.5, Color(0.0, 0.0, 0.0, 0.98))
-	draw_circle(cockpit, cockpit_radius + 1.5, ship_color)
+	draw_circle(cockpit, cockpit_radius + 4.0, Color(0.0, 0.0, 0.0, 0.98))
+	draw_circle(cockpit, cockpit_radius + 2.7, ship_color)
 	draw_circle(cockpit, cockpit_radius, Color("010205"))
 	_draw_pilot(cockpit, cockpit_radius)
-	draw_arc(cockpit, cockpit_radius + 1.0, PI, TAU, 24, Color(1.0, 1.0, 1.0, 0.72), 2.2, true)
-	draw_arc(Vector2.ZERO, maxf(target_size.x, target_size.y) * 0.48, -0.15, PI + 0.15, 38, Color(ship_color, 0.76), 2.0, true)
 
 
 func _draw_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
 	match pilot_style:
 		0:
+			var pilot_size := Vector2.ONE * cockpit_radius * 1.88
 			draw_texture_rect_region(
 				trixie_texture,
-				Rect2(cockpit - Vector2(11.0, 11.0), Vector2(22.0, 21.0)),
+				Rect2(cockpit - pilot_size * 0.5 + Vector2(0.0, 0.5), pilot_size),
 				TRIXIE_REGION,
 				Color.WHITE
 			)
@@ -96,16 +98,16 @@ func _draw_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
 
 
 func _draw_astronaut_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
-	draw_circle(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.76, Color("f1f4fa"))
-	draw_circle(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.58, Color("263b67"))
-	draw_circle(cockpit + Vector2(0.0, 2.0), cockpit_radius * 0.43, Color("d99a70"))
+	draw_circle(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.84, Color("f1f4fa"))
+	draw_circle(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.65, Color("263b67"))
+	draw_circle(cockpit + Vector2(0.0, 2.0), cockpit_radius * 0.48, Color("d99a70"))
 	draw_circle(cockpit + Vector2(-3.0, 1.0), 1.2, Color("17192b"))
 	draw_circle(cockpit + Vector2(3.0, 1.0), 1.2, Color("17192b"))
-	draw_arc(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.64, PI + 0.22, TAU - 0.22, 18, Color(1.0, 1.0, 1.0, 0.82), 1.5, true)
+	draw_arc(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.71, PI + 0.22, TAU - 0.22, 18, Color(1.0, 1.0, 1.0, 0.82), 1.5, true)
 
 
 func _draw_planet_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
-	var planet_radius := cockpit_radius * 0.58
+	var planet_radius := cockpit_radius * 0.68
 	var ring := PackedVector2Array()
 	for index in range(25):
 		var angle := TAU * float(index) / 24.0

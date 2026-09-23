@@ -289,18 +289,54 @@ func _draw_craters(color: Color) -> void:
 
 
 func _draw_earth_features() -> void:
-	var land := _surface_color(accent_color, 0.32)
+	var land := _surface_color(Color("58b96a"), 0.22)
+	var dark_land := _surface_color(Color("3d9651"), 0.28)
+	# Recognizable silhouettes rather than generic green patches: North and South
+	# America on the left, Africa/Europe and Asia across the middle, Australia below.
 	draw_colored_polygon(PackedVector2Array([
-		Vector2(-radius * 0.62, -radius * 0.24), Vector2(-radius * 0.25, -radius * 0.48),
-		Vector2(-radius * 0.05, -radius * 0.20), Vector2(-radius * 0.22, radius * 0.04),
-		Vector2(-radius * 0.48, radius * 0.10),
+		Vector2(-radius * 0.74, -radius * 0.36), Vector2(-radius * 0.53, -radius * 0.60),
+		Vector2(-radius * 0.24, -radius * 0.56), Vector2(-radius * 0.12, -radius * 0.40),
+		Vector2(-radius * 0.28, -radius * 0.28), Vector2(-radius * 0.25, -radius * 0.12),
+		Vector2(-radius * 0.43, -radius * 0.07), Vector2(-radius * 0.56, -radius * 0.19),
+		Vector2(-radius * 0.70, -radius * 0.18),
 	]), land)
 	draw_colored_polygon(PackedVector2Array([
-		Vector2(radius * 0.10, -radius * 0.06), Vector2(radius * 0.52, -radius * 0.22),
-		Vector2(radius * 0.63, radius * 0.02), Vector2(radius * 0.34, radius * 0.17),
-		Vector2(radius * 0.26, radius * 0.54), Vector2(radius * 0.05, radius * 0.30),
-	]), land.darkened(0.05))
-	_draw_band(-radius * 0.02, maxf(1.0, radius * 0.045), Color(1.0, 1.0, 1.0, 0.46))
+		Vector2(-radius * 0.43, -radius * 0.08), Vector2(-radius * 0.17, -radius * 0.01),
+		Vector2(-radius * 0.07, radius * 0.17), Vector2(-radius * 0.18, radius * 0.38),
+		Vector2(-radius * 0.24, radius * 0.66), Vector2(-radius * 0.36, radius * 0.74),
+		Vector2(-radius * 0.42, radius * 0.45), Vector2(-radius * 0.53, radius * 0.22),
+	]), dark_land)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-radius * 0.12, -radius * 0.35), Vector2(radius * 0.10, -radius * 0.48),
+		Vector2(radius * 0.27, -radius * 0.34), Vector2(radius * 0.20, -radius * 0.20),
+		Vector2(radius * 0.28, -radius * 0.02), Vector2(radius * 0.17, radius * 0.22),
+		Vector2(radius * 0.05, radius * 0.55), Vector2(-radius * 0.10, radius * 0.36),
+		Vector2(-radius * 0.14, radius * 0.07), Vector2(-radius * 0.23, -radius * 0.13),
+	]), land)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(radius * 0.12, -radius * 0.47), Vector2(radius * 0.46, -radius * 0.56),
+		Vector2(radius * 0.76, -radius * 0.34), Vector2(radius * 0.66, -radius * 0.14),
+		Vector2(radius * 0.48, -radius * 0.12), Vector2(radius * 0.39, radius * 0.04),
+		Vector2(radius * 0.23, -radius * 0.04), Vector2(radius * 0.10, -radius * 0.24),
+	]), dark_land)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(radius * 0.42, radius * 0.32), Vector2(radius * 0.69, radius * 0.27),
+		Vector2(radius * 0.76, radius * 0.47), Vector2(radius * 0.57, radius * 0.61),
+		Vector2(radius * 0.38, radius * 0.49),
+	]), land)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-radius * 0.29, -radius * 0.69), Vector2(-radius * 0.12, -radius * 0.78),
+		Vector2(-radius * 0.03, -radius * 0.61), Vector2(-radius * 0.20, -radius * 0.55),
+	]), _surface_color(Color("d9f3ed"), 0.06))
+	var cloud := Color(1.0, 1.0, 1.0, 0.58)
+	draw_polyline(PackedVector2Array([
+		Vector2(-radius * 0.72, radius * 0.05), Vector2(-radius * 0.35, radius * 0.15),
+		Vector2(radius * 0.02, radius * 0.10),
+	]), cloud, maxf(1.0, radius * 0.045), true)
+	draw_polyline(PackedVector2Array([
+		Vector2(radius * 0.08, -radius * 0.60), Vector2(radius * 0.38, -radius * 0.50),
+		Vector2(radius * 0.64, -radius * 0.34),
+	]), Color(cloud, 0.45), maxf(1.0, radius * 0.04), true)
 
 
 func _draw_mars_features(color: Color) -> void:
