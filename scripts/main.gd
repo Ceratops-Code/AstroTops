@@ -6,7 +6,6 @@ const ShipScene := preload("res://scripts/player_ship.gd")
 const MeteorScene := preload("res://scripts/meteor.gd")
 
 const SFX_STREAMS := {
-	"countdown_boop": preload("res://assets/sfx_start.ogg"),
 	"meteor": preload("res://assets/sfx_meteor.ogg"),
 	"explosion": preload("res://assets/sfx_explosion.ogg"),
 }
@@ -108,6 +107,7 @@ var countdown_label: Label
 var shout_stream: AudioStreamWAV
 var ui_click_stream: AudioStreamWAV
 var countdown_beep_stream: AudioStreamWAV
+var countdown_boop_stream: AudioStreamWAV
 var tts_voice := ""
 var milky_way_texture: Texture2D
 
@@ -117,6 +117,7 @@ func _ready() -> void:
 	shout_stream = _make_shout_stream()
 	ui_click_stream = _make_mouse_click_stream()
 	countdown_beep_stream = _make_tone_stream(880.0, 880.0, 0.11, 0.42)
+	countdown_boop_stream = _make_countdown_boop_stream()
 	_setup_tts()
 	_make_stars()
 	_load_settings()
@@ -909,6 +910,35 @@ func _make_tone_stream(start_frequency: float, end_frequency: float, duration: f
 	return stream
 
 
+func _make_countdown_boop_stream() -> AudioStreamWAV:
+	# A synthesized low, rounded "oo" follows the reference's roughly 96 Hz
+	# voice contour without embedding the user's literal recording.
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = SHOUT_SAMPLE_RATE
+	stream.stereo = false
+	var duration := 0.52
+	var sample_count := int(duration * float(SHOUT_SAMPLE_RATE))
+	var samples := PackedByteArray()
+	samples.resize(sample_count * 2)
+	var phase := 0.0
+	for index in range(sample_count):
+		var time := float(index) / float(SHOUT_SAMPLE_RATE)
+		var progress := time / duration
+		var pitch := lerpf(94.0, 99.0, progress) + sin(time * TAU * 2.4) * 0.8
+		phase += TAU * pitch / float(SHOUT_SAMPLE_RATE)
+		var attack := sin(clampf(time / 0.035, 0.0, 1.0) * PI * 0.5)
+		var release := sin(clampf((duration - time) / 0.15, 0.0, 1.0) * PI * 0.5)
+		var voice := sin(phase) * 0.68 + sin(phase * 2.0) * 0.18 + sin(phase * 3.0) * 0.07
+		var rounded_formant := sin(time * TAU * 385.0) * 0.045 + sin(time * TAU * 770.0) * 0.018
+		var value := clampf((voice + rounded_formant) * attack * release * 0.48, -1.0, 1.0)
+		var pcm := int(round(value * 32767.0))
+		samples[index * 2] = pcm & 0xff
+		samples[index * 2 + 1] = (pcm >> 8) & 0xff
+	stream.data = samples
+	return stream
+
+
 func _play_generated_stream(stream: AudioStreamWAV, volume_db: float) -> void:
 	if stream == null:
 		return
@@ -925,10 +955,7 @@ func _play_ui_click() -> void:
 
 
 func _play_countdown_tone(final_boop: bool) -> void:
-	if final_boop:
-		_play_sfx("countdown_boop", 1.0, -5.0)
-	else:
-		_play_generated_stream(countdown_beep_stream, -5.0)
+	_play_generated_stream(countdown_boop_stream if final_boop else countdown_beep_stream, -5.0)
 
 
 func _play_sfx(effect: String, pitch := 1.0, volume_db := 0.0) -> void:
@@ -1243,7 +1270,6 @@ func _draw() -> void:
 				_draw_touch_stick()
 		GameState.FINALE:
 			_draw_game_hud()
-			_center_text("CELESTIAL COURSE PAINTED!", 172.0, 30, palette[selected_color_index])
 		GameState.RESULTS:
 			_draw_game_hud()
 			_draw_results()
@@ -1256,7 +1282,7 @@ func _draw_menu() -> void:
 	draw_colored_polygon(title_points, Color(0.015, 0.025, 0.09, 0.68))
 	draw_polyline(_closed_outline(title_points), Color(accent, 0.34), 2.0, true)
 	_draw_brand_title(78.0, 60, Color("f4f8ff"))
-	_draw_space_subtitle("CELESTIAL RUSH", 115.0, 24, accent.lightened(0.18))
+	_draw_space_subtitle("SPACE RUSH", 115.0, 24, accent.lightened(0.18))
 	_center_text("Paint every target. Beat your best time.", 145.0, 18, Color("c1cbea"))
 	_button(CLOSE_BUTTON, "CLOSE", Color("ff657a"))
 	_section_label(SHIP_LABEL, "SHIP")
@@ -1319,8 +1345,8 @@ func _draw_touch_stick() -> void:
 func _draw_results() -> void:
 	draw_rect(Rect2(300.0, 148.0, 680.0, 490.0), Color(0.025, 0.03, 0.12, 0.96), true)
 	draw_rect(Rect2(300.0, 148.0, 680.0, 490.0), palette[selected_color_index], false, 4.0)
-	_center_text("CELESTIAL COURSE COMPLETE", 220.0, 43, palette[selected_color_index])
-	_center_text("%s painted every target" % pilot_names[selected_pilot_index], 264.0, 20, Color("b9c6e7"))
+	_center_text("MISSION COMPLETE!", 220.0, 43, palette[selected_color_index])
+	_center_text("%s painted every target" % pilot_names[selected_pilot_index], 270.0, 28, Color("d7e1ff"))
 	_center_text(_format_time(final_time), 375.0, 68, Color.WHITE)
 	_center_text("BEST TIME  " + _format_time(best_time), 435.0, 23, Color("ffd777"))
 	_button(AGAIN_BUTTON, "RUN AGAIN", palette[selected_color_index])

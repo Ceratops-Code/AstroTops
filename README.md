@@ -1,9 +1,9 @@
 # AstroTops
 
-AstroTops is a fast top-down arcade prototype built around a hand-picked
-celestial course. Choose Trixie, an astronaut, or a little planet as pilot;
-select one of eight ships and ten paint colors; then fly through the Sun, eight
-planets, Moon, Haumea, a black hole, and two asteroids before the meteor finale.
+AstroTops is a fast top-down arcade prototype. Choose Trixie, an astronaut, or
+a little planet as pilot; select one of eight ships and ten paint colors; then
+fly through the Sun, eight planets, Moon, Haumea, a black hole, and two
+asteroids before the meteor finale.
 
 ## Controls
 
