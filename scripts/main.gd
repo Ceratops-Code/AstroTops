@@ -20,6 +20,12 @@ const SHOUT_SAMPLE_RATE := 22050
 const SHOUT_DURATION := 1.15
 const COUNTDOWN_BEEP_FREQUENCY := 880.0
 const COUNTDOWN_BEEP_DURATION := 0.11
+const COUNTDOWN_BEEP_AMPLITUDE := 0.42
+const COUNTDOWN_BEEP_VOLUME_DB := -5.0
+const COUNTDOWN_BOOP_DURATION_MULTIPLIER := 2.0
+const COUNTDOWN_BOOP_AMPLITUDE := 0.68
+const COUNTDOWN_BOOP_BRIGHTNESS := 0.88
+const COUNTDOWN_BOOP_VOLUME_DB := -1.5
 const SAVE_PATH := "user://astrotops.cfg"
 const TRACTOR_MIN_DISTANCE_FACTOR := 0.07
 const TRACTOR_MAX_DISTANCE_FACTOR := 0.30
@@ -29,7 +35,15 @@ const TRACTOR_PULL_BASE_SCALE := 0.85
 const TRACTOR_PULL_TAPER := 0.15
 const TRACTOR_DEFAULT_STRENGTH := 0.45
 const TTS_RATE := 1.0
-const TTS_START_GRACE_MSEC := 150
+
+const BRAND_NAME := "ASTROTOPS"
+const MENU_SUBTITLE := "SPACE RUSH"
+const MENU_TAGLINE := "Paint every target. Beat your best time."
+const READY_MESSAGE := "PRESS ANY KEY, GAMEPAD BUTTON, OR TAP\nTO START"
+const PAUSE_MESSAGE := "FLIGHT PAUSED\nPRESS \"RESUME\" BUTTON WHEN YOU ARE READY"
+const RESULT_TITLE := "MISSION COMPLETE!"
+const RESULT_PILOT_FONT_SIZE := 28
+const TRACTOR_POWER_LABEL := "POWER"
 
 const BACK_BUTTON := Rect2(704.0, 16.0, 128.0, 50.0)
 const RESET_BUTTON := Rect2(840.0, 16.0, 128.0, 50.0)
@@ -57,6 +71,9 @@ const AGAIN_BUTTON := Rect2(400.0, 545.0, 230.0, 72.0)
 const MENU_BUTTON := Rect2(650.0, 545.0, 230.0, 72.0)
 
 enum GameState { MENU, READY, COUNTDOWN, PLAYING, PAUSED, FINALE, RESULTS }
+
+signal ui_click_requested
+signal target_speech_enqueued(request: Dictionary)
 
 var state := GameState.MENU
 var state_before_pause := GameState.PLAYING
@@ -96,6 +113,8 @@ var tractor_beam_strength := TRACTOR_DEFAULT_STRENGTH
 var tractor_target: ColorPlanet
 var tractor_course_direction := Vector2.UP
 var best_reset_confirmation_until := 0
+var settings_path := SAVE_PATH
+var audio_playback_enabled := true
 
 var touch_id := -1
 var touch_origin := Vector2.ZERO
@@ -115,9 +134,6 @@ var ui_click_stream: AudioStreamWAV
 var countdown_beep_stream: AudioStreamWAV
 var countdown_boop_stream: AudioStreamWAV
 var tts_voice := ""
-var target_speech_queue: Array[String] = []
-var target_speech_active := false
-var target_speech_started_at_msec := 0
 var target_speech_utterance_id := 0
 var milky_way_texture: Texture2D
 
@@ -130,13 +146,14 @@ func _ready() -> void:
 		COUNTDOWN_BEEP_FREQUENCY,
 		COUNTDOWN_BEEP_FREQUENCY,
 		COUNTDOWN_BEEP_DURATION,
-		0.42
+		COUNTDOWN_BEEP_AMPLITUDE
 	)
 	countdown_boop_stream = _make_tone_stream(
 		COUNTDOWN_BEEP_FREQUENCY / 4.0,
 		COUNTDOWN_BEEP_FREQUENCY / 4.0,
-		COUNTDOWN_BEEP_DURATION,
-		0.42
+		COUNTDOWN_BEEP_DURATION * COUNTDOWN_BOOP_DURATION_MULTIPLIER,
+		COUNTDOWN_BOOP_AMPLITUDE,
+		COUNTDOWN_BOOP_BRIGHTNESS
 	)
 	_setup_tts()
 	_make_stars()
@@ -157,7 +174,6 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	input_hint_time += delta
-	_update_target_speech()
 	match state:
 		GameState.COUNTDOWN:
 			countdown_phase += delta
@@ -233,7 +249,7 @@ func _update_overlay() -> void:
 	if state == GameState.READY:
 		overlay_shade.visible = true
 		message_label.visible = true
-		message_label.text = "PRESS ANY KEY, GAMEPAD BUTTON, OR TAP\nTO START"
+		message_label.text = READY_MESSAGE
 		message_label.modulate = palette[selected_color_index]
 	elif state == GameState.COUNTDOWN:
 		countdown_label.visible = true
@@ -246,7 +262,7 @@ func _update_overlay() -> void:
 	elif state == GameState.PAUSED:
 		overlay_shade.visible = true
 		message_label.visible = true
-		message_label.text = "FLIGHT PAUSED\nPRESS \"RESUME\" BUTTON WHEN YOU ARE READY"
+		message_label.text = PAUSE_MESSAGE
 		message_label.modulate = palette[selected_color_index]
 
 
@@ -263,18 +279,23 @@ func _make_stars() -> void:
 
 func _load_settings() -> void:
 	var config := ConfigFile.new()
-	if config.load(SAVE_PATH) == OK:
+	if config.load(settings_path) == OK:
 		best_time = float(config.get_value("times", "best", 0.0))
 		tractor_beam_enabled = bool(config.get_value("tractor_beam", "enabled", true))
 		tractor_beam_strength = clampf(float(config.get_value("tractor_beam", "strength", TRACTOR_DEFAULT_STRENGTH)), 0.0, 1.0)
 
 
 func _save_settings() -> void:
+	var config := _settings_config()
+	config.save(settings_path)
+
+
+func _settings_config() -> ConfigFile:
 	var config := ConfigFile.new()
 	config.set_value("times", "best", best_time)
 	config.set_value("tractor_beam", "enabled", tractor_beam_enabled)
 	config.set_value("tractor_beam", "strength", tractor_beam_strength)
-	config.save(SAVE_PATH)
+	return config
 
 
 func _save_best_time() -> void:
@@ -912,8 +933,15 @@ func _make_mouse_click_stream() -> AudioStreamWAV:
 	return stream
 
 
-func _make_tone_stream(start_frequency: float, end_frequency: float, duration: float, amplitude: float) -> AudioStreamWAV:
-	# Smooth envelopes keep the five beeps and final descending boop crisp without clicks.
+func _make_tone_stream(
+	start_frequency: float,
+	end_frequency: float,
+	duration: float,
+	amplitude: float,
+	brightness := 0.0
+) -> AudioStreamWAV:
+	# Smooth envelopes avoid clicks; optional odd harmonics give the low final
+	# tone enough edge to remain sharp instead of becoming a dull sine thump.
 	var stream := AudioStreamWAV.new()
 	stream.format = AudioStreamWAV.FORMAT_16_BITS
 	stream.mix_rate = SHOUT_SAMPLE_RATE
@@ -929,7 +957,9 @@ func _make_tone_stream(start_frequency: float, end_frequency: float, duration: f
 		phase += TAU * frequency / float(SHOUT_SAMPLE_RATE)
 		var attack := clampf(time / 0.008, 0.0, 1.0)
 		var release := clampf((duration - time) / minf(0.045, duration * 0.35), 0.0, 1.0)
-		var tone := sin(phase) * 0.82 + sin(phase * 2.0) * 0.12
+		var rounded_tone := sin(phase) * 0.82 + sin(phase * 2.0) * 0.12
+		var bright_edge := sin(phase * 3.0) * 0.15 + sin(phase * 5.0) * 0.08
+		var tone := (rounded_tone + bright_edge * brightness) / (0.94 + brightness * 0.23)
 		var value := clampf(tone * attack * release * amplitude, -1.0, 1.0)
 		var pcm := int(round(value * 32767.0))
 		samples[index * 2] = pcm & 0xff
@@ -939,7 +969,7 @@ func _make_tone_stream(start_frequency: float, end_frequency: float, duration: f
 
 
 func _play_generated_stream(stream: AudioStreamWAV, volume_db: float) -> void:
-	if stream == null:
+	if stream == null or not audio_playback_enabled:
 		return
 	var player := AudioStreamPlayer.new()
 	player.stream = stream
@@ -950,15 +980,19 @@ func _play_generated_stream(stream: AudioStreamWAV, volume_db: float) -> void:
 
 
 func _play_ui_click() -> void:
+	ui_click_requested.emit()
 	_play_generated_stream(ui_click_stream, -8.0)
 
 
 func _play_countdown_tone(final_boop: bool) -> void:
-	_play_generated_stream(countdown_boop_stream if final_boop else countdown_beep_stream, -5.0)
+	_play_generated_stream(
+		countdown_boop_stream if final_boop else countdown_beep_stream,
+		COUNTDOWN_BOOP_VOLUME_DB if final_boop else COUNTDOWN_BEEP_VOLUME_DB
+	)
 
 
 func _play_sfx(effect: String, pitch := 1.0, volume_db := 0.0) -> void:
-	if not SFX_STREAMS.has(effect):
+	if not audio_playback_enabled or not SFX_STREAMS.has(effect):
 		return
 	# One-shot players self-remove, allowing closely spaced meteor impacts to overlap cleanly.
 	var player := AudioStreamPlayer.new()
@@ -981,53 +1015,37 @@ func _setup_tts() -> void:
 
 
 func _speak_target_name(target_name: String) -> void:
-	if tts_voice.is_empty():
-		return
-	var spoken_name := "how MAY uh" if target_name == "Haumea" else target_name
-	target_speech_queue.append(spoken_name)
-	_update_target_speech()
-
-
-func _take_next_target_speech(backend_speaking: bool, now_msec: int) -> String:
-	if target_speech_active:
-		var startup_grace_elapsed := now_msec - target_speech_started_at_msec >= TTS_START_GRACE_MSEC
-		if backend_speaking or not startup_grace_elapsed:
-			return ""
-		target_speech_active = false
-	if target_speech_queue.is_empty():
-		return ""
-	target_speech_active = true
-	target_speech_started_at_msec = now_msec
 	target_speech_utterance_id += 1
-	return target_speech_queue.pop_front()
-
-
-func _update_target_speech() -> void:
+	var request := _target_speech_request(target_name, target_speech_utterance_id)
+	target_speech_enqueued.emit(request)
 	if tts_voice.is_empty():
 		return
-	var spoken_name := _take_next_target_speech(
-		DisplayServer.tts_is_speaking(),
-		Time.get_ticks_msec()
-	)
-	if spoken_name.is_empty():
-		return
-	# Exactly one utterance is submitted at a time. Polling starts the next name
-	# on the first frame after the backend reports that the previous one ended.
+	# Godot's native synthesizer owns the utterance queue. Submitting immediately
+	# removes the application-side pause while interrupt=false keeps names ordered
+	# and non-overlapping.
 	DisplayServer.tts_speak(
-		spoken_name,
+		String(request["text"]),
 		tts_voice,
-		58,
-		1.0,
-		TTS_RATE,
-		target_speech_utterance_id,
-		false
+		int(request["volume"]),
+		float(request["pitch"]),
+		float(request["rate"]),
+		int(request["utterance_id"]),
+		bool(request["interrupt"])
 	)
+
+
+func _target_speech_request(target_name: String, utterance_id: int) -> Dictionary:
+	return {
+		"text": "how MAY uh" if target_name == "Haumea" else target_name,
+		"volume": 58,
+		"pitch": 1.0,
+		"rate": TTS_RATE,
+		"utterance_id": utterance_id,
+		"interrupt": false,
+	}
 
 
 func _stop_target_speech() -> void:
-	target_speech_queue.clear()
-	target_speech_active = false
-	target_speech_started_at_msec = 0
 	if not tts_voice.is_empty():
 		DisplayServer.tts_stop()
 
@@ -1061,7 +1079,7 @@ func _make_shout_stream() -> AudioStreamWAV:
 
 
 func _play_shout() -> void:
-	if shout_stream == null:
+	if shout_stream == null or not audio_playback_enabled:
 		return
 	var player := AudioStreamPlayer.new()
 	player.stream = shout_stream
@@ -1123,8 +1141,22 @@ func _arrow_button(rect: Rect2, direction: float, color: Color) -> void:
 	var points := _chamfered_points(rect, minf(9.0, rect.size.y * 0.24))
 	draw_colored_polygon(points, Color(0.025, 0.035, 0.12, 0.96))
 	draw_polyline(_closed_outline(points), color, 3.0, true)
+	var arrow := _arrow_shape_points(rect, direction)
+	draw_colored_polygon(arrow, color.lightened(0.20))
+	draw_polyline(_closed_outline(arrow), Color.WHITE, 1.2, true)
 	var center := rect.get_center()
-	var arrow := PackedVector2Array([
+	draw_line(
+		center - Vector2(23.0 * direction, 7.0),
+		center - Vector2(23.0 * direction, -7.0),
+		Color(color, 0.72),
+		2.0,
+		true
+	)
+
+
+func _arrow_shape_points(rect: Rect2, direction: float) -> PackedVector2Array:
+	var center := rect.get_center()
+	return PackedVector2Array([
 		center + Vector2(15.0 * direction, 0.0),
 		center + Vector2(-3.0 * direction, -15.0),
 		center + Vector2(-3.0 * direction, -7.0),
@@ -1133,15 +1165,6 @@ func _arrow_button(rect: Rect2, direction: float, color: Color) -> void:
 		center + Vector2(-3.0 * direction, 7.0),
 		center + Vector2(-3.0 * direction, 15.0),
 	])
-	draw_colored_polygon(arrow, color.lightened(0.20))
-	draw_polyline(_closed_outline(arrow), Color.WHITE, 1.2, true)
-	draw_line(
-		center - Vector2(23.0 * direction, 7.0),
-		center - Vector2(23.0 * direction, -7.0),
-		Color(color, 0.72),
-		2.0,
-		true
-	)
 
 
 func _selector(rect: Rect2, label: String) -> void:
@@ -1319,8 +1342,8 @@ func _draw_menu() -> void:
 	draw_colored_polygon(title_points, Color(0.015, 0.025, 0.09, 0.68))
 	draw_polyline(_closed_outline(title_points), Color(accent, 0.34), 2.0, true)
 	_draw_brand_title(78.0, 60, Color("f4f8ff"))
-	_draw_space_subtitle("SPACE RUSH", 115.0, 24, accent.lightened(0.18))
-	_center_text("Paint every target. Beat your best time.", 145.0, 18, Color("c1cbea"))
+	_draw_space_subtitle(MENU_SUBTITLE, 115.0, 24, accent.lightened(0.18))
+	_center_text(MENU_TAGLINE, 145.0, 18, Color("c1cbea"))
 	_button(CLOSE_BUTTON, "CLOSE", Color("ff657a"))
 	_section_label(SHIP_LABEL, "SHIP")
 	_arrow_button(SHIP_LEFT_BUTTON, -1.0, palette[selected_color_index])
@@ -1346,8 +1369,8 @@ func _draw_game_hud() -> void:
 	draw_rect(Rect2(0.0, 0.0, VIEW_SIZE.x, HUD_HEIGHT), Color(0.015, 0.02, 0.08, 0.94), true)
 	draw_rect(Rect2(0.0, 0.0, VIEW_SIZE.x, 4.0), Color(palette[selected_color_index], 0.86), true)
 	draw_line(Vector2(0.0, 82.0), Vector2(VIEW_SIZE.x, 82.0), Color(0.42, 0.49, 0.72, 0.32), 2.0)
-	draw_string(font, Vector2(20.0, 51.0), "ASTROTOPS", HORIZONTAL_ALIGNMENT_LEFT, 190.0, 23, Color(0.0, 0.0, 0.04, 0.90))
-	draw_string(font, Vector2(18.0, 49.0), "ASTROTOPS", HORIZONTAL_ALIGNMENT_LEFT, 190.0, 23, palette[selected_color_index].lightened(0.18))
+	draw_string(font, Vector2(20.0, 51.0), BRAND_NAME, HORIZONTAL_ALIGNMENT_LEFT, 190.0, 23, Color(0.0, 0.0, 0.04, 0.90))
+	draw_string(font, Vector2(18.0, 49.0), BRAND_NAME, HORIZONTAL_ALIGNMENT_LEFT, 190.0, 23, palette[selected_color_index].lightened(0.18))
 	draw_arc(Vector2(123.0, 39.0), 15.0, -0.30, PI + 0.35, 22, Color(palette[selected_color_index], 0.55), 2.0, true)
 	var shown_time := final_time if state in [GameState.FINALE, GameState.RESULTS] else elapsed_time
 	draw_string(font, Vector2(210.0, 49.0), _format_time(shown_time), HORIZONTAL_ALIGNMENT_CENTER, 180.0, 27, Color.WHITE)
@@ -1359,9 +1382,9 @@ func _draw_game_hud() -> void:
 	_button(CLOSE_BUTTON, "CLOSE", Color("ff657a"))
 	var can_adjust := _can_adjust_tractor_beam()
 	var beam_color: Color = palette[selected_color_index] if tractor_beam_enabled else Color("ff657a")
-	_button(TRACTOR_BEAM_BUTTON, "TRACTOR BEAM: ON" if tractor_beam_enabled else "TRACTOR BEAM: OFF", beam_color, can_adjust)
-	draw_string(font, Vector2(302.0, 116.0), "POWER", HORIZONTAL_ALIGNMENT_LEFT, 78.0, 18, Color(0.0, 0.0, 0.04, 0.92))
-	draw_string(font, Vector2(300.0, 114.0), "POWER", HORIZONTAL_ALIGNMENT_LEFT, 78.0, 18, palette[selected_color_index].lightened(0.38))
+	_button(TRACTOR_BEAM_BUTTON, _tractor_button_label(), beam_color, can_adjust)
+	draw_string(font, Vector2(302.0, 116.0), TRACTOR_POWER_LABEL, HORIZONTAL_ALIGNMENT_LEFT, 78.0, 18, Color(0.0, 0.0, 0.04, 0.92))
+	draw_string(font, Vector2(300.0, 114.0), TRACTOR_POWER_LABEL, HORIZONTAL_ALIGNMENT_LEFT, 78.0, 18, palette[selected_color_index].lightened(0.38))
 	var slider_alpha := 1.0 if can_adjust else 0.34
 	draw_rect(TRACTOR_SLIDER_TRACK, Color(0.12, 0.15, 0.28, slider_alpha), true)
 	draw_rect(Rect2(TRACTOR_SLIDER_TRACK.position, Vector2(TRACTOR_SLIDER_TRACK.size.x * tractor_beam_strength, TRACTOR_SLIDER_TRACK.size.y)), Color(palette[selected_color_index], slider_alpha), true)
@@ -1382,9 +1405,17 @@ func _draw_touch_stick() -> void:
 func _draw_results() -> void:
 	draw_rect(Rect2(300.0, 148.0, 680.0, 490.0), Color(0.025, 0.03, 0.12, 0.96), true)
 	draw_rect(Rect2(300.0, 148.0, 680.0, 490.0), palette[selected_color_index], false, 4.0)
-	_center_text("MISSION COMPLETE!", 220.0, 43, palette[selected_color_index])
-	_center_text("%s painted every target" % pilot_names[selected_pilot_index], 270.0, 28, Color("d7e1ff"))
+	_center_text(RESULT_TITLE, 220.0, 43, palette[selected_color_index])
+	_center_text(_result_pilot_message(), 270.0, RESULT_PILOT_FONT_SIZE, Color("d7e1ff"))
 	_center_text(_format_time(final_time), 375.0, 68, Color.WHITE)
 	_center_text("BEST TIME  " + _format_time(best_time), 435.0, 23, Color("ffd777"))
 	_button(AGAIN_BUTTON, "RUN AGAIN", palette[selected_color_index])
 	_button(MENU_BUTTON, "MENU", Color("8291b9"))
+
+
+func _tractor_button_label() -> String:
+	return "TRACTOR BEAM: ON" if tractor_beam_enabled else "TRACTOR BEAM: OFF"
+
+
+func _result_pilot_message() -> String:
+	return "%s painted every target" % pilot_names[selected_pilot_index]

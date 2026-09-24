@@ -22,6 +22,8 @@ range; debug builds show its outline. The slider controls both pull strength
 and range, with pull strength rising on a gentler curve; its value and on/off
 state are saved between runs. Captured names use the device's English
 text-to-speech voice at normal speed, one at a time with no intentional gap.
+The countdown uses five short beeps followed by a sharper, louder final tone
+derived from the beep at one-quarter frequency and twice its duration.
 
 ## Run locally
 
@@ -36,8 +38,8 @@ game at runtime.
 
 ## Prototype builds
 
-- Windows: `build/windows/AstroTops.exe`
-- Android: `build/android/AstroTops.apk`
+- Windows: `.build/artifacts/windows/AstroTops.exe`
+- Android: `.build/artifacts/android/AstroTops.apk`
 
 Install Godot's Android build template from
 **Project > Install Android Build Template** before exporting Android. AstroTops
@@ -51,3 +53,22 @@ Godot installation keeps it under `%APPDATA%/Godot/keystores`; a self-contained
 editor must be configured with that same key before export. Losing or replacing
 the private key requires uninstalling the existing Android package before a new
 signature can be installed.
+
+## Automated gameplay tests
+
+`scripts/run-tests.py` owns nine persistent groups covering menus, controls,
+countdown, speech and tones, tractor-beam behavior, targets, ships and pilots,
+pause/results, and rendered UI. The acceptance map is
+`docs/feature-acceptance.json`.
+
+Run the whole suite with Godot 4.7.2 on `PATH`:
+
+```powershell
+uv run --locked scripts/run-tests.py --fresh
+```
+
+Pass `--group <group-id>` for a targeted rerun. The runner updates that group,
+preserves only applicable passing results for other groups, and recalculates
+`.test-results/tests.json`. Tracked JSON records are bound to source bytes,
+tools, environment, and an optional exact artifact; screenshots and raw logs
+are retained in the ignored `.test-results/evidence/` directory.

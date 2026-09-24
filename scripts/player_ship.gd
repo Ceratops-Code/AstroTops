@@ -10,6 +10,10 @@ const SHIP_TEXTURES := [
 	preload("res://assets/ship_saucer.png"),
 ]
 const SHIP_STYLE_COUNT := 8
+const COCKPIT_COLOR := Color("010205")
+const TRIXIE_PILOT_SCALE := 2.04
+const ASTRONAUT_OUTER_SCALE := 0.90
+const PLANET_PILOT_SCALE := 0.74
 const COCKPIT_RADII := [13.0, 13.0, 13.0, 15.0, 13.0, 13.0, 13.0, 12.0]
 const COCKPIT_OFFSETS := [
 	Vector2(-1.0, 8.0), Vector2(1.0, 7.0), Vector2(0.0, 6.0), Vector2(-1.0, 1.0),
@@ -75,14 +79,14 @@ func _draw() -> void:
 
 	var cockpit: Vector2 = COCKPIT_OFFSETS[ship_style]
 	var cockpit_radius: float = COCKPIT_RADII[ship_style]
-	draw_circle(cockpit, cockpit_radius + 4.0, Color("010205"))
+	draw_circle(cockpit, cockpit_radius + 4.0, COCKPIT_COLOR)
 	_draw_pilot(cockpit, cockpit_radius)
 
 
 func _draw_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
 	match pilot_style:
 		0:
-			var pilot_size := Vector2.ONE * cockpit_radius * 2.04
+			var pilot_size := Vector2.ONE * cockpit_radius * TRIXIE_PILOT_SCALE
 			draw_texture_rect_region(
 				trixie_texture,
 				Rect2(cockpit - pilot_size * 0.5 + Vector2(0.0, 0.5), pilot_size),
@@ -96,7 +100,7 @@ func _draw_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
 
 
 func _draw_astronaut_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
-	draw_circle(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.90, Color("f1f4fa"))
+	draw_circle(cockpit + Vector2(0.0, 1.0), cockpit_radius * ASTRONAUT_OUTER_SCALE, Color("f1f4fa"))
 	draw_circle(cockpit + Vector2(0.0, 1.0), cockpit_radius * 0.70, Color("263b67"))
 	draw_circle(cockpit + Vector2(0.0, 2.0), cockpit_radius * 0.52, Color("d99a70"))
 	draw_circle(cockpit + Vector2(-3.0, 1.0), 1.2, Color("17192b"))
@@ -105,7 +109,7 @@ func _draw_astronaut_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
 
 
 func _draw_planet_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
-	var planet_radius := cockpit_radius * 0.74
+	var planet_radius := cockpit_radius * PLANET_PILOT_SCALE
 	var ring := PackedVector2Array()
 	for index in range(25):
 		var angle := TAU * float(index) / 24.0

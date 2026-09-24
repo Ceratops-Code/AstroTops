@@ -2,6 +2,10 @@ class_name ColorPlanet
 extends Node2D
 
 
+const LABEL_FONT_SIZE := 20
+const ASTEROID_CAPTURE_SCALE := 1.3
+const BLACK_HOLE_CAPTURE_BLEND := 0.50
+
 var body_name := "Planet"
 var body_style := "mercury"
 var radius := 40.0
@@ -246,8 +250,7 @@ func _draw_black_hole() -> void:
 	var halo_color := Color("f4f8ff").lerp(captured_color.lightened(0.32), capture_progress * 0.82)
 	var disk_color := Color("e5a68d").lerp(captured_color.lightened(0.28), capture_progress)
 	var disk_shadow := Color("7a4039").lerp(captured_color.darkened(0.30), capture_progress)
-	var captured_horizon := Color.BLACK.lerp(captured_color, 0.50)
-	var horizon_color := base_color.lerp(captured_horizon, capture_progress)
+	var horizon_color := black_hole_horizon_color()
 
 	# Broad, dim lensing rings establish the silhouette before the bright photon halo.
 	var outer_halo := _ellipse_points(radius * 1.28, radius * 1.48, 0.0, TAU, 72)
@@ -294,46 +297,63 @@ func _draw_craters(color: Color) -> void:
 		draw_circle(crater_position + Vector2(-crater_radius * 0.22, -crater_radius * 0.22), crater_radius * 0.62, Color(color.lightened(0.20), 0.38))
 
 
+func black_hole_horizon_color() -> Color:
+	var captured_horizon := Color.BLACK.lerp(captured_color, BLACK_HOLE_CAPTURE_BLEND)
+	return base_color.lerp(captured_horizon, capture_progress)
+
+
+func earth_landmasses() -> Array[Dictionary]:
+	return [
+		{"id": "north_america", "shade": "land", "points": PackedVector2Array([
+			Vector2(-radius * 0.74, -radius * 0.36), Vector2(-radius * 0.53, -radius * 0.60),
+			Vector2(-radius * 0.24, -radius * 0.56), Vector2(-radius * 0.12, -radius * 0.40),
+			Vector2(-radius * 0.28, -radius * 0.28), Vector2(-radius * 0.25, -radius * 0.12),
+			Vector2(-radius * 0.43, -radius * 0.07), Vector2(-radius * 0.56, -radius * 0.19),
+			Vector2(-radius * 0.70, -radius * 0.18),
+		])},
+		{"id": "south_america", "shade": "dark", "points": PackedVector2Array([
+			Vector2(-radius * 0.43, -radius * 0.08), Vector2(-radius * 0.17, -radius * 0.01),
+			Vector2(-radius * 0.07, radius * 0.17), Vector2(-radius * 0.18, radius * 0.38),
+			Vector2(-radius * 0.24, radius * 0.66), Vector2(-radius * 0.36, radius * 0.74),
+			Vector2(-radius * 0.42, radius * 0.45), Vector2(-radius * 0.53, radius * 0.22),
+		])},
+		{"id": "africa_europe", "shade": "land", "points": PackedVector2Array([
+			Vector2(-radius * 0.12, -radius * 0.35), Vector2(radius * 0.10, -radius * 0.48),
+			Vector2(radius * 0.27, -radius * 0.34), Vector2(radius * 0.20, -radius * 0.20),
+			Vector2(radius * 0.28, -radius * 0.02), Vector2(radius * 0.17, radius * 0.22),
+			Vector2(radius * 0.05, radius * 0.55), Vector2(-radius * 0.10, radius * 0.36),
+			Vector2(-radius * 0.14, radius * 0.07), Vector2(-radius * 0.23, -radius * 0.13),
+		])},
+		{"id": "asia", "shade": "dark", "points": PackedVector2Array([
+			Vector2(radius * 0.12, -radius * 0.47), Vector2(radius * 0.46, -radius * 0.56),
+			Vector2(radius * 0.76, -radius * 0.34), Vector2(radius * 0.66, -radius * 0.14),
+			Vector2(radius * 0.48, -radius * 0.12), Vector2(radius * 0.39, radius * 0.04),
+			Vector2(radius * 0.23, -radius * 0.04), Vector2(radius * 0.10, -radius * 0.24),
+		])},
+		{"id": "australia", "shade": "land", "points": PackedVector2Array([
+			Vector2(radius * 0.42, radius * 0.32), Vector2(radius * 0.69, radius * 0.27),
+			Vector2(radius * 0.76, radius * 0.47), Vector2(radius * 0.57, radius * 0.61),
+			Vector2(radius * 0.38, radius * 0.49),
+		])},
+		{"id": "greenland", "shade": "ice", "points": PackedVector2Array([
+			Vector2(-radius * 0.29, -radius * 0.69), Vector2(-radius * 0.12, -radius * 0.78),
+			Vector2(-radius * 0.03, -radius * 0.61), Vector2(-radius * 0.20, -radius * 0.55),
+		])},
+	]
+
+
 func _draw_earth_features() -> void:
 	var land := _surface_color(Color("58b96a"), 0.22)
 	var dark_land := _surface_color(Color("3d9651"), 0.28)
 	# Recognizable silhouettes rather than generic green patches: North and South
 	# America on the left, Africa/Europe and Asia across the middle, Australia below.
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-radius * 0.74, -radius * 0.36), Vector2(-radius * 0.53, -radius * 0.60),
-		Vector2(-radius * 0.24, -radius * 0.56), Vector2(-radius * 0.12, -radius * 0.40),
-		Vector2(-radius * 0.28, -radius * 0.28), Vector2(-radius * 0.25, -radius * 0.12),
-		Vector2(-radius * 0.43, -radius * 0.07), Vector2(-radius * 0.56, -radius * 0.19),
-		Vector2(-radius * 0.70, -radius * 0.18),
-	]), land)
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-radius * 0.43, -radius * 0.08), Vector2(-radius * 0.17, -radius * 0.01),
-		Vector2(-radius * 0.07, radius * 0.17), Vector2(-radius * 0.18, radius * 0.38),
-		Vector2(-radius * 0.24, radius * 0.66), Vector2(-radius * 0.36, radius * 0.74),
-		Vector2(-radius * 0.42, radius * 0.45), Vector2(-radius * 0.53, radius * 0.22),
-	]), dark_land)
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-radius * 0.12, -radius * 0.35), Vector2(radius * 0.10, -radius * 0.48),
-		Vector2(radius * 0.27, -radius * 0.34), Vector2(radius * 0.20, -radius * 0.20),
-		Vector2(radius * 0.28, -radius * 0.02), Vector2(radius * 0.17, radius * 0.22),
-		Vector2(radius * 0.05, radius * 0.55), Vector2(-radius * 0.10, radius * 0.36),
-		Vector2(-radius * 0.14, radius * 0.07), Vector2(-radius * 0.23, -radius * 0.13),
-	]), land)
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(radius * 0.12, -radius * 0.47), Vector2(radius * 0.46, -radius * 0.56),
-		Vector2(radius * 0.76, -radius * 0.34), Vector2(radius * 0.66, -radius * 0.14),
-		Vector2(radius * 0.48, -radius * 0.12), Vector2(radius * 0.39, radius * 0.04),
-		Vector2(radius * 0.23, -radius * 0.04), Vector2(radius * 0.10, -radius * 0.24),
-	]), dark_land)
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(radius * 0.42, radius * 0.32), Vector2(radius * 0.69, radius * 0.27),
-		Vector2(radius * 0.76, radius * 0.47), Vector2(radius * 0.57, radius * 0.61),
-		Vector2(radius * 0.38, radius * 0.49),
-	]), land)
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-radius * 0.29, -radius * 0.69), Vector2(-radius * 0.12, -radius * 0.78),
-		Vector2(-radius * 0.03, -radius * 0.61), Vector2(-radius * 0.20, -radius * 0.55),
-	]), _surface_color(Color("d9f3ed"), 0.06))
+	for landmass in earth_landmasses():
+		var color := land
+		if landmass["shade"] == "dark":
+			color = dark_land
+		elif landmass["shade"] == "ice":
+			color = _surface_color(Color("d9f3ed"), 0.06)
+		draw_colored_polygon(landmass["points"], color)
 	var cloud := Color(1.0, 1.0, 1.0, 0.58)
 	draw_polyline(PackedVector2Array([
 		Vector2(-radius * 0.72, radius * 0.05), Vector2(-radius * 0.35, radius * 0.15),
@@ -431,12 +451,12 @@ func _draw_label() -> void:
 		half_height = maxf(half_height, absf(ring_rx * sin(ring_angle)) + absf(ring_ry * cos(ring_angle)))
 	var label_y := half_height + 23.0
 	var label_color := Color("eef3ff") if not captured else captured_color.lightened(0.38)
-	draw_string(font, Vector2(-95.0, label_y), body_name, HORIZONTAL_ALIGNMENT_CENTER, 190.0, 20, Color(0.0, 0.0, 0.0, 0.92))
-	draw_string(font, Vector2(-95.0, label_y - 1.5), body_name, HORIZONTAL_ALIGNMENT_CENTER, 190.0, 20, label_color)
+	draw_string(font, Vector2(-95.0, label_y), body_name, HORIZONTAL_ALIGNMENT_CENTER, 190.0, LABEL_FONT_SIZE, Color(0.0, 0.0, 0.0, 0.92))
+	draw_string(font, Vector2(-95.0, label_y - 1.5), body_name, HORIZONTAL_ALIGNMENT_CENTER, 190.0, LABEL_FONT_SIZE, label_color)
 
 
 func capture_radius() -> float:
-	return radius * 1.3 if body_style.begins_with("asteroid") else radius
+	return radius * ASTEROID_CAPTURE_SCALE if body_style.begins_with("asteroid") else radius
 
 
 func visual_extent() -> float:
