@@ -603,7 +603,9 @@ def main() -> int:
         "finishedAt": time.time(),
         "results": results,
     }
-    store.write_report(report)
+    report_path = store.result_root / "tests.json"
+    if report["execution"] != "reused" or not report_path.is_file():
+        store.write_report(report)
     if artifact_identity is not None:
         store.write_build(artifact_identity, source_identity.digest)
     store.prune_evidence(keep={run_id})
