@@ -72,3 +72,7 @@ preserves only applicable passing results for other groups, and recalculates
 `.test-results/tests.json`. Tracked JSON records are bound to source bytes,
 tools, environment, and an optional exact artifact; screenshots and raw logs
 are retained in the ignored `.test-results/evidence/` directory.
+
+Repository validation separately updates `.test-results/validation.json` on
+clean committed source. Delivery requires both that applicable validation
+record and the complete gameplay result before checking the exact artifact.

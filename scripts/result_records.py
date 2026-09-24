@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Own bounded AstroTops test and build records.
+"""Own bounded AstroTops validation, test, and build records.
 
-The repository runner is the only writer of portable ``.test-results`` JSON.
-It binds every result to the current source bytes and commit, writes through an
-atomic sibling file, and retains at most three ignored evidence runs. Candidate
-build records additionally require an exact immutable source tag and hash the
-artifact stored under ``.build/artifacts``; the tag is the build version while
-the commit remains traceability metadata.
+Repository validation and test runners share this only writer of portable
+``.test-results`` JSON. It binds every result to the current source bytes and
+commit, writes through an atomic sibling file, and retains at most three
+ignored evidence runs. Candidate build records additionally require an exact
+immutable source tag and hash the artifact stored under ``.build/artifacts``;
+the tag is the build version while the commit remains traceability metadata.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ import tempfile
 from dataclasses import dataclass
 from typing import Iterable
 
+VALIDATION_SCHEMA = "astrotops-repository-validation.v1"
 RESULT_SCHEMA = "astrotops-repository-tests.v1"
 GROUP_SCHEMA = "astrotops-test-group-result.v1"
 BUILD_SCHEMA = "astrotops-build-record.v1"
@@ -290,6 +291,13 @@ class ResultStore:
 
     def write_report(self, value: dict[str, object]) -> pathlib.Path:
         path = self.result_root / "tests.json"
+        self.atomic_json(path, value)
+        return path
+
+    def write_validation(self, value: dict[str, object]) -> pathlib.Path:
+        """Replace the latest tracked repository-validation result."""
+
+        path = self.result_root / "validation.json"
         self.atomic_json(path, value)
         return path
 

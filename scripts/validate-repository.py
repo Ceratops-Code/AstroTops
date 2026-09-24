@@ -14,9 +14,23 @@ import configparser
 import json
 import os
 import pathlib
+import platform
 import subprocess
 import sys
 import tempfile
+import time
+from datetime import UTC, datetime
+
+_SCRIPT_DIRECTORY = pathlib.Path(__file__).resolve().parent
+if str(_SCRIPT_DIRECTORY) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIRECTORY))
+
+from result_records import (  # noqa: E402
+    VALIDATION_SCHEMA,
+    ResultStore,
+    SourceIdentity,
+    resolve_source_identity,
+)
 
 CHECK_DEFINITIONS = [{'id': 'repository-contract',
   'command': ['{python}', 'scripts/validate-repository.py', '--contract-only'],
@@ -124,7 +138,11 @@ def repository_contract(repo_root: pathlib.Path) -> list[str]:
         "scripts/__pycache__/probe.pyc",
         "scripts/node_modules/probe",
     )
-    tracked_probes = (".build/README.md", ".test-results/tests.json")
+    tracked_probes = (
+        ".build/README.md",
+        ".test-results/tests.json",
+        ".test-results/validation.json",
+    )
     for relative in ignored_probes:
         result = subprocess.run(
             ["git", "-C", str(repo_root), "check-ignore", "--no-index", "--quiet", relative],
@@ -234,12 +252,121 @@ def child_evidence(argv: list[str], temporary_root: pathlib.Path) -> list[str]:
     return retained
 
 
+def portable_command(
+    argv: list[str], repo_root: pathlib.Path, temporary_root: pathlib.Path
+) -> list[str]:
+    """Remove host-specific executable and temporary paths from tracked JSON."""
+
+    rendered: list[str] = []
+    for value in argv:
+        if value == sys.executable:
+            rendered.append("{python}")
+        elif value == str(repo_root):
+            rendered.append("{repo}")
+        elif value == str(temporary_root):
+            rendered.append("{temp}")
+        elif value.startswith(str(temporary_root) + os.sep):
+            suffix = pathlib.Path(value).relative_to(temporary_root).as_posix()
+            rendered.append(f"{{temp}}/{suffix}")
+        else:
+            rendered.append(value)
+    return rendered
+
+
+def portable_evidence(evidence_file: pathlib.Path, repo_root: pathlib.Path) -> str:
+    """Return a repository-relative evidence location without leaking host paths."""
+
+    try:
+        return evidence_file.resolve().relative_to(repo_root).as_posix()
+    except ValueError:
+        return "{caller-selected-evidence}"
+
+
+def validation_environment() -> dict[str, str]:
+    """Describe the execution context that determines result applicability."""
+
+    return {
+        "machine": platform.machine(),
+        "platform": sys.platform,
+        "python": platform.python_version(),
+    }
+
+
+def applicable_validation_exists(
+    path: pathlib.Path,
+    source: SourceIdentity,
+    environment: dict[str, str],
+    required_checks: list[str],
+) -> bool:
+    """Avoid result churn when an equivalent passing record already exists."""
+
+    try:
+        previous = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    previous_source = previous.get("source")
+    previous_results = previous.get("results")
+    if not isinstance(previous_source, dict) or not isinstance(previous_results, list):
+        return False
+    result_ids = [
+        item.get("id") for item in previous_results if isinstance(item, dict)
+    ]
+    return (
+        previous.get("schema") == VALIDATION_SCHEMA
+        and previous.get("status") == "passed"
+        and previous.get("outcome") == "passed"
+        and previous_source.get("commit") == source.commit
+        and previous_source.get("digest") == source.digest
+        and previous.get("environment") == environment
+        and previous.get("requiredChecks") == required_checks
+        and result_ids == required_checks
+        and all(
+            isinstance(item, dict) and item.get("outcome") == "passed"
+            for item in previous_results
+        )
+    )
+
+
+def validation_record(
+    *,
+    source: SourceIdentity,
+    environment: dict[str, str],
+    required_checks: list[str],
+    results: list[dict[str, object]],
+    outcome: str,
+    failures: list[dict[str, object]],
+    evidence: str | None,
+    run_id: str,
+) -> dict[str, object]:
+    """Assemble the portable latest validation result."""
+
+    return {
+        "schema": VALIDATION_SCHEMA,
+        "status": outcome,
+        "outcome": outcome,
+        "scope": "repository",
+        "source": source.portable(),
+        "environment": environment,
+        "requiredChecks": required_checks,
+        "results": results,
+        "failures": failures,
+        "evidence": [evidence] if evidence else [],
+        "runId": run_id,
+        "finishedAt": datetime.now(UTC).isoformat(),
+    }
+
+
 def main() -> int:
     """Run contract-selected checks in order and emit one bounded result."""
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--evidence-file", type=pathlib.Path)
     parser.add_argument("--contract-only", action="store_true")
+    parser.add_argument(
+        "--no-record",
+        action="store_true",
+        help="Run validation without replacing .test-results/validation.json.",
+    )
     args = parser.parse_args()
     repo_root = pathlib.Path(__file__).resolve().parents[1]
     if args.contract_only:
@@ -254,6 +381,13 @@ def main() -> int:
         if args.evidence_file
         else repo_root / ".test-results" / "evidence" / "validation" / "repository-validation.log"
     )
+    source = resolve_source_identity(repo_root)
+    record = not args.no_record and not source.dirty_paths
+    store = ResultStore(repo_root, source, record=record)
+    environment = validation_environment()
+    required_checks = [str(item["id"]) for item in CHECK_DEFINITIONS]
+    results: list[dict[str, object]] = []
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
     with tempfile.TemporaryDirectory(prefix="repository-validation-") as temporary:
         temporary_root = pathlib.Path(temporary)
         child_environment = os.environ.copy()
@@ -265,6 +399,7 @@ def main() -> int:
             if not isinstance(raw_cwd, str):
                 raise TypeError("check cwd must be a string")
             cwd = repo_root.joinpath(*pathlib.PurePosixPath(raw_cwd).parts)
+            started = time.perf_counter()
             try:
                 result = subprocess.run(
                     argv,
@@ -283,6 +418,19 @@ def main() -> int:
                     "",
                     f"{type(exc).__name__}: {exc}",
                 )
+            elapsed = round(time.perf_counter() - started, 3)
+            results.append(
+                {
+                    "id": str(definition["id"]),
+                    "status": "passed" if result.returncode == 0 else "failed",
+                    "outcome": "passed" if result.returncode == 0 else "failed",
+                    "execution": "executed",
+                    "exitCode": result.returncode,
+                    "seconds": elapsed,
+                    "command": portable_command(argv, repo_root, temporary_root),
+                    "cwd": raw_cwd,
+                }
+            )
             if result.returncode == 0:
                 continue
             evidence_file.parent.mkdir(parents=True, exist_ok=True)
@@ -307,15 +455,28 @@ def main() -> int:
                 newline="\n",
             )
             partial.replace(evidence_file)
-            print(
-                json.dumps(
-                    {
-                        "check": definition["id"],
-                        "exit_code": result.returncode,
-                        "evidence_file": str(evidence_file),
-                    },
-                    separators=(",", ":"),
+            failure = {
+                "id": f"validation/{definition['id']}",
+                "expected": 0,
+                "actual": result.returncode,
+            }
+            if record:
+                store.write_validation(
+                    validation_record(
+                        source=source,
+                        environment=environment,
+                        required_checks=required_checks,
+                        results=results,
+                        outcome="failed",
+                        failures=[failure],
+                        evidence=portable_evidence(evidence_file, repo_root),
+                        run_id=run_id,
+                    )
                 )
+            print(
+                f"{failure['id']} expected={failure['expected']} "
+                f"actual={failure['actual']} "
+                f"evidence={portable_evidence(evidence_file, repo_root)}"
             )
             return result.returncode if result.returncode > 0 else 1
     try:
@@ -324,18 +485,59 @@ def main() -> int:
             prune_default_parent=args.evidence_file is None,
         )
     except OSError as exc:
-        print(
-            json.dumps(
-                {
-                    "check": "evidence-cleanup",
-                    "exit_code": 1,
-                    "evidence_file": str(evidence_file),
-                    "cleanup_error": f"{type(exc).__name__}: {exc}",
-                },
-                separators=(",", ":"),
+        failure = {
+            "id": "validation/evidence-cleanup",
+            "expected": "owned evidence removed",
+            "actual": f"{type(exc).__name__}: {exc}",
+        }
+        results.append(
+            {
+                "id": "evidence-cleanup",
+                "status": "failed",
+                "outcome": "failed",
+                "execution": "executed",
+                "exitCode": 1,
+                "seconds": 0.0,
+                "command": [],
+                "cwd": ".",
+            }
+        )
+        if record:
+            store.write_validation(
+                validation_record(
+                    source=source,
+                    environment=environment,
+                    required_checks=required_checks,
+                    results=results,
+                    outcome="failed",
+                    failures=[failure],
+                    evidence=portable_evidence(evidence_file, repo_root),
+                    run_id=run_id,
+                )
             )
+        print(
+            f"{failure['id']} expected={failure['expected']} "
+            f"actual={failure['actual']}"
         )
         return 1
+    if record and not applicable_validation_exists(
+        store.result_root / "validation.json",
+        source,
+        environment,
+        required_checks,
+    ):
+        store.write_validation(
+            validation_record(
+                source=source,
+                environment=environment,
+                required_checks=required_checks,
+                results=results,
+                outcome="passed",
+                failures=[],
+                evidence=None,
+                run_id=run_id,
+            )
+        )
     print("OK")
     return 0
 

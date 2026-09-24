@@ -30,6 +30,7 @@ if str(_SCRIPT_DIRECTORY) not in sys.path:
 from result_records import (  # noqa: E402
     GROUP_SCHEMA,
     RESULT_SCHEMA,
+    VALIDATION_SCHEMA,
     ArtifactIdentity,
     ResultStore,
     SourceIdentity,
@@ -390,6 +391,40 @@ def verify_delivery(
         return 1
     artifact = artifact_identity.portable()
     failures: list[str] = []
+    try:
+        validation = json.loads(
+            (store.result_root / "validation.json").read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError):
+        validation = None
+    if not isinstance(validation, dict) or validation.get("schema") != VALIDATION_SCHEMA:
+        failures.append("delivery/validation expected=valid repository result actual=missing or invalid")
+    else:
+        validation_source = validation.get("source")
+        validation_results = validation.get("results")
+        required_validation = validation.get("requiredChecks")
+        if validation.get("outcome") != "passed":
+            failures.append(
+                f"delivery/validation expected=passed actual={validation.get('outcome')}"
+            )
+        if not isinstance(validation_source, dict) or (
+            validation_source.get("commit") != source_identity.commit
+            or validation_source.get("digest") != source_identity.digest
+        ):
+            failures.append("delivery/validation expected=applicable result actual=stale")
+        if (
+            not isinstance(required_validation, list)
+            or not required_validation
+            or not isinstance(validation_results, list)
+            or [item.get("id") for item in validation_results if isinstance(item, dict)]
+            != required_validation
+            or any(
+                item.get("outcome") != "passed"
+                for item in validation_results
+                if isinstance(item, dict)
+            )
+        ):
+            failures.append("delivery/validation expected=complete passing checks actual=incomplete")
     group_ids: list[str] = []
     for definition in groups:
         group_id = str(definition["id"])
