@@ -26,20 +26,20 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/cockpit.png",
-    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/countdown.png",
-    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/menu.png",
-    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/output.log",
-    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/paused.png",
-    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/playing.png",
-    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/results.png",
-    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/targets.png"
+    "evidence/20260924T021152Z-c1e4cacd5bed/rendered-ui/cockpit.png",
+    "evidence/20260924T021152Z-c1e4cacd5bed/rendered-ui/countdown.png",
+    "evidence/20260924T021152Z-c1e4cacd5bed/rendered-ui/menu.png",
+    "evidence/20260924T021152Z-c1e4cacd5bed/rendered-ui/output.log",
+    "evidence/20260924T021152Z-c1e4cacd5bed/rendered-ui/paused.png",
+    "evidence/20260924T021152Z-c1e4cacd5bed/rendered-ui/playing.png",
+    "evidence/20260924T021152Z-c1e4cacd5bed/rendered-ui/results.png",
+    "evidence/20260924T021152Z-c1e4cacd5bed/rendered-ui/targets.png"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "e4447de03dd2d3d768ce52ecb41378da9a83349164595b6a3ee0cf39d97d881f",
-  "finishedAt": 1790214753.0761642,
+  "fingerprint": "17b5a64d5cb07400daa80b208ae1a8cf306f6954a8df179bfa02795f669aacfa",
+  "finishedAt": 1790215917.6336694,
   "id": "rendered-ui",
   "observations": [
     {
@@ -52,14 +52,16 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260924T015227Z-7a53f8ea1fba",
+  "runId": "20260924T021152Z-c1e4cacd5bed",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 2.424,
+  "seconds": 2.329,
   "source": {
-    "commit": "7a53f8ea1fba307dd0c1e1c413f7a35ca103aea9",
-    "digest": "b3b55c919841c9caf650884f0b94151f1985aa8cca3132689f8ed40acb3faee5",
+    "commit": "c1e4cacd5bed90fd4bc8a42972d7d3732416c086",
+    "digest": "0326a71345415dec15f96c2a88fd2a20209c7faf5b8d48b8f16b9e649cd11581",
     "dirty": false,
-    "exactTags": []
+    "exactTags": [
+      "astrotops-local-20260924-c1e4cac"
+    ]
   },
   "status": "passed"
 }
