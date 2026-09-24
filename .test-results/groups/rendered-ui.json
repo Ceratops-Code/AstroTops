@@ -26,20 +26,20 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/cockpit.png",
-    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/countdown.png",
-    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/menu.png",
-    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/output.log",
-    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/paused.png",
-    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/playing.png",
-    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/results.png",
-    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/targets.png"
+    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/cockpit.png",
+    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/countdown.png",
+    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/menu.png",
+    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/output.log",
+    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/paused.png",
+    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/playing.png",
+    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/results.png",
+    "evidence/20260924T015227Z-7a53f8ea1fba/rendered-ui/targets.png"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "262e393803f5e15f98dc61fa92f0a577bf268b0d6ace334f8f4b403e04905b50",
-  "finishedAt": 1790210484.1279995,
+  "fingerprint": "e4447de03dd2d3d768ce52ecb41378da9a83349164595b6a3ee0cf39d97d881f",
+  "finishedAt": 1790214753.0761642,
   "id": "rendered-ui",
   "observations": [
     {
@@ -52,12 +52,12 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260924T004118Z-d5d1633180f7",
+  "runId": "20260924T015227Z-7a53f8ea1fba",
   "schema": "astrotops-test-group-result.v1",
   "seconds": 2.424,
   "source": {
-    "commit": "d5d1633180f7cb7c50417cc30c15be2a2a6b5d81",
-    "digest": "7a8bfc571218fb6a2a9f0a55dcdcb5ba10a9fce43c4395c0475ac33329d0edd5",
+    "commit": "7a53f8ea1fba307dd0c1e1c413f7a35ca103aea9",
+    "digest": "b3b55c919841c9caf650884f0b94151f1985aa8cca3132689f8ed40acb3faee5",
     "dirty": false,
     "exactTags": []
   },

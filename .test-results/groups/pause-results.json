@@ -23,13 +23,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260924T004118Z-d5d1633180f7/pause-results/output.log"
+    "evidence/20260924T015227Z-7a53f8ea1fba/pause-results/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "d2bd3a398749dd75b45964899f781c71c21ba1050244ada04dd8c26f9f32b856",
-  "finishedAt": 1790210481.701304,
+  "fingerprint": "4f388fb985e260a3c93f8b6f1c29d23b4d87dd600918aea07669138e7da4d604",
+  "finishedAt": 1790214750.6478338,
   "id": "pause-results",
   "observations": [
     {
@@ -38,12 +38,12 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260924T004118Z-d5d1633180f7",
+  "runId": "20260924T015227Z-7a53f8ea1fba",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.372,
+  "seconds": 0.376,
   "source": {
-    "commit": "d5d1633180f7cb7c50417cc30c15be2a2a6b5d81",
-    "digest": "7a8bfc571218fb6a2a9f0a55dcdcb5ba10a9fce43c4395c0475ac33329d0edd5",
+    "commit": "7a53f8ea1fba307dd0c1e1c413f7a35ca103aea9",
+    "digest": "b3b55c919841c9caf650884f0b94151f1985aa8cca3132689f8ed40acb3faee5",
     "dirty": false,
     "exactTags": []
   },
