@@ -23,13 +23,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260924T001533Z-299fda4b659c/audio-speech/output.log"
+    "evidence/20260924T001638Z-d6b80b08036c/audio-speech/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "6343eea94466240920c2934aebba75b5345b287ee95df2c02c05940fa483b7c9",
-  "finishedAt": 1790208934.6058512,
+  "fingerprint": "f9639e5a5665b7c34fa39001b2cfbc6d0d5e9c2fc7d03748bac0f78efba1096b",
+  "finishedAt": 1790209000.039579,
   "id": "audio-speech",
   "observations": [
     {
@@ -38,12 +38,12 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260924T001533Z-299fda4b659c",
+  "runId": "20260924T001638Z-d6b80b08036c",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.538,
+  "seconds": 0.385,
   "source": {
-    "commit": "299fda4b659c2555329ec18571bf734dd385cd90",
-    "digest": "469b2700689f4f2ab696a21bc051ba0357e3849d242004a960f2432264da48ce",
+    "commit": "d6b80b08036c51f5151545a76e37fdc96e06116f",
+    "digest": "e243988b93ec06dd68c6ae2faf7585733108a2f5c5cf8d0b8b4d1b13f23d22ab",
     "dirty": false,
     "exactTags": []
   },
