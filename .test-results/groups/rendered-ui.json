@@ -1,0 +1,65 @@
+{
+  "artifact": null,
+  "assertions": 19,
+  "command": [
+    "{godot}",
+    "--rendering-method",
+    "gl_compatibility",
+    "--audio-driver",
+    "Dummy",
+    "--path",
+    "{repo}",
+    "--script",
+    "scripts/regression_tests.gd",
+    "--",
+    "--group",
+    "rendered-ui",
+    "--temp-root",
+    "{temp}",
+    "--evidence-root",
+    "{evidence}"
+  ],
+  "environment": {
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "platform": "windows",
+    "python": "3.12.14",
+    "renderer": "gl_compatibility"
+  },
+  "evidence": [
+    "evidence/20260924T001337Z-50553b6363dc/rendered-ui/cockpit.png",
+    "evidence/20260924T001337Z-50553b6363dc/rendered-ui/countdown.png",
+    "evidence/20260924T001337Z-50553b6363dc/rendered-ui/menu.png",
+    "evidence/20260924T001337Z-50553b6363dc/rendered-ui/output.log",
+    "evidence/20260924T001337Z-50553b6363dc/rendered-ui/paused.png",
+    "evidence/20260924T001337Z-50553b6363dc/rendered-ui/playing.png",
+    "evidence/20260924T001337Z-50553b6363dc/rendered-ui/results.png",
+    "evidence/20260924T001337Z-50553b6363dc/rendered-ui/targets.png"
+  ],
+  "execution": "executed",
+  "exitCode": 0,
+  "failures": [],
+  "fingerprint": "43e43efb447ad340287a88bc4fbb5308330256c2dcaed1d4487efdc828755017",
+  "finishedAt": 1790208823.3690288,
+  "id": "rendered-ui",
+  "observations": [
+    {
+      "id": "RENDER/pause-differences",
+      "value": "{ \"header\": 72, \"playfield\": 46665 }"
+    },
+    {
+      "id": "RENDER/evidence",
+      "value": "[\"menu.png\", \"playing.png\", \"paused.png\", \"countdown.png\", \"results.png\", \"cockpit.png\", \"targets.png\"]"
+    }
+  ],
+  "outcome": "passed",
+  "runId": "20260924T001337Z-50553b6363dc",
+  "schema": "astrotops-test-group-result.v1",
+  "seconds": 2.376,
+  "source": {
+    "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+    "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+    "dirty": false,
+    "exactTags": []
+  },
+  "status": "passed"
+}

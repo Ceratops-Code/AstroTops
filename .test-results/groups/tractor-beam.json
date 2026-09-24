@@ -1,0 +1,51 @@
+{
+  "artifact": null,
+  "assertions": 15,
+  "command": [
+    "{godot}",
+    "--headless",
+    "--path",
+    "{repo}",
+    "--script",
+    "scripts/regression_tests.gd",
+    "--",
+    "--group",
+    "tractor-beam",
+    "--temp-root",
+    "{temp}",
+    "--evidence-root",
+    "{evidence}"
+  ],
+  "environment": {
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "platform": "windows",
+    "python": "3.12.14",
+    "renderer": "gl_compatibility"
+  },
+  "evidence": [
+    "evidence/20260924T001337Z-50553b6363dc/tractor-beam/output.log"
+  ],
+  "execution": "executed",
+  "exitCode": 0,
+  "failures": [],
+  "fingerprint": "95fc3014a607300a1fd076daa27d5850f82a50d00f6aab6849d12fa30fefaa05",
+  "finishedAt": 1790208819.382738,
+  "id": "tractor-beam",
+  "observations": [
+    {
+      "id": "TRACTOR/profile",
+      "value": "{ \"pull_steps\": [0.203125, 0.184375, 0.165625, 0.146875], \"widths\": [114.262962748979, 136.204671376304, 50.2571610381861], \"range\": 254.80292175293 }"
+    }
+  ],
+  "outcome": "passed",
+  "runId": "20260924T001337Z-50553b6363dc",
+  "schema": "astrotops-test-group-result.v1",
+  "seconds": 0.381,
+  "source": {
+    "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+    "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+    "dirty": false,
+    "exactTags": []
+  },
+  "status": "passed"
+}

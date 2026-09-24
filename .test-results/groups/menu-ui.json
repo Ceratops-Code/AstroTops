@@ -1,0 +1,51 @@
+{
+  "artifact": null,
+  "assertions": 34,
+  "command": [
+    "{godot}",
+    "--headless",
+    "--path",
+    "{repo}",
+    "--script",
+    "scripts/regression_tests.gd",
+    "--",
+    "--group",
+    "menu-ui",
+    "--temp-root",
+    "{temp}",
+    "--evidence-root",
+    "{evidence}"
+  ],
+  "environment": {
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "platform": "windows",
+    "python": "3.12.14",
+    "renderer": "gl_compatibility"
+  },
+  "evidence": [
+    "evidence/20260924T001337Z-50553b6363dc/menu-ui/output.log"
+  ],
+  "execution": "executed",
+  "exitCode": 0,
+  "failures": [],
+  "fingerprint": "c57bf298df8225eb4357f5fe7d72ee7a3b56603f1253d249d3bdbf798ff50ce6",
+  "finishedAt": 1790208818.229796,
+  "id": "menu-ui",
+  "observations": [
+    {
+      "id": "MENU/render-model",
+      "value": "identity, selector geometry, arrows, common click signal, and no ship/selector overlap"
+    }
+  ],
+  "outcome": "passed",
+  "runId": "20260924T001337Z-50553b6363dc",
+  "schema": "astrotops-test-group-result.v1",
+  "seconds": 0.377,
+  "source": {
+    "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+    "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+    "dirty": false,
+    "exactTags": []
+  },
+  "status": "passed"
+}

@@ -1,0 +1,51 @@
+{
+  "artifact": null,
+  "assertions": 17,
+  "command": [
+    "{godot}",
+    "--headless",
+    "--path",
+    "{repo}",
+    "--script",
+    "scripts/regression_tests.gd",
+    "--",
+    "--group",
+    "pause-results",
+    "--temp-root",
+    "{temp}",
+    "--evidence-root",
+    "{evidence}"
+  ],
+  "environment": {
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "platform": "windows",
+    "python": "3.12.14",
+    "renderer": "gl_compatibility"
+  },
+  "evidence": [
+    "evidence/20260924T001337Z-50553b6363dc/pause-results/output.log"
+  ],
+  "execution": "executed",
+  "exitCode": 0,
+  "failures": [],
+  "fingerprint": "db76b20c390d572f3ce5d9822a27ceb66eea85ac13a995852185469fb3a890a0",
+  "finishedAt": 1790208820.9908473,
+  "id": "pause-results",
+  "observations": [
+    {
+      "id": "PAUSE/results",
+      "value": "pause/resume state, undimmed header boundary, completion copy, score reset, and settings roundtrip"
+    }
+  ],
+  "outcome": "passed",
+  "runId": "20260924T001337Z-50553b6363dc",
+  "schema": "astrotops-test-group-result.v1",
+  "seconds": 0.556,
+  "source": {
+    "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+    "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+    "dirty": false,
+    "exactTags": []
+  },
+  "status": "passed"
+}

@@ -1,0 +1,51 @@
+{
+  "artifact": null,
+  "assertions": 16,
+  "command": [
+    "{godot}",
+    "--headless",
+    "--path",
+    "{repo}",
+    "--script",
+    "scripts/regression_tests.gd",
+    "--",
+    "--group",
+    "audio-speech",
+    "--temp-root",
+    "{temp}",
+    "--evidence-root",
+    "{evidence}"
+  ],
+  "environment": {
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "platform": "windows",
+    "python": "3.12.14",
+    "renderer": "gl_compatibility"
+  },
+  "evidence": [
+    "evidence/20260924T001411Z-50553b6363dc/audio-speech/output.log"
+  ],
+  "execution": "executed",
+  "exitCode": 0,
+  "failures": [],
+  "fingerprint": "6e2b3717e1d420afd0ed5d5b10aca18c5f500c03222367138834dd801aff4601",
+  "finishedAt": 1790208852.1262765,
+  "id": "audio-speech",
+  "observations": [
+    {
+      "id": "SPEECH/native-queue",
+      "value": "three requests submitted synchronously in capture order with interrupt=false"
+    }
+  ],
+  "outcome": "passed",
+  "runId": "20260924T001411Z-50553b6363dc",
+  "schema": "astrotops-test-group-result.v1",
+  "seconds": 0.546,
+  "source": {
+    "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+    "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+    "dirty": false,
+    "exactTags": []
+  },
+  "status": "passed"
+}

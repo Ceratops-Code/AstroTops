@@ -1,0 +1,524 @@
+{
+  "artifact": null,
+  "coverageStatus": "complete-repository",
+  "execution": "executed",
+  "finishedAt": 1790208852.1345036,
+  "outcome": "passed",
+  "requestedScope": "repository",
+  "requiredChecks": [
+    "menu-ui",
+    "controls-countdown",
+    "audio-speech",
+    "tractor-beam",
+    "targets",
+    "ships-pilots",
+    "gameplay-flow",
+    "pause-results",
+    "rendered-ui"
+  ],
+  "results": [
+    {
+      "artifact": null,
+      "assertions": 34,
+      "command": [
+        "{godot}",
+        "--headless",
+        "--path",
+        "{repo}",
+        "--script",
+        "scripts/regression_tests.gd",
+        "--",
+        "--group",
+        "menu-ui",
+        "--temp-root",
+        "{temp}",
+        "--evidence-root",
+        "{evidence}"
+      ],
+      "environment": {
+        "godot": "4.7.2.stable.official.ed1daf0bf",
+        "platform": "windows",
+        "python": "3.12.14",
+        "renderer": "gl_compatibility"
+      },
+      "evidence": [
+        "evidence/20260924T001337Z-50553b6363dc/menu-ui/output.log"
+      ],
+      "execution": "reused",
+      "exitCode": 0,
+      "failures": [],
+      "fingerprint": "c57bf298df8225eb4357f5fe7d72ee7a3b56603f1253d249d3bdbf798ff50ce6",
+      "finishedAt": 1790208818.229796,
+      "id": "menu-ui",
+      "observations": [
+        {
+          "id": "MENU/render-model",
+          "value": "identity, selector geometry, arrows, common click signal, and no ship/selector overlap"
+        }
+      ],
+      "originalFinishedAt": 1790208818.229796,
+      "originalRunId": "20260924T001337Z-50553b6363dc",
+      "outcome": "passed",
+      "runId": "20260924T001337Z-50553b6363dc",
+      "schema": "astrotops-test-group-result.v1",
+      "seconds": 0.0,
+      "source": {
+        "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+        "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+        "dirty": false,
+        "exactTags": []
+      },
+      "status": "reused"
+    },
+    {
+      "artifact": null,
+      "assertions": 13,
+      "command": [
+        "{godot}",
+        "--headless",
+        "--path",
+        "{repo}",
+        "--script",
+        "scripts/regression_tests.gd",
+        "--",
+        "--group",
+        "controls-countdown",
+        "--temp-root",
+        "{temp}",
+        "--evidence-root",
+        "{evidence}"
+      ],
+      "environment": {
+        "godot": "4.7.2.stable.official.ed1daf0bf",
+        "platform": "windows",
+        "python": "3.12.14",
+        "renderer": "gl_compatibility"
+      },
+      "evidence": [
+        "evidence/20260924T001337Z-50553b6363dc/controls-countdown/output.log"
+      ],
+      "execution": "reused",
+      "exitCode": 0,
+      "failures": [],
+      "fingerprint": "3877cc3f349138eca4e0bd9d2555d2d81f4e07edd086b4c747ff2fe3a7237847",
+      "finishedAt": 1790208818.613828,
+      "id": "controls-countdown",
+      "observations": [
+        {
+          "id": "COUNT/countdown",
+          "value": "[5, 4, 3, 2, 1]"
+        }
+      ],
+      "originalFinishedAt": 1790208818.613828,
+      "originalRunId": "20260924T001337Z-50553b6363dc",
+      "outcome": "passed",
+      "runId": "20260924T001337Z-50553b6363dc",
+      "schema": "astrotops-test-group-result.v1",
+      "seconds": 0.0,
+      "source": {
+        "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+        "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+        "dirty": false,
+        "exactTags": []
+      },
+      "status": "reused"
+    },
+    {
+      "artifact": null,
+      "assertions": 16,
+      "command": [
+        "{godot}",
+        "--headless",
+        "--path",
+        "{repo}",
+        "--script",
+        "scripts/regression_tests.gd",
+        "--",
+        "--group",
+        "audio-speech",
+        "--temp-root",
+        "{temp}",
+        "--evidence-root",
+        "{evidence}"
+      ],
+      "environment": {
+        "godot": "4.7.2.stable.official.ed1daf0bf",
+        "platform": "windows",
+        "python": "3.12.14",
+        "renderer": "gl_compatibility"
+      },
+      "evidence": [
+        "evidence/20260924T001411Z-50553b6363dc/audio-speech/output.log"
+      ],
+      "execution": "executed",
+      "exitCode": 0,
+      "failures": [],
+      "fingerprint": "6e2b3717e1d420afd0ed5d5b10aca18c5f500c03222367138834dd801aff4601",
+      "finishedAt": 1790208852.1262765,
+      "id": "audio-speech",
+      "observations": [
+        {
+          "id": "SPEECH/native-queue",
+          "value": "three requests submitted synchronously in capture order with interrupt=false"
+        }
+      ],
+      "outcome": "passed",
+      "runId": "20260924T001411Z-50553b6363dc",
+      "schema": "astrotops-test-group-result.v1",
+      "seconds": 0.546,
+      "source": {
+        "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+        "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+        "dirty": false,
+        "exactTags": []
+      },
+      "status": "passed"
+    },
+    {
+      "artifact": null,
+      "assertions": 15,
+      "command": [
+        "{godot}",
+        "--headless",
+        "--path",
+        "{repo}",
+        "--script",
+        "scripts/regression_tests.gd",
+        "--",
+        "--group",
+        "tractor-beam",
+        "--temp-root",
+        "{temp}",
+        "--evidence-root",
+        "{evidence}"
+      ],
+      "environment": {
+        "godot": "4.7.2.stable.official.ed1daf0bf",
+        "platform": "windows",
+        "python": "3.12.14",
+        "renderer": "gl_compatibility"
+      },
+      "evidence": [
+        "evidence/20260924T001337Z-50553b6363dc/tractor-beam/output.log"
+      ],
+      "execution": "reused",
+      "exitCode": 0,
+      "failures": [],
+      "fingerprint": "95fc3014a607300a1fd076daa27d5850f82a50d00f6aab6849d12fa30fefaa05",
+      "finishedAt": 1790208819.382738,
+      "id": "tractor-beam",
+      "observations": [
+        {
+          "id": "TRACTOR/profile",
+          "value": "{ \"pull_steps\": [0.203125, 0.184375, 0.165625, 0.146875], \"widths\": [114.262962748979, 136.204671376304, 50.2571610381861], \"range\": 254.80292175293 }"
+        }
+      ],
+      "originalFinishedAt": 1790208819.382738,
+      "originalRunId": "20260924T001337Z-50553b6363dc",
+      "outcome": "passed",
+      "runId": "20260924T001337Z-50553b6363dc",
+      "schema": "astrotops-test-group-result.v1",
+      "seconds": 0.0,
+      "source": {
+        "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+        "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+        "dirty": false,
+        "exactTags": []
+      },
+      "status": "reused"
+    },
+    {
+      "artifact": null,
+      "assertions": 49,
+      "command": [
+        "{godot}",
+        "--headless",
+        "--path",
+        "{repo}",
+        "--script",
+        "scripts/regression_tests.gd",
+        "--",
+        "--group",
+        "targets",
+        "--temp-root",
+        "{temp}",
+        "--evidence-root",
+        "{evidence}"
+      ],
+      "environment": {
+        "godot": "4.7.2.stable.official.ed1daf0bf",
+        "platform": "windows",
+        "python": "3.12.14",
+        "renderer": "gl_compatibility"
+      },
+      "evidence": [
+        "evidence/20260924T001337Z-50553b6363dc/targets/output.log"
+      ],
+      "execution": "reused",
+      "exitCode": 0,
+      "failures": [],
+      "fingerprint": "6eb1eb4238719a0806016930490a2d89c56cf215b0e6a57c7163a0d5080644c6",
+      "finishedAt": 1790208819.7735991,
+      "id": "targets",
+      "observations": [
+        {
+          "id": "TARGET/roster-and-render-model",
+          "value": "size hierarchy, ring geometry, capture areas, black-hole blend, Earth silhouettes, and randomized layouts"
+        }
+      ],
+      "originalFinishedAt": 1790208819.7735991,
+      "originalRunId": "20260924T001337Z-50553b6363dc",
+      "outcome": "passed",
+      "runId": "20260924T001337Z-50553b6363dc",
+      "schema": "astrotops-test-group-result.v1",
+      "seconds": 0.0,
+      "source": {
+        "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+        "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+        "dirty": false,
+        "exactTags": []
+      },
+      "status": "reused"
+    },
+    {
+      "artifact": null,
+      "assertions": 25,
+      "command": [
+        "{godot}",
+        "--headless",
+        "--path",
+        "{repo}",
+        "--script",
+        "scripts/regression_tests.gd",
+        "--",
+        "--group",
+        "ships-pilots",
+        "--temp-root",
+        "{temp}",
+        "--evidence-root",
+        "{evidence}"
+      ],
+      "environment": {
+        "godot": "4.7.2.stable.official.ed1daf0bf",
+        "platform": "windows",
+        "python": "3.12.14",
+        "renderer": "gl_compatibility"
+      },
+      "evidence": [
+        "evidence/20260924T001337Z-50553b6363dc/ships-pilots/output.log"
+      ],
+      "execution": "reused",
+      "exitCode": 0,
+      "failures": [],
+      "fingerprint": "da08bf5c3edfc1146ea015700152abc9829a1e777972e685ab5a9dcd9482ec40",
+      "finishedAt": 1790208820.057603,
+      "id": "ships-pilots",
+      "observations": [
+        {
+          "id": "SHIP/assets",
+          "value": "four raster ships retain high-resolution transparent sources; four procedural ships and three pilots remain selectable"
+        }
+      ],
+      "originalFinishedAt": 1790208820.057603,
+      "originalRunId": "20260924T001337Z-50553b6363dc",
+      "outcome": "passed",
+      "runId": "20260924T001337Z-50553b6363dc",
+      "schema": "astrotops-test-group-result.v1",
+      "seconds": 0.0,
+      "source": {
+        "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+        "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+        "dirty": false,
+        "exactTags": []
+      },
+      "status": "reused"
+    },
+    {
+      "artifact": null,
+      "assertions": 17,
+      "command": [
+        "{godot}",
+        "--headless",
+        "--path",
+        "{repo}",
+        "--script",
+        "scripts/regression_tests.gd",
+        "--",
+        "--group",
+        "gameplay-flow",
+        "--temp-root",
+        "{temp}",
+        "--evidence-root",
+        "{evidence}"
+      ],
+      "environment": {
+        "godot": "4.7.2.stable.official.ed1daf0bf",
+        "platform": "windows",
+        "python": "3.12.14",
+        "renderer": "gl_compatibility"
+      },
+      "evidence": [
+        "evidence/20260924T001337Z-50553b6363dc/gameplay-flow/output.log"
+      ],
+      "execution": "reused",
+      "exitCode": 0,
+      "failures": [],
+      "fingerprint": "e51d2e94a920751330302a020f3b4c92de6c4cd422ad28fc3def6115dffc8aea",
+      "finishedAt": 1790208820.4320543,
+      "id": "gameplay-flow",
+      "observations": [
+        {
+          "id": "FLOW/complete-run",
+          "value": "ready, countdown, play, all captures, one meteor per target, explosions, score, and results"
+        }
+      ],
+      "originalFinishedAt": 1790208820.4320543,
+      "originalRunId": "20260924T001337Z-50553b6363dc",
+      "outcome": "passed",
+      "runId": "20260924T001337Z-50553b6363dc",
+      "schema": "astrotops-test-group-result.v1",
+      "seconds": 0.0,
+      "source": {
+        "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+        "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+        "dirty": false,
+        "exactTags": []
+      },
+      "status": "reused"
+    },
+    {
+      "artifact": null,
+      "assertions": 17,
+      "command": [
+        "{godot}",
+        "--headless",
+        "--path",
+        "{repo}",
+        "--script",
+        "scripts/regression_tests.gd",
+        "--",
+        "--group",
+        "pause-results",
+        "--temp-root",
+        "{temp}",
+        "--evidence-root",
+        "{evidence}"
+      ],
+      "environment": {
+        "godot": "4.7.2.stable.official.ed1daf0bf",
+        "platform": "windows",
+        "python": "3.12.14",
+        "renderer": "gl_compatibility"
+      },
+      "evidence": [
+        "evidence/20260924T001337Z-50553b6363dc/pause-results/output.log"
+      ],
+      "execution": "reused",
+      "exitCode": 0,
+      "failures": [],
+      "fingerprint": "db76b20c390d572f3ce5d9822a27ceb66eea85ac13a995852185469fb3a890a0",
+      "finishedAt": 1790208820.9908473,
+      "id": "pause-results",
+      "observations": [
+        {
+          "id": "PAUSE/results",
+          "value": "pause/resume state, undimmed header boundary, completion copy, score reset, and settings roundtrip"
+        }
+      ],
+      "originalFinishedAt": 1790208820.9908473,
+      "originalRunId": "20260924T001337Z-50553b6363dc",
+      "outcome": "passed",
+      "runId": "20260924T001337Z-50553b6363dc",
+      "schema": "astrotops-test-group-result.v1",
+      "seconds": 0.0,
+      "source": {
+        "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+        "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+        "dirty": false,
+        "exactTags": []
+      },
+      "status": "reused"
+    },
+    {
+      "artifact": null,
+      "assertions": 19,
+      "command": [
+        "{godot}",
+        "--rendering-method",
+        "gl_compatibility",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        "{repo}",
+        "--script",
+        "scripts/regression_tests.gd",
+        "--",
+        "--group",
+        "rendered-ui",
+        "--temp-root",
+        "{temp}",
+        "--evidence-root",
+        "{evidence}"
+      ],
+      "environment": {
+        "godot": "4.7.2.stable.official.ed1daf0bf",
+        "platform": "windows",
+        "python": "3.12.14",
+        "renderer": "gl_compatibility"
+      },
+      "evidence": [
+        "evidence/20260924T001337Z-50553b6363dc/rendered-ui/cockpit.png",
+        "evidence/20260924T001337Z-50553b6363dc/rendered-ui/countdown.png",
+        "evidence/20260924T001337Z-50553b6363dc/rendered-ui/menu.png",
+        "evidence/20260924T001337Z-50553b6363dc/rendered-ui/output.log",
+        "evidence/20260924T001337Z-50553b6363dc/rendered-ui/paused.png",
+        "evidence/20260924T001337Z-50553b6363dc/rendered-ui/playing.png",
+        "evidence/20260924T001337Z-50553b6363dc/rendered-ui/results.png",
+        "evidence/20260924T001337Z-50553b6363dc/rendered-ui/targets.png"
+      ],
+      "execution": "reused",
+      "exitCode": 0,
+      "failures": [],
+      "fingerprint": "43e43efb447ad340287a88bc4fbb5308330256c2dcaed1d4487efdc828755017",
+      "finishedAt": 1790208823.3690288,
+      "id": "rendered-ui",
+      "observations": [
+        {
+          "id": "RENDER/pause-differences",
+          "value": "{ \"header\": 72, \"playfield\": 46665 }"
+        },
+        {
+          "id": "RENDER/evidence",
+          "value": "[\"menu.png\", \"playing.png\", \"paused.png\", \"countdown.png\", \"results.png\", \"cockpit.png\", \"targets.png\"]"
+        }
+      ],
+      "originalFinishedAt": 1790208823.3690288,
+      "originalRunId": "20260924T001337Z-50553b6363dc",
+      "outcome": "passed",
+      "runId": "20260924T001337Z-50553b6363dc",
+      "schema": "astrotops-test-group-result.v1",
+      "seconds": 0.0,
+      "source": {
+        "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+        "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+        "dirty": false,
+        "exactTags": []
+      },
+      "status": "reused"
+    }
+  ],
+  "runId": "20260924T001411Z-50553b6363dc",
+  "schema": "astrotops-repository-tests.v1",
+  "selectedChecks": [
+    "audio-speech"
+  ],
+  "source": {
+    "commit": "50553b6363dca4ac484147843f04d8044c708dff",
+    "digest": "48a03cd79f63d8721f0930735949322b88b72726dba560831a6c61e39fc706a9",
+    "dirty": false,
+    "exactTags": []
+  },
+  "stage": "tests",
+  "startedAt": 1790208851.5802107,
+  "status": "passed"
+}
