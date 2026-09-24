@@ -132,11 +132,24 @@ class ArtifactIdentity:
 
 
 def resolve_source_identity(repo_root: pathlib.Path) -> SourceIdentity:
-    """Resolve current bytes, HEAD traceability, exact tags, and dirtiness."""
+    """Resolve current bytes, latest source commit, exact tags, and dirtiness."""
 
     repo_root = repo_root.resolve(strict=True)
-    commit = _git(repo_root, "rev-parse", "HEAD").stdout.strip()
-    tags = tuple(sorted(filter(None, _git(repo_root, "tag", "--points-at", "HEAD").stdout.splitlines())))
+    commit = _git(
+        repo_root,
+        "log",
+        "-1",
+        "--format=%H",
+        "--",
+        ".",
+        ":(exclude).build/**",
+        ":(exclude).test-results/**",
+    ).stdout.strip()
+    if not commit:
+        raise ValueError("The repository has no source commit outside result directories.")
+    tags = tuple(
+        sorted(filter(None, _git(repo_root, "tag", "--points-at", commit).stdout.splitlines()))
+    )
     return SourceIdentity(
         commit=commit,
         digest=_source_digest(repo_root),
