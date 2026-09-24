@@ -353,6 +353,48 @@ def load_group_result(path: pathlib.Path) -> dict[str, object] | None:
     return value if isinstance(value, dict) and value.get("schema") == GROUP_SCHEMA else None
 
 
+def applicable_qualified_artifact(
+    repo_root: pathlib.Path,
+    source_identity: SourceIdentity,
+) -> ArtifactIdentity | None:
+    """Reuse qualification only while source and exact artifact bytes still match."""
+
+    try:
+        report = json.loads(
+            (repo_root / ".test-results" / "tests.json").read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError):
+        return None
+    source = report.get("source") if isinstance(report, dict) else None
+    artifact = report.get("artifact") if isinstance(report, dict) else None
+    if (
+        not isinstance(report, dict)
+        or report.get("schema") != RESULT_SCHEMA
+        or report.get("outcome") != "passed"
+        or not isinstance(source, dict)
+        or source.get("commit") != source_identity.commit
+        or source.get("digest") != source_identity.digest
+        or not isinstance(artifact, dict)
+    ):
+        return None
+    version = artifact.get("version")
+    relative = artifact.get("artifactPath")
+    if not isinstance(version, str) or not isinstance(relative, str):
+        return None
+    try:
+        resolved = resolve_artifact_identity(
+            repo_root,
+            source_identity,
+            version,
+            repo_root.joinpath(*pathlib.PurePosixPath(relative).parts),
+        )
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    if resolved is None or resolved.portable() != artifact:
+        return None
+    return resolved
+
+
 def reused_result(previous: dict[str, object], source: dict[str, object]) -> dict[str, object]:
     result = dict(previous)
     result.update(
@@ -522,6 +564,10 @@ def main() -> int:
         artifact_identity = resolve_artifact_identity(
             repo_root, source_identity, args.source_tag, args.artifact
         )
+        if artifact_identity is None:
+            artifact_identity = applicable_qualified_artifact(
+                repo_root, source_identity
+            )
         store = ResultStore(
             repo_root,
             source_identity,
