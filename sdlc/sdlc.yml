@@ -75,6 +75,8 @@ deliverables:
             - run:
                 - godot
                 - --headless
+                - --quit-after
+                - "1"
                 - --path
                 - .
                 - --install-android-build-template
