@@ -1,5 +1,12 @@
 {
-  "artifact": null,
+  "artifact": {
+    "artifactLength": 82116774,
+    "artifactPath": ".build/artifacts/android/AstroTops.apk",
+    "artifactSha256": "fd273d45a96e924ae7efd005ef228b90acefe8ba0968b9f9c8ccd3bbdba8e72c",
+    "schema": "astrotops-build-record.v1",
+    "sourceCommit": "e95718f1ba6a72935d2b8f25adc670028d4d347c",
+    "version": "astrotops-local-20260924-e95718f"
+  },
   "assertions": 47,
   "command": [
     "{godot}",
@@ -23,13 +30,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260924T033922Z-e95718f1ba6a/menu-ui/output.log"
+    "evidence/20260924T043746Z-e95718f1ba6a/menu-ui/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "d95f0b46baf0b20661c1fe6d7bb3e90c6ebc61b5650154de20a2cac9cd1eeb64",
-  "finishedAt": 1790221162.5995276,
+  "fingerprint": "d27fd4fc26db3f035677894dacb5bc17ea7735a754e8d568bd32286a645eef3a",
+  "finishedAt": 1790224666.8993268,
   "id": "menu-ui",
   "observations": [
     {
@@ -42,14 +49,16 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260924T033922Z-e95718f1ba6a",
+  "runId": "20260924T043746Z-e95718f1ba6a",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.453,
+  "seconds": 0.378,
   "source": {
     "commit": "e95718f1ba6a72935d2b8f25adc670028d4d347c",
     "digest": "349714fe47c43fc223138e77f932eedc2ee89438f11ee2f19cd51fa65e628e7f",
     "dirty": false,
-    "exactTags": []
+    "exactTags": [
+      "astrotops-local-20260924-e95718f"
+    ]
   },
   "status": "passed"
 }
