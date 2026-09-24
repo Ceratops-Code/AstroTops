@@ -22,7 +22,7 @@
     ],
     "fileOwners": {
       "project.godot": ["menu-ui", "controls-countdown", "rendered-ui"],
-      "export_presets.cfg": ["menu-ui"],
+      "export_presets.cfg": ["menu-ui", "rendered-ui"],
       "main.tscn": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "gameplay-flow", "pause-results", "rendered-ui"],
       "scripts/main.gd": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "gameplay-flow", "pause-results", "rendered-ui"],
       "scripts/planet.gd": ["tractor-beam", "targets", "gameplay-flow", "rendered-ui"],
@@ -34,10 +34,15 @@
       "assets/ship_saucer.png": ["ships-pilots", "rendered-ui"],
       "assets/trixie.png": ["ships-pilots", "rendered-ui"],
       "assets/icon.svg": ["menu-ui", "rendered-ui"],
+      "assets/icon.svg.import": ["menu-ui", "rendered-ui"],
       "assets/icon_background.svg": ["menu-ui", "rendered-ui"],
+      "assets/icon_background.svg.import": ["menu-ui", "rendered-ui"],
       "assets/icon_foreground.svg": ["menu-ui", "rendered-ui"],
+      "assets/icon_foreground.svg.import": ["menu-ui", "rendered-ui"],
       "assets/icon_monochrome.svg": ["menu-ui", "rendered-ui"],
-      "assets/milky_way_background.jpg": ["menu-ui", "rendered-ui"],
+      "assets/icon_monochrome.svg.import": ["menu-ui", "rendered-ui"],
+      "assets/milky_way_background.png": ["menu-ui", "rendered-ui"],
+      "assets/milky_way_background.png.import": ["menu-ui", "rendered-ui"],
       "scripts/regression_tests.gd": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"],
       "scripts/regression_tests.gd.uid": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"],
       "scripts/run-tests.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui"],
@@ -48,7 +53,7 @@
     "fixtures": [
       {"id": "main-scene", "owner": "scripts/regression_tests.gd", "observation": "A fresh main scene uses an isolated settings file under the runner-owned temporary root."},
       {"id": "tractor-candidates", "owner": "scripts/regression_tests.gd", "observation": "Visible, hidden, captured, aligned, and close off-axis bodies exercise target selection."},
-      {"id": "rendered-surfaces", "owner": "scripts/regression_tests.gd", "observation": "Menu, play, pause, countdown, results, cockpit, Earth, captured black-hole, tractor debug field, and launcher-icon images are rendered by Godot."}
+      {"id": "rendered-surfaces", "owner": "scripts/regression_tests.gd", "observation": "Menu, play, pause, countdown, results, cockpit, Earth, captured black-hole, tractor debug field, standalone launcher icon, and circularly masked adaptive launcher icon are rendered by Godot."}
     ]
   },
   "requirements": [
@@ -57,6 +62,7 @@
     {"id": "MENU-03", "acceptance": "BEST TIME is explicit and its small reset control is centered below it.", "groups": ["menu-ui", "pause-results", "rendered-ui"], "observations": ["reset-centered", "reset-below-best", "reset-second-tap-clears", "menu.png"], "evidence": "runtime geometry, persisted behavior, and rendered image"},
     {"id": "MENU-04", "acceptance": "Selectors expose eight ships, at least ten colors, three pilots, mirrored arrow controls, and one common click effect.", "groups": ["menu-ui", "ships-pilots"], "observations": ["choice-counts", "arrow-mirror", "common-selector-click"], "evidence": "runtime state and emitted click signal"},
     {"id": "MENU-05", "acceptance": "The retired one-visible-target hint is absent from the main overlay.", "groups": ["menu-ui"], "observations": ["no-menu-overlay-hint"], "evidence": "actual overlay visibility and text"},
+    {"id": "BACKGROUND-01", "acceptance": "The approved 10-percent-dimmer generated Milky Way image loads as the portrait source and is visibly rotated, cropped, and composited across the game background.", "groups": ["menu-ui", "rendered-ui"], "observations": ["texture-loaded", "portrait-size", "rendered-background-difference", "menu.png"], "evidence": "runtime texture dimensions and actual Godot-rendered image comparison"},
     {"id": "COUNT-01", "acceptance": "Any keyboard key, gamepad button, or tap starts a large 5, 4, 3, 2, 1 countdown without listing those digits in the ready message.", "groups": ["controls-countdown", "rendered-ui"], "observations": ["visible-sequence", "gamepad-button-starts", "tap-starts", "countdown.png"], "evidence": "input-driven state transitions and rendered countdown"},
     {"id": "AUDIO-01", "acceptance": "The final tone remains two octaves below the beep, lasts twice as long, is louder, and has sharp upper harmonics.", "groups": ["audio-speech"], "observations": ["boop-frequency-ratio", "boop-double-duration", "boop-louder-pcm", "boop-louder-playback", "boop-bright-harmonics"], "evidence": "generated PCM and playback parameters"},
     {"id": "AUDIO-02", "acceptance": "Selection controls use the same short mechanical click.", "groups": ["menu-ui", "audio-speech"], "observations": ["common-selector-click", "click-is-short"], "evidence": "emitted click signal and generated PCM duration"},
@@ -81,9 +87,9 @@
     {"id": "RESULT-01", "acceptance": "Completion says MISSION COMPLETE!, omits retired celestial-course and Space Rush copy, hides the interim finale banner, and enlarges the pilot completion line.", "groups": ["pause-results", "rendered-ui"], "observations": ["no-finale-banner", "title", "no-retired-completion-copy", "pilot-line-size", "results.png"], "evidence": "overlay state, result model, and rendered image"},
     {"id": "RESULT-02", "acceptance": "The result transition hides the ship and retains the generated restrained finale shout.", "groups": ["audio-speech", "pause-results"], "observations": ["finale-shout-duration", "results-state", "ship-hidden"], "evidence": "generated audio duration and state transition"},
     {"id": "PERSIST-01", "acceptance": "Best time reset and tractor settings use the AstroTops storage identity and round-trip through an isolated settings file.", "groups": ["pause-results", "menu-ui"], "observations": ["reset-first-tap-arms", "reset-second-tap-clears", "best-time-roundtrip", "tractor-enabled-roundtrip", "package-id"], "evidence": "isolated ConfigFile roundtrip and package identity"},
-    {"id": "ICON-01", "acceptance": "The Android launcher uses a crisp space icon with a diagonal rocket and a distinct gold ringed planet instead of the old centered onion-like composition.", "groups": ["menu-ui", "rendered-ui"], "observations": ["icon-layer-references", "app-icon.png", "dark-space-background", "bright-diagonal-rocket", "gold-ringed-planet"], "evidence": "export configuration, loadable vector layers, rendered icon, and sampled visual landmarks"},
+    {"id": "ICON-01", "acceptance": "The Android launcher uses a crisp space icon with a diagonal rocket and a distinct gold ringed planet instead of the old centered onion-like composition, and those landmarks survive a circular adaptive-icon mask.", "groups": ["menu-ui", "rendered-ui"], "observations": ["icon-layer-references", "app-icon.png", "app-icon-adaptive.png", "dark-space-background", "bright-diagonal-rocket", "gold-ringed-planet", "adaptive-circular-mask", "adaptive-dark-space-background", "adaptive-bright-diagonal-rocket", "adaptive-gold-ringed-planet"], "evidence": "export configuration, loadable vector layers, rendered standalone and circularly masked adaptive compositions, and sampled visual landmarks"},
     {"id": "DELIVERY-01", "acceptance": "Android deployment rejects false-success ADB connections, skips reinstalling an exact installed APK, verifies changed installs by SHA-256, launches the app, and emits the declared structured receipt.", "groups": ["delivery-lifecycle"], "observations": ["false-success-connect-is-rejected", "exact-apk-skips-install", "installed-apk-is-verified", "exact-apk-launches", "deployment-receipt-schema", "deployment-receipt-hash"], "evidence": "isolated fake-ADB command outcomes and structured deployment result"},
-    {"id": "RENDER-01", "acceptance": "Menu, play, pause, countdown, results, cockpit, Earth, captured black hole, tractor debug field, and launcher icon are rendered by the actual Godot renderer and retained as bounded evidence.", "groups": ["rendered-ui"], "observations": ["menu.png", "playing.png", "paused.png", "countdown.png", "results.png", "cockpit.png", "targets.png", "tractor-debug.png", "app-icon.png"], "evidence": "rendered PNGs"}
+    {"id": "RENDER-01", "acceptance": "Menu, play, pause, countdown, results, cockpit, Earth, captured black hole, tractor debug field, standalone launcher icon, and circularly masked adaptive launcher icon are rendered by the actual Godot renderer and retained as bounded evidence.", "groups": ["rendered-ui"], "observations": ["menu.png", "playing.png", "paused.png", "countdown.png", "results.png", "cockpit.png", "targets.png", "tractor-debug.png", "app-icon.png", "app-icon-adaptive.png"], "evidence": "rendered PNGs"}
   ],
   "excludedFromRegression": [
     {"request": "Add Pluto", "reason": "The user explicitly identified this static content addition as not meaningful for regression coverage."}

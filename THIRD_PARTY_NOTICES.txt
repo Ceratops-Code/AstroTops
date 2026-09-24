@@ -37,6 +37,7 @@ These assets are dedicated to the public domain under Creative Commons Zero
 Milky Way Background
 ====================
 
-`assets/milky_way_background.jpg` was supplied by the project owner. No source
-license or attribution information was provided; redistribution rights must be
-confirmed before publishing this asset.
+`assets/milky_way_background.png` was generated specifically for AstroTops with
+OpenAI's built-in image-generation tool on 2026-09-24, using a project-owner-
+supplied image only as a composition and color-mood reference. No third-party
+source image is bundled as the game background.

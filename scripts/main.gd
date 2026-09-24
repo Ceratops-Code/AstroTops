@@ -164,8 +164,8 @@ func _ready() -> void:
 	_setup_tts()
 	_make_stars()
 	_load_settings()
-	if ResourceLoader.exists("res://assets/milky_way_background.jpg"):
-		milky_way_texture = load("res://assets/milky_way_background.jpg")
+	if ResourceLoader.exists("res://assets/milky_way_background.png"):
+		milky_way_texture = load("res://assets/milky_way_background.png")
 	_setup_overlay()
 	ship = ShipScene.new()
 	ship.z_index = 4
@@ -832,6 +832,9 @@ func _handle_system_button(position: Vector2) -> bool:
 
 
 func _handle_tractor_debug_sequence(button: String) -> bool:
+	# The hidden Back -> Reset -> Pause -> Close sequence exposes the diagnostic
+	# field without adding a normal-player control. Back waits briefly so a lone
+	# press still returns to the menu; a completed sequence consumes all presses.
 	var now := Time.get_ticks_msec()
 	if tractor_debug_sequence_index > 0 and now > tractor_debug_sequence_deadline_ms:
 		if _resolve_pending_debug_back():

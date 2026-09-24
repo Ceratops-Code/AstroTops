@@ -156,6 +156,9 @@ func _on_target_speech_enqueued(request: Dictionary) -> void:
 
 func _test_menu_ui() -> void:
 	var main: Variant = await _new_main(root)
+	_assert_true("BACKGROUND-01/texture-loaded", main.milky_way_texture != null, main.milky_way_texture, "loaded generated background")
+	if main.milky_way_texture != null:
+		_assert_equal("BACKGROUND-01/portrait-size", main.milky_way_texture.get_size(), Vector2(1024.0, 1536.0))
 	_assert_equal("MENU-01/project-name", ProjectSettings.get_setting("application/config/name"), "AstroTops")
 	var export_config := ConfigFile.new()
 	_assert_equal("MENU-01/export-preset-load", export_config.load("res://export_presets.cfg"), OK)
@@ -588,6 +591,19 @@ func _different_pixels(first: Image, second: Image, rect: Rect2i, threshold := 0
 	return differences
 
 
+func _circularly_masked(image: Image, center: Vector2, radius: float) -> Image:
+	# Android launchers may apply a circular adaptive-icon mask. Preserve the
+	# actual rendered layers while emulating that user-visible clipping shape.
+	var masked := image.duplicate()
+	var radius_squared := radius * radius
+	for y in range(masked.get_height()):
+		for x in range(masked.get_width()):
+			var delta := Vector2(float(x) + 0.5, float(y) + 0.5) - center
+			if delta.length_squared() > radius_squared:
+				masked.set_pixel(x, y, Color.TRANSPARENT)
+	return masked
+
+
 func _test_rendered_ui() -> void:
 	var viewport := SubViewport.new()
 	viewport.size = Vector2i(1280, 720)
@@ -599,6 +615,15 @@ func _test_rendered_ui() -> void:
 	main.queue_redraw()
 	var menu_image: Image = await _capture(viewport, "menu.png")
 	_assert_equal("RENDER-01/menu-size", menu_image.get_size(), Vector2i(1280, 720))
+	var background_texture: Texture2D = main.milky_way_texture
+	main.milky_way_texture = null
+	main.queue_redraw()
+	RenderingServer.force_draw()
+	await _wait_frames(3)
+	var no_background_image: Image = viewport.get_texture().get_image()
+	var background_difference := _different_pixels(menu_image, no_background_image, Rect2i(0, 0, 1280, 720), 0.02, 4)
+	_assert_true("BACKGROUND-01/rendered-background-difference", background_difference > 30000, background_difference, "> 30000 sampled pixels")
+	main.milky_way_texture = background_texture
 	main.state = main.GameState.PLAYING
 	main.elapsed_time = 8.72
 	main.captured_count = 0
@@ -712,6 +737,37 @@ func _test_rendered_ui() -> void:
 	_assert_true("ICON-01/dark-space-background", dark_space_luminance < 0.14, {"color": dark_space, "luminance": dark_space_luminance}, "luminance < 0.14")
 	_assert_true("ICON-01/bright-diagonal-rocket", bright_rocket.r + bright_rocket.g + bright_rocket.b > 1.65, bright_rocket, "bright rocket")
 	_assert_true("ICON-01/gold-ringed-planet", gold_planet.r > gold_planet.b * 1.45, gold_planet, "gold planet")
+
+	var adaptive_viewport := SubViewport.new()
+	adaptive_viewport.size = Vector2i(512, 512)
+	adaptive_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(adaptive_viewport)
+	var adaptive_background := TextureRect.new()
+	adaptive_background.size = Vector2(512.0, 512.0)
+	adaptive_background.texture = load("res://assets/icon_background.svg")
+	adaptive_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	adaptive_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	adaptive_viewport.add_child(adaptive_background)
+	var adaptive_foreground := TextureRect.new()
+	adaptive_foreground.size = Vector2(512.0, 512.0)
+	adaptive_foreground.texture = load("res://assets/icon_foreground.svg")
+	adaptive_foreground.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	adaptive_foreground.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	adaptive_viewport.add_child(adaptive_foreground)
+	var adaptive_composite: Image = await _capture(adaptive_viewport, "app-icon-adaptive.png")
+	var adaptive_image := _circularly_masked(adaptive_composite, Vector2(256.0, 256.0), 236.0)
+	var adaptive_save_error := adaptive_image.save_png(evidence_root.path_join("app-icon-adaptive.png"))
+	_assert_equal("ICON-01/adaptive-mask-save", adaptive_save_error, OK)
+	_assert_equal("ICON-01/adaptive-render-size", adaptive_image.get_size(), Vector2i(512, 512))
+	var adaptive_corner := adaptive_image.get_pixel(0, 0)
+	var adaptive_space := adaptive_image.get_pixel(256, 40)
+	var adaptive_rocket := adaptive_image.get_pixel(373, 112)
+	var adaptive_planet := adaptive_image.get_pixel(145, 330)
+	var adaptive_space_luminance := (adaptive_space.r + adaptive_space.g + adaptive_space.b) / 3.0
+	_assert_true("ICON-01/adaptive-circular-mask", adaptive_corner.a < 0.01, adaptive_corner, "transparent clipped corner")
+	_assert_true("ICON-01/adaptive-dark-space-background", adaptive_space.a > 0.99 and adaptive_space_luminance < 0.14, adaptive_space, "opaque dark space")
+	_assert_true("ICON-01/adaptive-bright-diagonal-rocket", adaptive_rocket.a > 0.99 and adaptive_rocket.r + adaptive_rocket.g + adaptive_rocket.b > 1.65, adaptive_rocket, "visible bright rocket")
+	_assert_true("ICON-01/adaptive-gold-ringed-planet", adaptive_planet.a > 0.99 and adaptive_planet.r > adaptive_planet.b * 1.45, adaptive_planet, "visible gold planet")
 	_observe("RENDER/evidence", evidence)
 
 

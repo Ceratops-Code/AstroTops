@@ -13,7 +13,9 @@ compares the qualified APK with the installed base APK before mutation, skips a
 redundant reinstall when the hashes match, verifies changed installs, launches
 the app, and emits the declared deployment receipt.
 
-The grouped test runner is the only metadata writer. A candidate run made with
-`--source-tag` and `--artifact` binds its results to the exact package bytes.
-Delivery uses `--verify-delivery`; it checks those retained outcomes and bytes
-without rebuilding or rerunning tests.
+`scripts/result_records.py` and its `ResultStore` are the sole storage owner for
+tracked validation, grouped-test, and build metadata. The grouped test runner
+and repository validator call that owner instead of writing records directly.
+A candidate run made with `--source-tag` and `--artifact` binds its results to
+the exact package bytes. Delivery uses `--verify-delivery`; it checks those
+retained outcomes and bytes without rebuilding or rerunning tests.

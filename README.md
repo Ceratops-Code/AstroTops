@@ -18,8 +18,10 @@ start the animated `5` to `1` countdown. The in-game header also provides Back,
 Reset, Pause/Resume, Close, and tractor-beam controls. The beam pulls at most
 one uncaptured, currently visible target inside a course-aligned pear-shaped
 field. The field is wider close to the ship and tapers over its shortened
-range; debug builds show its outline. The slider controls both pull strength
-and range, with pull strength rising on a gentler curve; its value and on/off
+range. Its diagnostic outline is hidden by default; pressing Back, Reset,
+Pause/Resume, then Close in sequence toggles it without performing those four
+actions. The slider controls both pull strength and range, with pull strength
+rising on a gentler curve; its value and on/off
 state are saved between runs. Captured names use the device's English
 text-to-speech voice at normal speed, one at a time with no intentional gap.
 The countdown uses five short beeps followed by a sharper, louder final tone
@@ -30,11 +32,14 @@ derived from the beep at one-quarter frequency and twice its duration.
 Open this folder in Godot 4.7.2 and run the project. The prototype uses Godot's
 GL Compatibility renderer so it can later target Android with the same project.
 
+The authoritative architecture and lifecycle description is in
+[`docs/design.md`](docs/design.md).
+
 Trixie's source artwork is stored in `assets/trixie.png`. Ship sprites and sound
 effects are CC0 assets from Kenney; planets, the black hole, meteors, and visual
-effects are drawn procedurally at runtime. The Milky Way source image is stored
-in `assets/milky_way_background.jpg` and is rotated, cropped, and dimmed by the
-game at runtime.
+effects are drawn procedurally at runtime. The generated Milky Way image is
+stored in `assets/milky_way_background.png` and is rotated, cropped, and dimmed
+by the game at runtime.
 
 ## Prototype builds
 

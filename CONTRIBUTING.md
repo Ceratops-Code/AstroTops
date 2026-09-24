@@ -6,8 +6,8 @@ keyboard, gamepad, or touch input.
 ## Rules
 
 - Keep gameplay compatible with Godot 4.7.2 and the GL Compatibility renderer.
-- Preserve the compressed Solar System size hierarchy and recognizable planet
-  designs.
+- Preserve the compressed celestial-target size hierarchy and recognizable
+  planet designs.
 - Keep keyboard, gamepad, and touch behavior aligned when changing controls.
 - Do not commit generated `.godot`, `android`, `.build/artifacts`, or
   `.test-results/evidence` directories.
