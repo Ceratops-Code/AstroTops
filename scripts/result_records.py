@@ -19,6 +19,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Iterable
 
@@ -29,6 +30,14 @@ BUILD_SCHEMA = "astrotops-build-record.v1"
 _EXCLUDED_SOURCE_PREFIXES = (".build/", ".test-results/")
 _SAFE_TAG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 _ARTIFACT_TYPE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
+_ANDROID_PACKAGE = re.compile(
+    r"^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$"
+)
+_ANDROID_COMPONENT = re.compile(
+    r"^[A-Za-z][A-Za-z0-9_.]*/[A-Za-z][A-Za-z0-9_.]*$"
+)
+_REMOTE_APK_PATH = re.compile(r"^/[A-Za-z0-9._~+/=-]+/base\.apk$")
+CommandRunner = Callable[[list[str]], subprocess.CompletedProcess[str]]
 
 
 def _git(repo_root: pathlib.Path, *arguments: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -369,19 +378,185 @@ def build_result(
     }
 
 
+def _run_command(arguments: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run one deployment command without a shell or inherited output."""
+
+    return subprocess.run(
+        arguments,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
+def _command_output(result: subprocess.CompletedProcess[str]) -> str:
+    return "\n".join(part.strip() for part in (result.stdout, result.stderr) if part.strip())
+
+
+def _require_command(
+    result: subprocess.CompletedProcess[str],
+    action: str,
+) -> str:
+    """Reject nonzero or semantically empty ADB outcomes with bounded diagnostics."""
+
+    output = _command_output(result)
+    if result.returncode != 0:
+        raise ValueError(f"{action} failed: {output[:512] or f'exit {result.returncode}'}")
+    return output
+
+
+def _installed_apk_hash(
+    adb_executable: str,
+    device: str,
+    package: str,
+    run: CommandRunner,
+) -> str | None:
+    """Return the exact installed base APK hash, or None when absent."""
+
+    path_result = run(
+        [adb_executable, "-s", device, "shell", "pm", "path", package]
+    )
+    output = _require_command(path_result, "query installed package")
+    paths = [
+        line.removeprefix("package:").strip()
+        for line in output.splitlines()
+        if line.startswith("package:")
+    ]
+    if not paths:
+        return None
+    if len(paths) != 1 or not _REMOTE_APK_PATH.fullmatch(paths[0]):
+        raise ValueError("installed package did not expose one safe base APK path")
+    hash_result = run(
+        [adb_executable, "-s", device, "shell", "sha256sum", paths[0]]
+    )
+    hash_output = _require_command(hash_result, "hash installed package")
+    fields = hash_output.split()
+    if len(fields) < 2 or not re.fullmatch(r"[0-9a-f]{64}", fields[0]):
+        raise ValueError("installed package did not produce a valid SHA-256")
+    return fields[0]
+
+
+def android_deploy_result(
+    repo_root: pathlib.Path,
+    *,
+    adb_executable: str,
+    device: str,
+    package: str,
+    activity: str,
+    artifact: pathlib.Path,
+    artifact_type: str,
+    run: CommandRunner = _run_command,
+) -> dict[str, object]:
+    """Install only changed APK bytes, launch them, and emit one deployment receipt.
+
+    A previous successful install can be resumed safely after receipt loss: the
+    on-device base APK is hashed first and ``adb install`` is skipped when those
+    bytes already match. Connection and launch output are checked because ADB
+    can return exit code zero while reporting a failed connection in text.
+    """
+
+    if not device.strip() or any(ord(character) < 32 for character in device):
+        raise ValueError("device must be a nonempty printable ADB target")
+    if not _ANDROID_PACKAGE.fullmatch(package):
+        raise ValueError("package must be a dotted Android identifier")
+    if not _ANDROID_COMPONENT.fullmatch(activity) or not activity.startswith(package + "/"):
+        raise ValueError("activity must be a component inside the selected package")
+    build = build_result(repo_root, artifact, artifact_type)
+    descriptor = build["artifact"]
+    if not isinstance(descriptor, dict):
+        raise ValueError("artifact descriptor is unavailable")
+
+    connect = run([adb_executable, "connect", device])
+    connect_output = _require_command(connect, "connect Android device")
+    if not any(
+        marker in connect_output.lower()
+        for marker in ("connected to", "already connected to")
+    ):
+        raise ValueError(f"ADB did not establish the requested connection: {connect_output[:512]}")
+
+    expected_hash = str(descriptor["sha256"])
+    installed_hash = _installed_apk_hash(
+        adb_executable, device, package, run
+    )
+    if installed_hash != expected_hash:
+        install = run(
+            [
+                adb_executable,
+                "-s",
+                device,
+                "install",
+                "-r",
+                str(artifact.expanduser().resolve(strict=True)),
+            ]
+        )
+        install_output = _require_command(install, "install Android package")
+        if not any(line.strip() == "Success" for line in install_output.splitlines()):
+            raise ValueError(f"ADB did not confirm installation: {install_output[:512]}")
+        installed_hash = _installed_apk_hash(
+            adb_executable, device, package, run
+        )
+    if installed_hash != expected_hash:
+        raise ValueError(
+            f"installed APK hash mismatch: expected={expected_hash} actual={installed_hash}"
+        )
+
+    launch = run(
+        [
+            adb_executable,
+            "-s",
+            device,
+            "shell",
+            "am",
+            "start",
+            "-W",
+            "-n",
+            activity,
+        ]
+    )
+    launch_output = _require_command(launch, "launch Android package")
+    if not any(line.strip() == "Status: ok" for line in launch_output.splitlines()):
+        raise ValueError(f"Android did not confirm a successful launch: {launch_output[:512]}")
+    return {
+        "schema": "ceratops-deployment-result.v1",
+        "status": "passed",
+        "target": device,
+        "artifact": descriptor,
+    }
+
+
 def main() -> int:
-    """Emit the structured result owned by a completed SDLC package build."""
+    """Emit structured package-build or idempotent Android-deployment results."""
 
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     build_parser = subparsers.add_parser("build-result")
     build_parser.add_argument("--artifact", type=pathlib.Path, required=True)
     build_parser.add_argument("--type", required=True)
+    deploy_parser = subparsers.add_parser("android-deploy")
+    deploy_parser.add_argument("--adb-executable", required=True)
+    deploy_parser.add_argument("--device", required=True)
+    deploy_parser.add_argument("--package", required=True)
+    deploy_parser.add_argument("--activity", required=True)
+    deploy_parser.add_argument("--artifact", type=pathlib.Path, required=True)
+    deploy_parser.add_argument("--type", required=True)
     args = parser.parse_args()
     repo_root = pathlib.Path(__file__).resolve().parents[1]
     try:
-        result = build_result(repo_root, args.artifact, args.type)
-    except (OSError, ValueError) as error:
+        if args.command == "build-result":
+            result = build_result(repo_root, args.artifact, args.type)
+        else:
+            result = android_deploy_result(
+                repo_root,
+                adb_executable=args.adb_executable,
+                device=args.device,
+                package=args.package,
+                activity=args.activity,
+                artifact=args.artifact,
+                artifact_type=args.type,
+            )
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
         print(str(error), file=sys.stderr)
         return 1
     print(json.dumps(result, separators=(",", ":")))

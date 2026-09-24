@@ -56,9 +56,9 @@ signature can be installed.
 
 ## Automated gameplay tests
 
-`scripts/run-tests.py` owns nine persistent groups covering menus, controls,
+`scripts/run-tests.py` owns ten persistent groups covering menus, controls,
 countdown, speech and tones, tractor-beam behavior, targets, ships and pilots,
-pause/results, and rendered UI. The acceptance map is
+pause/results, Android delivery, and rendered UI. The acceptance map is
 `docs/feature-acceptance.json`.
 
 Run the whole suite with Godot 4.7.2 on `PATH`:

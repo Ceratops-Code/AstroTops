@@ -12,6 +12,7 @@ and leaves compact assertion differences in both the console and bounded
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import pathlib
@@ -34,6 +35,7 @@ from result_records import (  # noqa: E402
     ArtifactIdentity,
     ResultStore,
     SourceIdentity,
+    android_deploy_result,
     group_fingerprint,
     resolve_artifact_identity,
     resolve_source_identity,
@@ -70,7 +72,7 @@ def load_inventory(repo_root: pathlib.Path) -> tuple[dict[str, object], list[dic
     if len(set(group_ids)) != len(group_ids):
         raise ValueError("Every test group needs one unique id.")
     for item in validated_groups:
-        if item.get("mode") not in ("headless", "rendered"):
+        if item.get("mode") not in ("headless", "rendered", "python"):
             raise ValueError(f"Test group {item.get('id')!r} has an unsupported mode.")
     declared = set(group_ids)
     for relative, selected in owners.items():
@@ -169,6 +171,184 @@ def parse_godot_result(stdout: str) -> dict[str, object]:
     raise ValueError("Godot did not emit a structured test result.")
 
 
+def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, object]:
+    """Exercise deployment resumption without contacting or modifying a device."""
+
+    fake_repo = temporary_root / "repo"
+    artifact = fake_repo / ".build" / "artifacts" / "android" / "AstroTops.apk"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_bytes(b"qualified-astrotops-apk")
+    expected_hash = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    device = "192.0.2.10:12345"
+    package = "com.ceratopscode.astrotops"
+    activity = package + "/com.godot.game.GodotAppLauncher"
+    remote_path = "/data/app/~~probe/com.ceratopscode.astrotops-probe/base.apk"
+    failures: list[dict[str, object]] = []
+    observations: list[dict[str, object]] = []
+    assertions = 0
+
+    def check(identifier: str, expected: object, actual: object) -> None:
+        nonlocal assertions
+        assertions += 1
+        observations.append({"id": identifier, "actual": actual})
+        if actual != expected:
+            failures.append({"id": identifier, "expected": expected, "actual": actual})
+
+    class FakeAdb:
+        def __init__(self, installed_hash: str | None, connect_output: str) -> None:
+            self.installed_hash = installed_hash
+            self.connect_output = connect_output
+            self.installs = 0
+            self.launches = 0
+
+        def __call__(self, arguments: list[str]) -> subprocess.CompletedProcess[str]:
+            if arguments[1:2] == ["connect"]:
+                return subprocess.CompletedProcess(arguments, 0, self.connect_output + "\n", "")
+            if arguments[-3:] == ["pm", "path", package]:
+                output = f"package:{remote_path}\n" if self.installed_hash else ""
+                return subprocess.CompletedProcess(arguments, 0, output, "")
+            if len(arguments) >= 2 and arguments[-2] == "sha256sum":
+                output = f"{self.installed_hash}  {remote_path}\n"
+                return subprocess.CompletedProcess(arguments, 0, output, "")
+            if "install" in arguments:
+                self.installs += 1
+                self.installed_hash = expected_hash
+                return subprocess.CompletedProcess(arguments, 0, "Success\n", "")
+            if arguments[-5:-2] == ["am", "start", "-W"]:
+                self.launches += 1
+                return subprocess.CompletedProcess(arguments, 0, "Status: ok\n", "")
+            return subprocess.CompletedProcess(arguments, 97, "", "unexpected fake ADB command")
+
+    exact = FakeAdb(expected_hash, f"connected to {device}")
+    exact_receipt = android_deploy_result(
+        fake_repo,
+        adb_executable="adb",
+        device=device,
+        package=package,
+        activity=activity,
+        artifact=artifact,
+        artifact_type="android-apk",
+        run=exact,
+    )
+    check("exact-apk-skips-install", 0, exact.installs)
+    check("exact-apk-launches", 1, exact.launches)
+    check("deployment-receipt-schema", "ceratops-deployment-result.v1", exact_receipt.get("schema"))
+    descriptor = exact_receipt.get("artifact")
+    check(
+        "deployment-receipt-hash",
+        expected_hash,
+        descriptor.get("sha256") if isinstance(descriptor, dict) else None,
+    )
+
+    changed = FakeAdb("0" * 64, f"already connected to {device}")
+    android_deploy_result(
+        fake_repo,
+        adb_executable="adb",
+        device=device,
+        package=package,
+        activity=activity,
+        artifact=artifact,
+        artifact_type="android-apk",
+        run=changed,
+    )
+    check("changed-apk-installs-once", 1, changed.installs)
+    check("installed-apk-is-verified", expected_hash, changed.installed_hash)
+
+    false_success = FakeAdb(expected_hash, f"cannot connect to {device}")
+    try:
+        android_deploy_result(
+            fake_repo,
+            adb_executable="adb",
+            device=device,
+            package=package,
+            activity=activity,
+            artifact=artifact,
+            artifact_type="android-apk",
+            run=false_success,
+        )
+    except ValueError as error:
+        connection_error = "did not establish" in str(error)
+    else:
+        connection_error = False
+    check("false-success-connect-is-rejected", True, connection_error)
+    return {
+        "group": "delivery-lifecycle",
+        "status": "passed" if not failures else "failed",
+        "assertions": assertions,
+        "failures": failures,
+        "observations": observations,
+        "evidence": [],
+    }
+
+
+def run_python_group(
+    group_id: str,
+    fingerprint: str,
+    source: dict[str, object],
+    environment: dict[str, object],
+    group_evidence: pathlib.Path,
+    run_id: str,
+    artifact: dict[str, object] | None,
+    started: float,
+) -> dict[str, object]:
+    """Run one in-process infrastructure group with isolated test data."""
+
+    with tempfile.TemporaryDirectory(prefix=f"astrotops-{group_id}-") as temporary:
+        if group_id == "delivery-lifecycle":
+            payload = deployment_lifecycle_payload(pathlib.Path(temporary))
+        else:
+            payload = {
+                "group": group_id,
+                "status": "failed",
+                "assertions": 0,
+                "failures": [
+                    {
+                        "id": "runner/python-group",
+                        "expected": "registered Python group",
+                        "actual": group_id,
+                    }
+                ],
+                "observations": [],
+                "evidence": [],
+            }
+    failures = [dict(item) for item in payload["failures"]]
+    passed = payload["status"] == "passed" and not failures
+    log_path = group_evidence / "output.log"
+    log_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    for failure in failures:
+        print(
+            f"{group_id}/{failure.get('id')} "
+            f"expected={failure.get('expected')} actual={failure.get('actual')}",
+            file=sys.stderr,
+        )
+    return {
+        "schema": GROUP_SCHEMA,
+        "id": group_id,
+        "status": "passed" if passed else "failed",
+        "outcome": "passed" if passed else "failed",
+        "execution": "executed",
+        "fingerprint": fingerprint,
+        "exitCode": 0 if passed else 1,
+        "seconds": round(time.time() - started, 3),
+        "runId": run_id,
+        "source": source,
+        "environment": environment,
+        "artifact": artifact,
+        "command": ["{python}", "scripts/run-tests.py", "--group", group_id],
+        "assertions": payload["assertions"],
+        "failures": failures,
+        "observations": payload["observations"],
+        "evidence": [
+            log_path.relative_to(group_evidence.parents[2]).as_posix()
+        ],
+        "finishedAt": time.time(),
+    }
+
+
 def run_group(
     repo_root: pathlib.Path,
     godot: pathlib.Path,
@@ -187,6 +367,17 @@ def run_group(
     group_evidence = evidence_root / group_id
     group_evidence.mkdir(parents=True, exist_ok=True)
     started = time.time()
+    if mode == "python":
+        return run_python_group(
+            group_id,
+            fingerprint,
+            source,
+            environment,
+            group_evidence,
+            run_id,
+            artifact,
+            started,
+        )
     with tempfile.TemporaryDirectory(prefix=f"astrotops-{group_id}-") as temporary:
         command: list[str] = []
         if mode == "rendered" and sys.platform.startswith("linux"):

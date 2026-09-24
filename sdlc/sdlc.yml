@@ -135,31 +135,20 @@ deliverables:
                 - --artifact
                 - .build/artifacts/android/AstroTops.apk
             - run:
+                - uv
+                - run
+                - --locked
+                - scripts/result_records.py
+                - android-deploy
+                - --adb-executable
                 - "{adb_executable}"
-                - connect
+                - --device
                 - "{device}"
-            - run:
-                - "{adb_executable}"
-                - -s
-                - "{device}"
-                - install
-                - -r
-                - .build/artifacts/android/AstroTops.apk
-            - run:
-                - "{adb_executable}"
-                - -s
-                - "{device}"
-                - shell
-                - am
-                - start
-                - -W
-                - -n
-                - com.ceratopscode.astrotops/com.godot.game.GodotAppLauncher
-            - run:
-                - "{adb_executable}"
-                - -s
-                - "{device}"
-                - shell
-                - pm
-                - path
+                - --package
                 - com.ceratopscode.astrotops
+                - --activity
+                - com.ceratopscode.astrotops/com.godot.game.GodotAppLauncher
+                - --artifact
+                - .build/artifacts/android/AstroTops.apk
+                - --type
+                - android-apk

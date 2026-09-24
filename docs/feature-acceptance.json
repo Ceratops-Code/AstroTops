@@ -17,6 +17,7 @@
       {"id": "ships-pilots", "mode": "headless"},
       {"id": "gameplay-flow", "mode": "headless"},
       {"id": "pause-results", "mode": "headless"},
+      {"id": "delivery-lifecycle", "mode": "python"},
       {"id": "rendered-ui", "mode": "rendered"}
     ],
     "fileOwners": {
@@ -35,9 +36,10 @@
       "assets/milky_way_background.jpg": ["menu-ui", "rendered-ui"],
       "scripts/regression_tests.gd": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"],
       "scripts/regression_tests.gd.uid": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"],
-      "scripts/run-tests.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"],
-      "scripts/result_records.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"],
-      "docs/feature-acceptance.json": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"]
+      "scripts/run-tests.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui"],
+      "scripts/result_records.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui"],
+      "sdlc/sdlc.yml": ["delivery-lifecycle"],
+      "docs/feature-acceptance.json": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui"]
     },
     "fixtures": [
       {"id": "main-scene", "owner": "scripts/regression_tests.gd", "observation": "A fresh main scene uses an isolated settings file under the runner-owned temporary root."},
@@ -74,6 +76,7 @@
     {"id": "RESULT-01", "acceptance": "Completion says MISSION COMPLETE!, omits retired celestial-course and Space Rush copy, hides the interim finale banner, and enlarges the pilot completion line.", "groups": ["pause-results", "rendered-ui"], "observations": ["no-finale-banner", "title", "no-retired-completion-copy", "pilot-line-size", "results.png"], "evidence": "overlay state, result model, and rendered image"},
     {"id": "RESULT-02", "acceptance": "The result transition hides the ship and retains the generated restrained finale shout.", "groups": ["audio-speech", "pause-results"], "observations": ["finale-shout-duration", "results-state", "ship-hidden"], "evidence": "generated audio duration and state transition"},
     {"id": "PERSIST-01", "acceptance": "Best time reset and tractor settings use the AstroTops storage identity and round-trip through an isolated settings file.", "groups": ["pause-results", "menu-ui"], "observations": ["reset-first-tap-arms", "reset-second-tap-clears", "best-time-roundtrip", "tractor-enabled-roundtrip", "package-id"], "evidence": "isolated ConfigFile roundtrip and package identity"},
+    {"id": "DELIVERY-01", "acceptance": "Android deployment rejects false-success ADB connections, skips reinstalling an exact installed APK, verifies changed installs by SHA-256, launches the app, and emits the declared structured receipt.", "groups": ["delivery-lifecycle"], "observations": ["false-success-connect-is-rejected", "exact-apk-skips-install", "installed-apk-is-verified", "exact-apk-launches", "deployment-receipt-schema", "deployment-receipt-hash"], "evidence": "isolated fake-ADB command outcomes and structured deployment result"},
     {"id": "RENDER-01", "acceptance": "Menu, play, pause, countdown, results, cockpit, Earth, and captured black hole are rendered by the actual Godot renderer and retained as bounded evidence.", "groups": ["rendered-ui"], "observations": ["menu.png", "playing.png", "paused.png", "countdown.png", "results.png", "cockpit.png", "targets.png"], "evidence": "rendered PNGs"}
   ],
   "excludedFromRegression": [
