@@ -6,7 +6,7 @@
   },
   "evidence": [],
   "failures": [],
-  "finishedAt": "2026-09-24T03:06:25.585796+00:00",
+  "finishedAt": "2026-09-24T03:39:17.038686+00:00",
   "outcome": "passed",
   "requiredChecks": [
     "repository-contract",
@@ -27,7 +27,7 @@
       "exitCode": 0,
       "id": "repository-contract",
       "outcome": "passed",
-      "seconds": 0.965,
+      "seconds": 0.781,
       "status": "passed"
     },
     {
@@ -43,7 +43,7 @@
       "exitCode": 0,
       "id": "npm-markdown-lint",
       "outcome": "passed",
-      "seconds": 0.556,
+      "seconds": 0.874,
       "status": "passed"
     },
     {
@@ -61,7 +61,7 @@
       "exitCode": 0,
       "id": "ruff",
       "outcome": "passed",
-      "seconds": 0.105,
+      "seconds": 0.559,
       "status": "passed"
     },
     {
@@ -77,7 +77,7 @@
       "exitCode": 0,
       "id": "mypy",
       "outcome": "passed",
-      "seconds": 0.619,
+      "seconds": 0.438,
       "status": "passed"
     },
     {
@@ -90,16 +90,16 @@
       "exitCode": 0,
       "id": "actionlint",
       "outcome": "passed",
-      "seconds": 0.284,
+      "seconds": 0.279,
       "status": "passed"
     }
   ],
-  "runId": "20260924T030623.025376Z",
+  "runId": "20260924T033914.075378Z",
   "schema": "astrotops-repository-validation.v1",
   "scope": "repository",
   "source": {
-    "commit": "826b54c384fde1b03b39b5a45ca7c331fa1429c1",
-    "digest": "13882bf12151c1f8bb5c50cd806c9b151328861edcf4a3f52750392e17e0028f",
+    "commit": "e95718f1ba6a72935d2b8f25adc670028d4d347c",
+    "digest": "349714fe47c43fc223138e77f932eedc2ee89438f11ee2f19cd51fa65e628e7f",
     "dirty": false,
     "exactTags": []
   },
