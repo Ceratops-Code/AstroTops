@@ -26,20 +26,20 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260924T001638Z-d6b80b08036c/rendered-ui/cockpit.png",
-    "evidence/20260924T001638Z-d6b80b08036c/rendered-ui/countdown.png",
-    "evidence/20260924T001638Z-d6b80b08036c/rendered-ui/menu.png",
-    "evidence/20260924T001638Z-d6b80b08036c/rendered-ui/output.log",
-    "evidence/20260924T001638Z-d6b80b08036c/rendered-ui/paused.png",
-    "evidence/20260924T001638Z-d6b80b08036c/rendered-ui/playing.png",
-    "evidence/20260924T001638Z-d6b80b08036c/rendered-ui/results.png",
-    "evidence/20260924T001638Z-d6b80b08036c/rendered-ui/targets.png"
+    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/cockpit.png",
+    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/countdown.png",
+    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/menu.png",
+    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/output.log",
+    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/paused.png",
+    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/playing.png",
+    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/results.png",
+    "evidence/20260924T004118Z-d5d1633180f7/rendered-ui/targets.png"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "f88b626921a98bf18138b11079e9abd62b9a009fd9adcbb135dfc21b2b01936b",
-  "finishedAt": 1790209004.691841,
+  "fingerprint": "262e393803f5e15f98dc61fa92f0a577bf268b0d6ace334f8f4b403e04905b50",
+  "finishedAt": 1790210484.1279995,
   "id": "rendered-ui",
   "observations": [
     {
@@ -52,12 +52,12 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260924T001638Z-d6b80b08036c",
+  "runId": "20260924T004118Z-d5d1633180f7",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 2.603,
+  "seconds": 2.424,
   "source": {
-    "commit": "d6b80b08036c51f5151545a76e37fdc96e06116f",
-    "digest": "e243988b93ec06dd68c6ae2faf7585733108a2f5c5cf8d0b8b4d1b13f23d22ab",
+    "commit": "d5d1633180f7cb7c50417cc30c15be2a2a6b5d81",
+    "digest": "7a8bfc571218fb6a2a9f0a55dcdcb5ba10a9fce43c4395c0475ac33329d0edd5",
     "dirty": false,
     "exactTags": []
   },
