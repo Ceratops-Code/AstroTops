@@ -1,5 +1,12 @@
 {
-  "artifact": null,
+  "artifact": {
+    "artifactLength": 81967070,
+    "artifactPath": ".build/artifacts/android/AstroTops.apk",
+    "artifactSha256": "fd64ef42dc4eec55867e227cf6c3db222b29e4da8f73bcededfd7eecb2370519",
+    "schema": "astrotops-build-record.v1",
+    "sourceCommit": "76047055b741d8febd752ac9260f0f9216c7e8be",
+    "version": "astrotops-local-20260924-7604705"
+  },
   "assertions": 19,
   "command": [
     "{godot}",
@@ -26,20 +33,20 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260924T022720Z-76047055b741/rendered-ui/cockpit.png",
-    "evidence/20260924T022720Z-76047055b741/rendered-ui/countdown.png",
-    "evidence/20260924T022720Z-76047055b741/rendered-ui/menu.png",
-    "evidence/20260924T022720Z-76047055b741/rendered-ui/output.log",
-    "evidence/20260924T022720Z-76047055b741/rendered-ui/paused.png",
-    "evidence/20260924T022720Z-76047055b741/rendered-ui/playing.png",
-    "evidence/20260924T022720Z-76047055b741/rendered-ui/results.png",
-    "evidence/20260924T022720Z-76047055b741/rendered-ui/targets.png"
+    "evidence/20260924T022907Z-76047055b741/rendered-ui/cockpit.png",
+    "evidence/20260924T022907Z-76047055b741/rendered-ui/countdown.png",
+    "evidence/20260924T022907Z-76047055b741/rendered-ui/menu.png",
+    "evidence/20260924T022907Z-76047055b741/rendered-ui/output.log",
+    "evidence/20260924T022907Z-76047055b741/rendered-ui/paused.png",
+    "evidence/20260924T022907Z-76047055b741/rendered-ui/playing.png",
+    "evidence/20260924T022907Z-76047055b741/rendered-ui/results.png",
+    "evidence/20260924T022907Z-76047055b741/rendered-ui/targets.png"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "9bfa182c5953485e3cac835dbb7856e667c7c686e9d108bf43c2021e1324755d",
-  "finishedAt": 1790216845.923627,
+  "fingerprint": "b3ae494dc4dda0ad0e9144c4f093d053d4d800283e46547b27c73a286f710815",
+  "finishedAt": 1790216952.4009502,
   "id": "rendered-ui",
   "observations": [
     {
@@ -52,9 +59,9 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260924T022720Z-76047055b741",
+  "runId": "20260924T022907Z-76047055b741",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 2.31,
+  "seconds": 2.321,
   "source": {
     "commit": "76047055b741d8febd752ac9260f0f9216c7e8be",
     "digest": "7d432a1bbefa33aea2b9d0cf4c76069e6d147d5ba60147d2f28ca5002f690f80",

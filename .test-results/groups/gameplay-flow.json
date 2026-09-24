@@ -1,5 +1,12 @@
 {
-  "artifact": null,
+  "artifact": {
+    "artifactLength": 81967070,
+    "artifactPath": ".build/artifacts/android/AstroTops.apk",
+    "artifactSha256": "fd64ef42dc4eec55867e227cf6c3db222b29e4da8f73bcededfd7eecb2370519",
+    "schema": "astrotops-build-record.v1",
+    "sourceCommit": "76047055b741d8febd752ac9260f0f9216c7e8be",
+    "version": "astrotops-local-20260924-7604705"
+  },
   "assertions": 17,
   "command": [
     "{godot}",
@@ -23,13 +30,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260924T022720Z-76047055b741/gameplay-flow/output.log"
+    "evidence/20260924T022907Z-76047055b741/gameplay-flow/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "fd0970b8322ad09919d56568f86bc8da47664dcbad225ac15d868a487c42bde8",
-  "finishedAt": 1790216843.2412214,
+  "fingerprint": "b7ec2341644c7d7c4a71e7174f9b0828865af8f196e6b4f0710df41e953c377b",
+  "finishedAt": 1790216949.7169502,
   "id": "gameplay-flow",
   "observations": [
     {
@@ -38,9 +45,9 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260924T022720Z-76047055b741",
+  "runId": "20260924T022907Z-76047055b741",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.364,
+  "seconds": 0.357,
   "source": {
     "commit": "76047055b741d8febd752ac9260f0f9216c7e8be",
     "digest": "7d432a1bbefa33aea2b9d0cf4c76069e6d147d5ba60147d2f28ca5002f690f80",
