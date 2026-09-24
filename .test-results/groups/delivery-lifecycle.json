@@ -1,0 +1,68 @@
+{
+  "artifact": null,
+  "assertions": 7,
+  "command": [
+    "{python}",
+    "scripts/run-tests.py",
+    "--group",
+    "delivery-lifecycle"
+  ],
+  "environment": {
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "platform": "windows",
+    "python": "3.12.14",
+    "renderer": "gl_compatibility"
+  },
+  "evidence": [
+    "evidence/20260924T030825Z-826b54c384fd/delivery-lifecycle/output.log"
+  ],
+  "execution": "executed",
+  "exitCode": 0,
+  "failures": [],
+  "fingerprint": "63879e5ce8733615a726eb092e6ccf9e7fd6b4fa517ffacb910e319d518f9936",
+  "finishedAt": 1790219309.1335418,
+  "id": "delivery-lifecycle",
+  "observations": [
+    {
+      "actual": 0,
+      "id": "exact-apk-skips-install"
+    },
+    {
+      "actual": 1,
+      "id": "exact-apk-launches"
+    },
+    {
+      "actual": "ceratops-deployment-result.v1",
+      "id": "deployment-receipt-schema"
+    },
+    {
+      "actual": "ece6cd63b2d04954431213a82441e997c6858b4615ded82fb22f38c1e910c95d",
+      "id": "deployment-receipt-hash"
+    },
+    {
+      "actual": 1,
+      "id": "changed-apk-installs-once"
+    },
+    {
+      "actual": "ece6cd63b2d04954431213a82441e997c6858b4615ded82fb22f38c1e910c95d",
+      "id": "installed-apk-is-verified"
+    },
+    {
+      "actual": true,
+      "id": "false-success-connect-is-rejected"
+    }
+  ],
+  "outcome": "passed",
+  "runId": "20260924T030825Z-826b54c384fd",
+  "schema": "astrotops-test-group-result.v1",
+  "seconds": 0.004,
+  "source": {
+    "commit": "826b54c384fde1b03b39b5a45ca7c331fa1429c1",
+    "digest": "13882bf12151c1f8bb5c50cd806c9b151328861edcf4a3f52750392e17e0028f",
+    "dirty": false,
+    "exactTags": [
+      "astrotops-local-20260924-826b54c"
+    ]
+  },
+  "status": "passed"
+}
