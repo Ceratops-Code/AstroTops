@@ -33,6 +33,10 @@
       "assets/ship_nova.png": ["ships-pilots", "rendered-ui"],
       "assets/ship_saucer.png": ["ships-pilots", "rendered-ui"],
       "assets/trixie.png": ["ships-pilots", "rendered-ui"],
+      "assets/icon.svg": ["menu-ui", "rendered-ui"],
+      "assets/icon_background.svg": ["menu-ui", "rendered-ui"],
+      "assets/icon_foreground.svg": ["menu-ui", "rendered-ui"],
+      "assets/icon_monochrome.svg": ["menu-ui", "rendered-ui"],
       "assets/milky_way_background.jpg": ["menu-ui", "rendered-ui"],
       "scripts/regression_tests.gd": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"],
       "scripts/regression_tests.gd.uid": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"],
@@ -44,7 +48,7 @@
     "fixtures": [
       {"id": "main-scene", "owner": "scripts/regression_tests.gd", "observation": "A fresh main scene uses an isolated settings file under the runner-owned temporary root."},
       {"id": "tractor-candidates", "owner": "scripts/regression_tests.gd", "observation": "Visible, hidden, captured, aligned, and close off-axis bodies exercise target selection."},
-      {"id": "rendered-surfaces", "owner": "scripts/regression_tests.gd", "observation": "Menu, play, pause, countdown, results, cockpit, Earth, and captured black-hole images are rendered by Godot."}
+      {"id": "rendered-surfaces", "owner": "scripts/regression_tests.gd", "observation": "Menu, play, pause, countdown, results, cockpit, Earth, captured black-hole, tractor debug field, and launcher-icon images are rendered by Godot."}
     ]
   },
   "requirements": [
@@ -62,6 +66,7 @@
     {"id": "TRACTOR-02", "acceptance": "The tractor field keeps its short pear profile: it swells near the ship and tapers toward the distant tip.", "groups": ["tractor-beam"], "observations": ["range-limited", "pear-swells", "pear-tapers"], "evidence": "field geometry"},
     {"id": "TRACTOR-03", "acceptance": "At most one visible, uncaptured target is pulled; a close off-axis target remains eligible, and the ship course is unchanged.", "groups": ["tractor-beam"], "observations": ["close-off-axis-selected", "one-active-target", "planet-moves-closer", "ship-course-unchanged"], "evidence": "visible scene-tree motion"},
     {"id": "TRACTOR-04", "acceptance": "The HUD exposes TRACTOR BEAM: ON/OFF and POWER without a percentage, and both settings persist.", "groups": ["tractor-beam", "pause-results", "rendered-ui"], "observations": ["on-label", "off-label", "power-label", "tractor-power-roundtrip", "playing.png"], "evidence": "runtime labels, settings roundtrip, and rendered HUD"},
+    {"id": "TRACTOR-05", "acceptance": "The pear-shaped debug field is hidden by default and toggles only after the on-screen Back, Reset, Pause/Resume, Close sequence; the four sequence presses do not invoke their normal actions, while a lone or interrupted Back still returns to the menu after the short unlock window.", "groups": ["tractor-beam", "rendered-ui"], "observations": ["debug-hidden-default", "back-waits-for-sequence", "lone-back-still-works", "wrong-order-hidden", "wrong-order-resolves-back", "secret-sequence-shows", "secret-sequence-hides", "secret-sequence-consumed", "tractor-debug.png"], "evidence": "control-driven runtime state and rendered field comparison"},
     {"id": "TARGET-01", "acceptance": "Recognizable target sizes preserve the compressed hierarchy: Mercury is the smallest major planet, Jupiter the largest planet, and the Sun only slightly larger.", "groups": ["targets"], "observations": ["roster", "mercury-smallest-major", "sun-slightly-larger-than-jupiter"], "evidence": "spawn specification"},
     {"id": "TARGET-02", "acceptance": "Saturn and Uranus have distinct rings; Uranus rings are smaller and more vertical.", "groups": ["targets", "rendered-ui"], "observations": ["both-ringed", "uranus-rings-more-vertical", "uranus-rings-smaller", "targets.png"], "evidence": "render model and image"},
     {"id": "TARGET-03", "acceptance": "Both asteroids are labelled Asteroid, stay visually small, and use a 1.3-times capture radius; body labels use the enlarged font.", "groups": ["targets"], "observations": ["asteroid-labels", "asteroid-capture-area", "large-body-label"], "evidence": "runtime target model"},
@@ -76,8 +81,9 @@
     {"id": "RESULT-01", "acceptance": "Completion says MISSION COMPLETE!, omits retired celestial-course and Space Rush copy, hides the interim finale banner, and enlarges the pilot completion line.", "groups": ["pause-results", "rendered-ui"], "observations": ["no-finale-banner", "title", "no-retired-completion-copy", "pilot-line-size", "results.png"], "evidence": "overlay state, result model, and rendered image"},
     {"id": "RESULT-02", "acceptance": "The result transition hides the ship and retains the generated restrained finale shout.", "groups": ["audio-speech", "pause-results"], "observations": ["finale-shout-duration", "results-state", "ship-hidden"], "evidence": "generated audio duration and state transition"},
     {"id": "PERSIST-01", "acceptance": "Best time reset and tractor settings use the AstroTops storage identity and round-trip through an isolated settings file.", "groups": ["pause-results", "menu-ui"], "observations": ["reset-first-tap-arms", "reset-second-tap-clears", "best-time-roundtrip", "tractor-enabled-roundtrip", "package-id"], "evidence": "isolated ConfigFile roundtrip and package identity"},
+    {"id": "ICON-01", "acceptance": "The Android launcher uses a crisp space icon with a diagonal rocket and a distinct gold ringed planet instead of the old centered onion-like composition.", "groups": ["menu-ui", "rendered-ui"], "observations": ["icon-layer-references", "app-icon.png", "dark-space-background", "bright-diagonal-rocket", "gold-ringed-planet"], "evidence": "export configuration, loadable vector layers, rendered icon, and sampled visual landmarks"},
     {"id": "DELIVERY-01", "acceptance": "Android deployment rejects false-success ADB connections, skips reinstalling an exact installed APK, verifies changed installs by SHA-256, launches the app, and emits the declared structured receipt.", "groups": ["delivery-lifecycle"], "observations": ["false-success-connect-is-rejected", "exact-apk-skips-install", "installed-apk-is-verified", "exact-apk-launches", "deployment-receipt-schema", "deployment-receipt-hash"], "evidence": "isolated fake-ADB command outcomes and structured deployment result"},
-    {"id": "RENDER-01", "acceptance": "Menu, play, pause, countdown, results, cockpit, Earth, and captured black hole are rendered by the actual Godot renderer and retained as bounded evidence.", "groups": ["rendered-ui"], "observations": ["menu.png", "playing.png", "paused.png", "countdown.png", "results.png", "cockpit.png", "targets.png"], "evidence": "rendered PNGs"}
+    {"id": "RENDER-01", "acceptance": "Menu, play, pause, countdown, results, cockpit, Earth, captured black hole, tractor debug field, and launcher icon are rendered by the actual Godot renderer and retained as bounded evidence.", "groups": ["rendered-ui"], "observations": ["menu.png", "playing.png", "paused.png", "countdown.png", "results.png", "cockpit.png", "targets.png", "tractor-debug.png", "app-icon.png"], "evidence": "rendered PNGs"}
   ],
   "excludedFromRegression": [
     {"request": "Add Pluto", "reason": "The user explicitly identified this static content addition as not meaningful for regression coverage."}

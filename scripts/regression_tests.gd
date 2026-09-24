@@ -164,6 +164,22 @@ func _test_menu_ui() -> void:
 		export_config.get_value("preset.1.options", "package/unique_name", ""),
 		"com.ceratopscode.astrotops"
 	)
+	var icon_layers := {
+		"main": "res://assets/icon.svg",
+		"adaptive-background": "res://assets/icon_background.svg",
+		"adaptive-foreground": "res://assets/icon_foreground.svg",
+		"adaptive-monochrome": "res://assets/icon_monochrome.svg",
+	}
+	_assert_equal("ICON-01/project-icon", ProjectSettings.get_setting("application/config/icon"), icon_layers["main"])
+	_assert_equal("ICON-01/export-main-icon", export_config.get_value("preset.1.options", "launcher_icons/main_192x192", ""), icon_layers["main"])
+	_assert_equal("ICON-01/export-adaptive-background", export_config.get_value("preset.1.options", "launcher_icons/adaptive_background_432x432", ""), icon_layers["adaptive-background"])
+	_assert_equal("ICON-01/export-adaptive-foreground", export_config.get_value("preset.1.options", "launcher_icons/adaptive_foreground_432x432", ""), icon_layers["adaptive-foreground"])
+	_assert_equal("ICON-01/export-adaptive-monochrome", export_config.get_value("preset.1.options", "launcher_icons/adaptive_monochrome_432x432", ""), icon_layers["adaptive-monochrome"])
+	for layer_name in icon_layers:
+		var icon_texture: Texture2D = load(icon_layers[layer_name])
+		_assert_true("ICON-01/loadable-%s" % layer_name, icon_texture != null, icon_layers[layer_name], "loadable Texture2D")
+		if icon_texture != null:
+			_assert_equal("ICON-01/size-%s" % layer_name, icon_texture.get_size(), Vector2(512.0, 512.0))
 	_assert_equal("MENU-01/brand", main.BRAND_NAME, "ASTROTOPS")
 	_assert_equal("MENU-01/subtitle", main.MENU_SUBTITLE, "SPACE RUSH")
 	_assert_equal("MENU-01/tagline", main.MENU_TAGLINE, "Paint every target. Beat your best time.")
@@ -195,6 +211,7 @@ func _test_menu_ui() -> void:
 	_assert_equal("MENU-04/selector-updates", [main.selected_ship_index, main.selected_color_index, main.selected_pilot_index], [1, 1, 1])
 	main._update_overlay()
 	_assert_true("MENU-05/no-menu-overlay-hint", not main.message_label.visible, main.message_label.text, "hidden")
+	_observe("ICON/icon-layer-references", icon_layers)
 	_observe("MENU/render-model", "identity, selector geometry, arrows, common click signal, and no ship/selector overlap")
 
 
@@ -326,6 +343,28 @@ func _test_tractor_beam() -> void:
 	_assert_equal("TRACTOR-04/persist-enabled", settings.get_value("tractor_beam", "enabled"), false)
 	_assert_near("TRACTOR-04/persist-power", float(settings.get_value("tractor_beam", "strength")), main.TRACTOR_DEFAULT_STRENGTH, 0.001)
 	_assert_equal("TRACTOR-04/power-label", main.TRACTOR_POWER_LABEL, "POWER")
+	main.state = main.GameState.PLAYING
+	main.tractor_beam_enabled = true
+	_assert_equal("TRACTOR-05/debug-hidden-default", main.tractor_debug_field_visible, false)
+	main._handle_system_button(main.BACK_BUTTON.get_center())
+	_assert_equal("TRACTOR-05/back-waits-for-sequence", main.state, main.GameState.PLAYING)
+	var pending_back_serial: int = main.tractor_debug_sequence_serial
+	main._on_tractor_debug_back_timeout(pending_back_serial)
+	_assert_equal("TRACTOR-05/lone-back-still-works", main.state, main.GameState.MENU)
+	main.state = main.GameState.PLAYING
+	main._handle_system_button(main.BACK_BUTTON.get_center())
+	main._handle_system_button(main.PAUSE_BUTTON.get_center())
+	_assert_equal("TRACTOR-05/wrong-order-hidden", main.tractor_debug_field_visible, false)
+	_assert_equal("TRACTOR-05/wrong-order-resets", main.tractor_debug_sequence_index, 0)
+	_assert_equal("TRACTOR-05/wrong-order-resolves-back", main.state, main.GameState.MENU)
+	main.state = main.GameState.PLAYING
+	for button_rect in [main.BACK_BUTTON, main.RESET_BUTTON, main.PAUSE_BUTTON, main.CLOSE_BUTTON]:
+		main._handle_system_button(button_rect.get_center())
+	_assert_equal("TRACTOR-05/secret-sequence-shows", main.tractor_debug_field_visible, true)
+	_assert_equal("TRACTOR-05/secret-sequence-consumed", main.state, main.GameState.PLAYING)
+	for button_rect in [main.BACK_BUTTON, main.RESET_BUTTON, main.PAUSE_BUTTON, main.CLOSE_BUTTON]:
+		main._handle_system_button(button_rect.get_center())
+	_assert_equal("TRACTOR-05/secret-sequence-hides", main.tractor_debug_field_visible, false)
 	_observe("TRACTOR/profile", {"pull_steps": pull_steps, "widths": [near_width, bulb_width, tail_width], "range": max_distance})
 
 
@@ -568,6 +607,14 @@ func _test_rendered_ui() -> void:
 	main._update_overlay()
 	main.queue_redraw()
 	var playing_image: Image = await _capture(viewport, "playing.png")
+	for button_rect in [main.BACK_BUTTON, main.RESET_BUTTON, main.PAUSE_BUTTON, main.CLOSE_BUTTON]:
+		main._handle_system_button(button_rect.get_center())
+	main.queue_redraw()
+	var debug_field_image: Image = await _capture(viewport, "tractor-debug.png")
+	var debug_field_difference := _different_pixels(playing_image, debug_field_image, Rect2i(300, 136, 680, 500), 0.02, 2)
+	_assert_true("RENDER-08/tractor-debug-visible-after-sequence", debug_field_difference > 180, debug_field_difference, "> 180 sampled pixels")
+	for button_rect in [main.BACK_BUTTON, main.RESET_BUTTON, main.PAUSE_BUTTON, main.CLOSE_BUTTON]:
+		main._handle_system_button(button_rect.get_center())
 	main._handle_mouse_pointer(main.PAUSE_BUTTON.get_center(), true)
 	main._handle_mouse_pointer(main.PAUSE_BUTTON.get_center(), false)
 	main._update_overlay()
@@ -645,6 +692,26 @@ func _test_rendered_ui() -> void:
 			if pixel.g > pixel.b * 1.08 and pixel.g > pixel.r * 1.25:
 				green_land_pixels += 1
 	_assert_true("RENDER-07/earth-land-visible", green_land_pixels > 120, green_land_pixels, "> 120 sampled green land pixels")
+
+	var icon_viewport := SubViewport.new()
+	icon_viewport.size = Vector2i(512, 512)
+	icon_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(icon_viewport)
+	var icon_rect := TextureRect.new()
+	icon_rect.size = Vector2(512.0, 512.0)
+	icon_rect.texture = load("res://assets/icon.svg")
+	icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon_viewport.add_child(icon_rect)
+	var icon_image: Image = await _capture(icon_viewport, "app-icon.png")
+	_assert_equal("ICON-01/render-size", icon_image.get_size(), Vector2i(512, 512))
+	var dark_space := icon_image.get_pixel(256, 40)
+	var bright_rocket := icon_image.get_pixel(373, 112)
+	var gold_planet := icon_image.get_pixel(145, 330)
+	var dark_space_luminance := (dark_space.r + dark_space.g + dark_space.b) / 3.0
+	_assert_true("ICON-01/dark-space-background", dark_space_luminance < 0.14, {"color": dark_space, "luminance": dark_space_luminance}, "luminance < 0.14")
+	_assert_true("ICON-01/bright-diagonal-rocket", bright_rocket.r + bright_rocket.g + bright_rocket.b > 1.65, bright_rocket, "bright rocket")
+	_assert_true("ICON-01/gold-ringed-planet", gold_planet.r > gold_planet.b * 1.45, gold_planet, "gold planet")
 	_observe("RENDER/evidence", evidence)
 
 

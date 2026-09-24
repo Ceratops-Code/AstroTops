@@ -1,11 +1,36 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <ellipse cx="256" cy="294" rx="124" ry="38" fill="none" stroke="#a9bbff" stroke-width="18" transform="rotate(-13 256 294)"/>
-  <circle cx="256" cy="284" r="91" fill="#41f4c6" stroke="#effffc" stroke-width="8"/>
-  <circle cx="220" cy="263" r="17" fill="#159985" opacity=".65"/>
-  <circle cx="289" cy="312" r="23" fill="#159985" opacity=".6"/>
-  <path d="M256 111 219 202 256 184 293 202Z" fill="#effffc" stroke="#41f4c6" stroke-width="8"/>
-  <path d="M226 193 195 148 202 210Z" fill="#ffe7a0" stroke="#fff8dc" stroke-width="6"/>
-  <path d="M286 193 317 148 310 210Z" fill="#ffe7a0" stroke="#fff8dc" stroke-width="6"/>
-  <circle cx="256" cy="174" r="22" fill="#192651" stroke="#8cebd9" stroke-width="6"/>
-  <path d="M245 177c5-17 19-22 30-11-2 18-15 26-30 11Z" fill="#72e758"/>
+  <defs>
+    <radialGradient id="planet" cx="32%" cy="24%" r="78%">
+      <stop offset="0" stop-color="#fff39a"/>
+      <stop offset="0.48" stop-color="#ffc33e"/>
+      <stop offset="1" stop-color="#ed6b24"/>
+    </radialGradient>
+    <linearGradient id="rocket" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8cecff"/>
+      <stop offset="0.44" stop-color="#f8ffff"/>
+      <stop offset="1" stop-color="#b8d8ff"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff7aa"/>
+      <stop offset="0.5" stop-color="#ff9f2f"/>
+      <stop offset="1" stop-color="#ff3f67"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="145" cy="330" rx="119" ry="37" fill="none" stroke="#9aeaff" stroke-width="18" transform="rotate(-18 145 330)"/>
+  <circle cx="145" cy="330" r="77" fill="url(#planet)" stroke="#fff5c6" stroke-width="8"/>
+  <path d="M91 292C112 312 135 309 151 288C157 309 184 321 203 313" fill="none" stroke="#d7552a" stroke-width="13" stroke-linecap="round" opacity=".64"/>
+  <ellipse cx="119" cy="350" rx="15" ry="10" fill="#c95328" opacity=".68"/>
+  <ellipse cx="174" cy="364" rx="22" ry="12" fill="#ffdf65" opacity=".66"/>
+  <path d="M38 354Q142 397 251 335" fill="none" stroke="#ddf9ff" stroke-width="9" stroke-linecap="round" opacity=".95"/>
+  <g transform="rotate(38 300 230)">
+    <path d="M280 292L300 412L320 292Z" fill="url(#flame)" stroke="#fff0a2" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M273 240L207 323L274 300Z" fill="#35d8ef" stroke="#d7fbff" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M327 240L393 323L326 300Z" fill="#35d8ef" stroke="#d7fbff" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M300 58C257 104 250 204 270 300Q300 322 330 300C350 204 343 104 300 58Z" fill="url(#rocket)" stroke="#ecffff" stroke-width="9" stroke-linejoin="round"/>
+    <path d="M300 58C282 91 279 119 279 145H321C321 119 318 91 300 58Z" fill="#42e7cb"/>
+    <path d="M272 261Q300 282 328 261L330 300Q300 322 270 300Z" fill="#3479da" opacity=".92"/>
+    <circle cx="300" cy="175" r="31" fill="#071331" stroke="#55e9ff" stroke-width="9"/>
+    <circle cx="290" cy="164" r="11" fill="#ffffff" opacity=".82"/>
+    <path d="M285 212V253" stroke="#68edf7" stroke-width="7" stroke-linecap="round" opacity=".72"/>
+  </g>
 </svg>

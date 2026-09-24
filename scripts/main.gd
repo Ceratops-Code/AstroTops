@@ -34,6 +34,8 @@ const TRACTOR_MAX_PULL_RATIO := 0.30
 const TRACTOR_PULL_BASE_SCALE := 0.85
 const TRACTOR_PULL_TAPER := 0.15
 const TRACTOR_DEFAULT_STRENGTH := 0.45
+const TRACTOR_DEBUG_SEQUENCE := ["back", "reset", "pause", "close"]
+const TRACTOR_DEBUG_SEQUENCE_TIMEOUT_MS := 1100
 const TTS_RATE := 1.0
 
 const BRAND_NAME := "ASTROTOPS"
@@ -112,6 +114,10 @@ var tractor_beam_enabled := true
 var tractor_beam_strength := TRACTOR_DEFAULT_STRENGTH
 var tractor_target: ColorPlanet
 var tractor_course_direction := Vector2.UP
+var tractor_debug_field_visible := false
+var tractor_debug_sequence_index := 0
+var tractor_debug_sequence_deadline_ms := 0
+var tractor_debug_sequence_serial := 0
 var best_reset_confirmation_until := 0
 var settings_path := SAVE_PATH
 var audio_playback_enabled := true
@@ -508,9 +514,10 @@ func _show_results() -> void:
 		ship.visible = false
 
 
-func _return_to_menu() -> void:
+func _return_to_menu(play_click := true) -> void:
 	_stop_target_speech()
-	_play_ui_click()
+	if play_click:
+		_play_ui_click()
 	_clear_planets()
 	state = GameState.MENU
 	ship.visible = true
@@ -789,25 +796,91 @@ func _handle_mouse_pointer(position: Vector2, pressed: bool) -> void:
 
 
 func _handle_system_button(position: Vector2) -> bool:
+	var button := ""
 	if CLOSE_BUTTON.has_point(position):
-		_play_ui_click()
-		get_tree().quit()
-		return true
-	if state == GameState.MENU:
+		button = "close"
+	elif state != GameState.MENU and BACK_BUTTON.has_point(position):
+		button = "back"
+	elif state != GameState.MENU and RESET_BUTTON.has_point(position):
+		button = "reset"
+	elif TRACTOR_BEAM_BUTTON.has_point(position) and _can_adjust_tractor_beam():
+		button = "tractor"
+	elif PAUSE_BUTTON.has_point(position) and state in [GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED]:
+		button = "pause"
+
+	if button.is_empty():
+		if _resolve_pending_debug_back():
+			return true
+		_reset_tractor_debug_sequence()
 		return false
-	if BACK_BUTTON.has_point(position):
-		_return_to_menu()
+	if state in [GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED] and _handle_tractor_debug_sequence(button):
 		return true
-	if RESET_BUTTON.has_point(position):
-		_reset_run()
-		return true
-	if TRACTOR_BEAM_BUTTON.has_point(position) and _can_adjust_tractor_beam():
-		_toggle_tractor_beam()
-		return true
-	if PAUSE_BUTTON.has_point(position) and state in [GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED]:
-		_toggle_pause()
-		return true
-	return false
+
+	match button:
+		"close":
+			_play_ui_click()
+			get_tree().quit()
+		"back":
+			_return_to_menu()
+		"reset":
+			_reset_run()
+		"tractor":
+			_toggle_tractor_beam()
+		"pause":
+			_toggle_pause()
+	return true
+
+
+func _handle_tractor_debug_sequence(button: String) -> bool:
+	var now := Time.get_ticks_msec()
+	if tractor_debug_sequence_index > 0 and now > tractor_debug_sequence_deadline_ms:
+		if _resolve_pending_debug_back():
+			return true
+		_reset_tractor_debug_sequence()
+
+	var expected_button := String(TRACTOR_DEBUG_SEQUENCE[tractor_debug_sequence_index])
+	if button != expected_button:
+		if _resolve_pending_debug_back():
+			return true
+		_reset_tractor_debug_sequence()
+		if button != String(TRACTOR_DEBUG_SEQUENCE[0]):
+			return false
+
+	var starts_sequence := tractor_debug_sequence_index == 0
+	tractor_debug_sequence_index += 1
+	tractor_debug_sequence_serial += 1
+	tractor_debug_sequence_deadline_ms = now + TRACTOR_DEBUG_SEQUENCE_TIMEOUT_MS
+	_play_ui_click()
+	if starts_sequence:
+		var sequence_serial := tractor_debug_sequence_serial
+		get_tree().create_timer(float(TRACTOR_DEBUG_SEQUENCE_TIMEOUT_MS) / 1000.0).timeout.connect(
+			_on_tractor_debug_back_timeout.bind(sequence_serial)
+		)
+	if tractor_debug_sequence_index == TRACTOR_DEBUG_SEQUENCE.size():
+		tractor_debug_field_visible = not tractor_debug_field_visible
+		_reset_tractor_debug_sequence()
+		queue_redraw()
+	return true
+
+
+func _reset_tractor_debug_sequence() -> void:
+	tractor_debug_sequence_serial += 1
+	tractor_debug_sequence_index = 0
+	tractor_debug_sequence_deadline_ms = 0
+
+
+func _resolve_pending_debug_back() -> bool:
+	if tractor_debug_sequence_index != 1:
+		return false
+	_reset_tractor_debug_sequence()
+	_return_to_menu(false)
+	return true
+
+
+func _on_tractor_debug_back_timeout(sequence_serial: int) -> void:
+	if sequence_serial != tractor_debug_sequence_serial or tractor_debug_sequence_index != 1:
+		return
+	_resolve_pending_debug_back()
 
 
 func _update_touch_vector() -> void:
@@ -1244,7 +1317,7 @@ func _draw_milky_way_background() -> void:
 
 
 func _draw_tractor_debug_field() -> void:
-	if not OS.is_debug_build() or not tractor_beam_enabled or tractor_beam_strength <= 0.0:
+	if not tractor_debug_field_visible or not tractor_beam_enabled or tractor_beam_strength <= 0.0:
 		return
 	if tractor_course_direction.length_squared() < 0.0001:
 		return
