@@ -311,7 +311,12 @@ def run_python_group(
                 "observations": [],
                 "evidence": [],
             }
-    failures = [dict(item) for item in payload["failures"]]
+    raw_failures = payload.get("failures")
+    if not isinstance(raw_failures, list) or not all(
+        isinstance(item, dict) for item in raw_failures
+    ):
+        raise TypeError("Python-group failures must be a list of objects")
+    failures = [dict(item) for item in raw_failures]
     passed = payload["status"] == "passed" and not failures
     log_path = group_evidence / "output.log"
     log_path.write_text(
