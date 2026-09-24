@@ -34,6 +34,7 @@
       "assets/trixie.png": ["ships-pilots", "rendered-ui"],
       "assets/milky_way_background.jpg": ["menu-ui", "rendered-ui"],
       "scripts/regression_tests.gd": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"],
+      "scripts/regression_tests.gd.uid": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"],
       "scripts/run-tests.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"],
       "scripts/result_records.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"],
       "docs/feature-acceptance.json": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"]
