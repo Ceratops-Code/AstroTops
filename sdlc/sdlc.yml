@@ -80,6 +80,16 @@ deliverables:
                 - --export-debug
                 - Android
                 - .build/artifacts/android/AstroTops.apk
+            - run:
+                - uv
+                - run
+                - --locked
+                - scripts/result_records.py
+                - build-result
+                - --artifact
+                - .build/artifacts/android/AstroTops.apk
+                - --type
+                - android-apk
   apps:
     astrotops:
       source: .

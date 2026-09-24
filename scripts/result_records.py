@@ -11,11 +11,13 @@ the tag is the build version while the commit remains traceability metadata.
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import pathlib
 import re
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass
 from typing import Iterable
@@ -26,6 +28,7 @@ GROUP_SCHEMA = "astrotops-test-group-result.v1"
 BUILD_SCHEMA = "astrotops-build-record.v1"
 _EXCLUDED_SOURCE_PREFIXES = (".build/", ".test-results/")
 _SAFE_TAG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
+_ARTIFACT_TYPE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 
 
 def _git(repo_root: pathlib.Path, *arguments: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -334,3 +337,56 @@ def group_fingerprint(
         "artifact": artifact.portable() if artifact else None,
     }
     return _digest_json(payload)
+
+
+def build_result(
+    repo_root: pathlib.Path,
+    artifact: pathlib.Path,
+    artifact_type: str,
+) -> dict[str, object]:
+    """Describe exact completed package bytes in the Ceratops build schema."""
+
+    if not _ARTIFACT_TYPE.fullmatch(artifact_type):
+        raise ValueError("artifact type must use lower-case kebab syntax")
+    repo_root = repo_root.resolve(strict=True)
+    artifact = artifact.expanduser().resolve(strict=True)
+    artifact_root = (repo_root / ".build" / "artifacts").resolve(strict=True)
+    try:
+        relative = artifact.relative_to(artifact_root).as_posix()
+    except ValueError as error:
+        raise ValueError("build artifacts must remain under .build/artifacts") from error
+    if artifact.stat().st_size < 1:
+        raise ValueError("build artifact is empty")
+    return {
+        "schema": "ceratops-build-result.v1",
+        "status": "passed",
+        "artifact": {
+            "type": artifact_type,
+            "path": f".build/artifacts/{relative}",
+            "sha256": _sha256(artifact),
+            "size": artifact.stat().st_size,
+        },
+    }
+
+
+def main() -> int:
+    """Emit the structured result owned by a completed SDLC package build."""
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    build_parser = subparsers.add_parser("build-result")
+    build_parser.add_argument("--artifact", type=pathlib.Path, required=True)
+    build_parser.add_argument("--type", required=True)
+    args = parser.parse_args()
+    repo_root = pathlib.Path(__file__).resolve().parents[1]
+    try:
+        result = build_result(repo_root, args.artifact, args.type)
+    except (OSError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 1
+    print(json.dumps(result, separators=(",", ":")))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
