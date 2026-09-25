@@ -8,7 +8,8 @@
   "source_of_truth": [
     {"path": "project.godot", "role": "Godot runtime identity, entry scene, display, input, audio, and renderer configuration"},
     {"path": "main.tscn", "role": "Executable scene entry and script attachment"},
-    {"path": "scripts/main.gd", "role": "Implemented game state machine, controls, target orchestration, tractor beam, audio, persistence, and UI"},
+    {"path": "scripts/main.gd", "role": "Implemented game state machine, modes, controls, target orchestration, tractor beam, persistence, and UI"},
+    {"path": "scripts/audio_controller.gd", "role": "Implemented generated cues, sound-effect playback, and native text-to-speech requests"},
     {"path": "scripts/player_ship.gd", "role": "Implemented ship movement, rendering, styles, and pilot presentation"},
     {"path": "scripts/planet.gd", "role": "Implemented celestial-body rendering, capture, collision extent, and explosion behavior"},
     {"path": "scripts/meteor.gd", "role": "Implemented meteor-flight and impact behavior"},
@@ -115,8 +116,11 @@ bounded evidence, artifact identity, and deterministic Android deployment.
 - [`main.tscn`](../main.tscn) and
   [`scripts/main.gd`](../scripts/main.gd) form the application shell. They own
   menu and HUD drawing, the game-state machine, input routing, randomized target
-  placement, target contact, tractor selection, speech submission, scores, and
+  placement, target contact, mode progression, tractor selection, scores, and
   the finale.
+- [`scripts/audio_controller.gd`](../scripts/audio_controller.gd) owns generated
+  interface tones, one-shot effects, delayed English voice discovery, and native
+  speech queue submission.
 - [`scripts/player_ship.gd`](../scripts/player_ship.gd) owns movement bounds,
   velocity, eight ship styles, cockpit placement, and three pilots.
 - [`scripts/planet.gd`](../scripts/planet.gd) owns each target's recognizable
@@ -142,6 +146,11 @@ Pause temporarily replaces Playing and resumes the prior state. Any supported
 input starts a five-step countdown. During play, the ship moves within bounds,
 the game checks contact with uncaptured targets, and native speech requests are
 submitted in capture order without an application-side delay.
+
+Space Rush remains the default mode and accepts targets in any order. Solar Tour
+is an additive menu choice: it preserves the same roster and finale, accepts only
+the highlighted next body from the Sun outward, and records a separate best time.
+Completing the ordered roster adds a Tour Medal to the results panel.
 
 The tractor beam selects at most one visible, uncaptured body whose bearing is
 eligible for its course-aligned pear-shaped field. It moves that body toward
@@ -192,7 +201,7 @@ to exact artifact bytes. Atomic sibling files prevent partial JSON replacement.
 ### 8.2 APIs and integrations
 
 Godot Input and `InputEvent` are the player-control interface. `DisplayServer`
-owns the native text-to-speech queue. AstroTops retries English voice discovery
+owns the native text-to-speech queue. The audio controller retries English voice discovery
 at mission setup and again when a capture finds no cached voice, then submits
 the name, voice, volume, pitch, rate, utterance identifier, and
 `interrupt=false`. Missing voice support still degrades to silent names without
@@ -220,11 +229,10 @@ activity, installed hash, or launch confirmation differs.
 
 ## 9 Decisions and alternatives
 
-1. **Accepted: one Godot scene with focused drawing nodes.** Multiple levels or
-   a data-driven scene graph would add ceremony before the prototype needs it.
-   The tradeoff is pressure on `scripts/main.gd`; a responsibility split is due
-   before adding substantial new behavior if that file exceeds the repository
-   size threshold.
+1. **Accepted: one Godot scene with focused responsibility nodes.** Multiple
+   levels or a data-driven scene graph would add ceremony before the prototype
+   needs it. Audio and speech are split into `scripts/audio_controller.gd`; the
+   application shell retains mode, input, orchestration, persistence, and UI.
 2. **Accepted: procedural celestial bodies.** Downloaded planet images could be
    more photographic, but procedural drawing supports capture recoloring,
    consistent scaling, and licensing clarity.
@@ -254,9 +262,8 @@ tools, environment, and optional artifact identity recorded by that run.
 
 ## 11 Risks and limitations
 
-- The central game script is large; new unrelated responsibilities increase
-  regression risk. The maintainer owns a future split when required by the
-  repository threshold.
+- The central game script is still sizeable; new unrelated responsibilities
+  should move to focused nodes rather than rebuilding audio or mode logic there.
 - Native text-to-speech voice, pronunciation, and latency vary by device. Tests
   verify requests and ordering, not speaker acoustics.
 - The fixed logical viewport and all-visible target roster have not yet proven
@@ -299,7 +306,8 @@ behavior, target models, ship and pilot models, gameplay flow, pause, results,
 and persistence. The rendered group captures actual Godot output for menu,
 play, pause, countdown, results, cockpit, targets, the hidden tractor field,
 the standalone icon, and the layered adaptive icon under a circular mask.
-Python tests cover result lifecycle and ADB behavior.
+Python tests cover result lifecycle, automatic Godot asset-import bootstrapping,
+and ADB behavior.
 
 Repository validation is separate from tests. Candidate qualification records
 the immutable source tag and exact APK identity. Delivery reuses only applicable

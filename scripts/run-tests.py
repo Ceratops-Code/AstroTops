@@ -125,6 +125,30 @@ def godot_version(executable: pathlib.Path) -> str:
     return completed.stdout.strip().splitlines()[0]
 
 
+def bootstrap_godot_imports(
+    repo_root: pathlib.Path,
+    godot: pathlib.Path,
+    *,
+    run=subprocess.run,
+) -> None:
+    """Make Godot import project assets before scripts try to load them."""
+
+    command = [str(godot), "--headless", "--path", str(repo_root), "--import"]
+    completed = run(
+        command,
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+        timeout=120,
+    )
+    if completed.returncode:
+        detail = (completed.stderr or completed.stdout).strip()
+        raise RuntimeError("Godot asset import failed: " + detail[-1200:])
+
+
 def portable_command(
     command: list[str],
     godot: pathlib.Path,
@@ -271,6 +295,27 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     else:
         connection_error = False
     check("false-success-connect-is-rejected", True, connection_error)
+
+    import_calls: list[tuple[list[str], dict[str, object]]] = []
+
+    def fake_import_run(
+        command: list[str], **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        import_calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0, "Imported project assets.\n", "")
+
+    fake_godot = temporary_root / "godot"
+    bootstrap_godot_imports(fake_repo, fake_godot, run=fake_import_run)
+    check(
+        "runner-import-command",
+        [str(fake_godot), "--headless", "--path", str(fake_repo), "--import"],
+        import_calls[0][0],
+    )
+    check(
+        "runner-import-working-directory",
+        str(fake_repo),
+        str(import_calls[0][1].get("cwd")),
+    )
     return {
         "group": "delivery-lifecycle",
         "status": "passed" if not failures else "failed",
@@ -793,11 +838,11 @@ def main() -> int:
         print(str(error), file=sys.stderr)
         return 1
 
+    selected = set(args.group or group_ids)
     started = time.time()
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     run_id = f"{timestamp}-{source_identity.commit[:12]}"
     evidence_root = store.begin_evidence_run(run_id)
-    selected = set(args.group or group_ids)
     explicit_selection = bool(args.group)
     source = source_identity.portable()
     artifact = artifact_identity.portable() if artifact_identity else None
@@ -806,6 +851,7 @@ def main() -> int:
         print("The test inventory has no valid file ownership map.", file=sys.stderr)
         return 1
     results: list[dict[str, object]] = []
+    imports_bootstrapped = False
 
     for definition in groups:
         group_id = str(definition["id"])
@@ -828,6 +874,13 @@ def main() -> int:
             args.fresh or explicit_selection or not applicable_pass
         )
         if must_execute:
+            if definition["mode"] != "python" and not imports_bootstrapped:
+                try:
+                    bootstrap_godot_imports(repo_root, godot)
+                except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                    print(str(error), file=sys.stderr)
+                    return 1
+                imports_bootstrapped = True
             result = run_group(
                 repo_root,
                 godot,

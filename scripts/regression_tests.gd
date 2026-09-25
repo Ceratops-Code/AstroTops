@@ -186,9 +186,9 @@ func _test_menu_ui() -> void:
 	_assert_equal("MENU-01/brand", main.BRAND_NAME, "ASTROTOPS")
 	_assert_equal("MENU-01/subtitle", main.MENU_SUBTITLE, "SPACE RUSH")
 	_assert_equal("MENU-01/tagline", main.MENU_TAGLINE, "Paint every target. Beat your best time.")
-	_assert_equal("MENU-02/label-sizes", [main.SHIP_LABEL.size, main.COLOR_LABEL.size, main.PILOT_LABEL.size], [Vector2(120, 54), Vector2(120, 54), Vector2(120, 54)])
-	_assert_equal("MENU-02/label-left-alignment", [main.SHIP_LABEL.position.x, main.COLOR_LABEL.position.x, main.PILOT_LABEL.position.x], [326.0, 326.0, 326.0])
-	_assert_equal("MENU-02/selector-row-alignment", [main.SHIP_LABEL.position.y, main.COLOR_LABEL.position.y, main.PILOT_LABEL.position.y], [main.SHIP_NAME_BUTTON.position.y, main.COLOR_NAME_BUTTON.position.y, main.PILOT_NAME_BUTTON.position.y])
+	_assert_equal("MENU-02/label-sizes", [main.SHIP_LABEL.size, main.COLOR_LABEL.size, main.PILOT_LABEL.size, main.MODE_LABEL.size], [Vector2(120, 54), Vector2(120, 54), Vector2(120, 54), Vector2(120, 54)])
+	_assert_equal("MENU-02/label-left-alignment", [main.SHIP_LABEL.position.x, main.COLOR_LABEL.position.x, main.PILOT_LABEL.position.x, main.MODE_LABEL.position.x], [326.0, 326.0, 326.0, 326.0])
+	_assert_equal("MENU-02/selector-row-alignment", [main.SHIP_LABEL.position.y, main.COLOR_LABEL.position.y, main.PILOT_LABEL.position.y, main.MODE_LABEL.position.y], [main.SHIP_NAME_BUTTON.position.y, main.COLOR_NAME_BUTTON.position.y, main.PILOT_NAME_BUTTON.position.y, main.MODE_NAME_BUTTON.position.y])
 	var ship_size: Vector2 = main.ship._ship_target_size() * main.MENU_SHIP_SCALE
 	var menu_ship_bottom: float = main.MENU_SHIP_POSITION.y + ship_size.y * 0.5
 	_assert_true("MENU-02/ship-does-not-overlap-selector", menu_ship_bottom < main.SHIP_LABEL.position.y, menu_ship_bottom, "< %s" % main.SHIP_LABEL.position.y)
@@ -198,6 +198,8 @@ func _test_menu_ui() -> void:
 	_assert_true("MENU-04/color-choice-count", main.palette.size() >= 10, main.palette.size(), ">= 10")
 	_assert_equal("MENU-04/ship-choice-count", main.ship_names.size(), 8)
 	_assert_equal("MENU-04/pilot-choices", main.pilot_names, ["Trixie", "Astronaut", "Planet"])
+	_assert_equal("TOUR-01/mode-choices", main.MODE_NAMES, ["SPACE RUSH", "SOLAR TOUR"])
+	_assert_equal("TOUR-01/default-keeps-space-rush", main.selected_game_mode, main.GameMode.SPACE_RUSH)
 	var left_arrow: PackedVector2Array = main._arrow_shape_points(main.SHIP_LEFT_BUTTON, -1.0)
 	var right_arrow: PackedVector2Array = main._arrow_shape_points(main.SHIP_RIGHT_BUTTON, 1.0)
 	_assert_equal("MENU-04/arrow-point-count", [left_arrow.size(), right_arrow.size()], [7, 7])
@@ -210,8 +212,10 @@ func _test_menu_ui() -> void:
 	main._change_ship(1)
 	main._change_color(1)
 	main._change_pilot(1)
-	_assert_equal("MENU-04/common-selector-click", click_events, 3)
+	main._change_mode(1)
+	_assert_equal("MENU-04/common-selector-click", click_events, 4)
 	_assert_equal("MENU-04/selector-updates", [main.selected_ship_index, main.selected_color_index, main.selected_pilot_index], [1, 1, 1])
+	_assert_equal("TOUR-01/additive-mode-selection", main.selected_game_mode, main.GameMode.SOLAR_TOUR)
 	main._update_overlay()
 	_assert_true("MENU-05/no-menu-overlay-hint", not main.message_label.visible, main.message_label.text, "hidden")
 	_observe("ICON/icon-layer-references", icon_layers)
@@ -268,23 +272,24 @@ func _pcm_peak(stream: AudioStreamWAV) -> int:
 
 func _test_audio_speech() -> void:
 	var main: Variant = await _new_main(root)
-	_assert_near("AUDIO-01/boop-frequency-ratio", main.COUNTDOWN_BEEP_FREQUENCY / 4.0, 220.0, 0.001)
-	_assert_near("AUDIO-01/boop-double-duration", main.countdown_boop_stream.get_length(), main.countdown_beep_stream.get_length() * 2.0, 0.002)
-	var beep_peak := _pcm_peak(main.countdown_beep_stream)
-	var boop_peak := _pcm_peak(main.countdown_boop_stream)
+	var audio: AstroAudioController = main.audio_controller
+	_assert_near("AUDIO-01/boop-frequency-ratio", audio.COUNTDOWN_BEEP_FREQUENCY / 4.0, 220.0, 0.001)
+	_assert_near("AUDIO-01/boop-double-duration", audio.countdown_boop_stream.get_length(), audio.countdown_beep_stream.get_length() * 2.0, 0.002)
+	var beep_peak := _pcm_peak(audio.countdown_beep_stream)
+	var boop_peak := _pcm_peak(audio.countdown_boop_stream)
 	_assert_true("AUDIO-01/boop-louder-pcm", boop_peak > beep_peak, {"beep": beep_peak, "boop": boop_peak}, "boop > beep")
-	_assert_true("AUDIO-01/boop-louder-playback", main.COUNTDOWN_BOOP_VOLUME_DB > main.COUNTDOWN_BEEP_VOLUME_DB, {"beep_db": main.COUNTDOWN_BEEP_VOLUME_DB, "boop_db": main.COUNTDOWN_BOOP_VOLUME_DB}, "boop dB > beep dB")
-	_assert_near("AUDIO-01/boop-1.5x-gain", db_to_linear(main.COUNTDOWN_BOOP_VOLUME_DB - -1.5), 1.5, 0.02)
-	_assert_true("AUDIO-01/boop-bright-harmonics", main.COUNTDOWN_BOOP_BRIGHTNESS >= 0.75, main.COUNTDOWN_BOOP_BRIGHTNESS, ">= 0.75")
-	_assert_true("AUDIO-02/click-is-short", main.ui_click_stream.get_length() < 0.09, main.ui_click_stream.get_length(), "< 0.09 seconds")
-	_assert_near("AUDIO-03/finale-shout-duration", main.shout_stream.get_length(), main.SHOUT_DURATION, 0.002)
-	main.tts_voice = ""
-	var refresh_attempts_before: int = int(main.tts_voice_refresh_attempts)
+	_assert_true("AUDIO-01/boop-louder-playback", audio.COUNTDOWN_BOOP_VOLUME_DB > audio.COUNTDOWN_BEEP_VOLUME_DB, {"beep_db": audio.COUNTDOWN_BEEP_VOLUME_DB, "boop_db": audio.COUNTDOWN_BOOP_VOLUME_DB}, "boop dB > beep dB")
+	_assert_near("AUDIO-01/boop-1.5x-gain", db_to_linear(audio.COUNTDOWN_BOOP_VOLUME_DB - -1.5), 1.5, 0.02)
+	_assert_true("AUDIO-01/boop-bright-harmonics", audio.COUNTDOWN_BOOP_BRIGHTNESS >= 0.75, audio.COUNTDOWN_BOOP_BRIGHTNESS, ">= 0.75")
+	_assert_true("AUDIO-02/click-is-short", audio.ui_click_stream.get_length() < 0.09, audio.ui_click_stream.get_length(), "< 0.09 seconds")
+	_assert_near("AUDIO-03/finale-shout-duration", audio.shout_stream.get_length(), audio.SHOUT_DURATION, 0.002)
+	audio.tts_voice = ""
+	var refresh_attempts_before: int = int(audio.tts_voice_refresh_attempts)
 	main.target_speech_enqueued.connect(_on_target_speech_enqueued)
 	main._speak_target_name("Earth")
 	main._speak_target_name("Mars")
 	main._speak_target_name("Haumea")
-	_assert_true("SPEECH-01/late-voice-refresh", main.tts_voice_refresh_attempts > refresh_attempts_before, main.tts_voice_refresh_attempts, "> %s" % refresh_attempts_before)
+	_assert_true("SPEECH-01/late-voice-refresh", audio.tts_voice_refresh_attempts > refresh_attempts_before, audio.tts_voice_refresh_attempts, "> %s" % refresh_attempts_before)
 	_assert_equal("SPEECH-01/immediate-submission-count", speech_events.size(), 3)
 	_assert_equal("SPEECH-01/submission-order", speech_events.map(func(item: Dictionary) -> String: return String(item["text"])), ["Earth", "Mars", "how MAY uh"])
 	_assert_equal("SPEECH-01/utterance-ids", speech_events.map(func(item: Dictionary) -> int: return int(item["utterance_id"])), [1, 2, 3])
@@ -480,7 +485,7 @@ func _test_ships_pilots() -> void:
 
 func _test_gameplay_flow() -> void:
 	var main: Variant = await _new_main(root, "gameplay-flow-settings.cfg")
-	main.tts_voice = ""
+	main.audio_controller.tts_voice = ""
 	main.target_speech_enqueued.connect(_on_target_speech_enqueued)
 	main._prepare_run()
 	_assert_equal("FLOW-01/ready-state", main.state, main.GameState.READY)
@@ -514,7 +519,53 @@ func _test_gameplay_flow() -> void:
 	main._show_results()
 	_assert_equal("FLOW-01/results-state", main.state, main.GameState.RESULTS)
 	_assert_equal("FLOW-01/ship-hidden", main.ship.visible, false)
+
+	var tour_main: Variant = await _new_main(root, "tour-flow-settings.cfg")
+	tour_main.selected_game_mode = tour_main.GameMode.SOLAR_TOUR
+	tour_main._prepare_run()
+	tour_main.state = tour_main.GameState.PLAYING
+	_assert_equal("TOUR-01/order-covers-roster", tour_main.TOUR_ORDER.size(), tour_main.total_targets)
+	_assert_equal("TOUR-01/first-target", tour_main._tour_target_style(), "sun")
+	_assert_equal("TOUR-01/one-highlight", tour_main.planets.filter(func(planet: ColorPlanet) -> bool: return planet.tour_highlighted).size(), 1)
+	var out_of_order: ColorPlanet = _planet_by_style(tour_main, "mercury")
+	var first_target: ColorPlanet = _planet_by_style(tour_main, "sun")
+	for planet in tour_main.planets:
+		planet.visible = planet in [first_target, out_of_order]
+	tour_main.ship.position = Vector2(640.0, 600.0)
+	first_target.position = Vector2(640.0, 450.0)
+	out_of_order.position = Vector2(640.0, 510.0)
+	var tour_tractor_candidate: Dictionary = tour_main._best_tractor_candidate(Vector2.UP)
+	_assert_equal("TOUR-01/tractor-follows-order", tour_tractor_candidate.get("planet"), first_target)
+	for planet in tour_main.planets:
+		planet.visible = true
+	first_target.position = Vector2(300.0, 300.0)
+	out_of_order.position = Vector2(900.0, 300.0)
+	tour_main.ship.position = out_of_order.position
+	tour_main._check_planet_contacts()
+	_assert_equal("TOUR-01/out-of-order-blocked", tour_main.captured_count, 0)
+	tour_main.ship.position = first_target.position
+	tour_main._check_planet_contacts()
+	_assert_equal("TOUR-01/order-advances", [tour_main.captured_count, tour_main._tour_target_style()], [1, "mercury"])
+	_assert_true("TOUR-01/next-target-highlighted", out_of_order.tour_highlighted, out_of_order.body_style)
+	tour_main.elapsed_time = 19.5
+	for tour_index in range(1, tour_main.TOUR_ORDER.size()):
+		var tour_target: ColorPlanet = _planet_by_style(tour_main, String(tour_main.TOUR_ORDER[tour_index]))
+		tour_main.ship.position = tour_target.position
+		tour_main._check_planet_contacts()
+	_assert_equal("TOUR-01/complete-state", tour_main.state, tour_main.GameState.FINALE)
+	_assert_equal("TOUR-01/all-targets-captured", tour_main.captured_count, tour_main.total_targets)
+	_assert_near("TOUR-01/separate-tour-best", tour_main.tour_best_time, 19.5, 0.001)
+	_assert_equal("TOUR-01/rush-best-unchanged", tour_main.best_time, 0.0)
+	_assert_equal("TOUR-01/medal-copy", tour_main._result_pilot_message(), "Trixie completed the solar tour")
 	_observe("FLOW/complete-run", "ready, countdown, play, all captures, one meteor per target, explosions, score, and results")
+	_observe("TOUR/ordered-run", "Space Rush remains the default; Solar Tour blocks out-of-order captures, advances its highlight, and keeps a separate best time")
+
+
+func _planet_by_style(main: Variant, style: String) -> ColorPlanet:
+	for planet in main.planets:
+		if planet.body_style == style:
+			return planet
+	return null
 
 
 func _test_pause_results() -> void:
@@ -543,6 +594,7 @@ func _test_pause_results() -> void:
 	main._request_best_score_reset()
 	_assert_equal("PERSIST-01/reset-second-tap-clears", main.best_time, 0.0)
 	main.best_time = 22.5
+	main.tour_best_time = 31.25
 	main.tractor_beam_enabled = false
 	main.tractor_beam_strength = 0.37
 	main._save_settings()
@@ -553,6 +605,7 @@ func _test_pause_results() -> void:
 	await process_frame
 	restored.set_process(false)
 	_assert_near("PERSIST-01/best-time-roundtrip", restored.best_time, 22.5, 0.001)
+	_assert_near("TOUR-01/best-time-roundtrip", restored.tour_best_time, 31.25, 0.001)
 	_assert_equal("PERSIST-01/tractor-enabled-roundtrip", restored.tractor_beam_enabled, false)
 	_assert_near("PERSIST-01/tractor-power-roundtrip", restored.tractor_beam_strength, 0.37, 0.001)
 	main.state = main.GameState.FINALE
@@ -670,6 +723,34 @@ func _test_rendered_ui() -> void:
 	main.queue_redraw()
 	var results_image: Image = await _capture(viewport, "results.png")
 	_assert_true("RENDER-04/results-panel-visible", _different_pixels(playing_image, results_image, Rect2i(300, 148, 680, 490), 0.03, 4) > 1500, "rendered result panel")
+
+	main.selected_game_mode = main.GameMode.SOLAR_TOUR
+	main._prepare_run()
+	main.state = main.GameState.PLAYING
+	for planet in main.planets:
+		planet.set_process(false)
+	main._update_overlay()
+	main.queue_redraw()
+	var tour_image: Image = await _capture(viewport, "tour.png")
+	var highlighted_target: ColorPlanet = _planet_by_style(main, "sun")
+	highlighted_target.set_tour_highlighted(false)
+	RenderingServer.force_draw()
+	await _wait_frames(3)
+	var tour_without_marker: Image = viewport.get_texture().get_image()
+	var marker_difference := _different_pixels(tour_image, tour_without_marker, Rect2i(0, 136, 1280, 584), 0.03, 2)
+	_assert_true("TOUR-01/rendered-next-target-marker", marker_difference > 50, marker_difference, "> 50 sampled pixels")
+	main._clear_planets()
+	main.tour_progress_index = main.TOUR_ORDER.size()
+	main.captured_count = main.total_targets
+	main.state = main.GameState.RESULTS
+	main.final_time = 41.25
+	main.tour_best_time = 41.25
+	main.ship.visible = false
+	main._update_overlay()
+	main.queue_redraw()
+	var tour_results_image: Image = await _capture(viewport, "tour-results.png")
+	var tour_results_difference := _different_pixels(results_image, tour_results_image, Rect2i(300, 148, 680, 490), 0.03, 3)
+	_assert_true("TOUR-01/rendered-medal", tour_results_difference > 300, tour_results_difference, "> 300 sampled pixels")
 
 	var ship_viewport := SubViewport.new()
 	ship_viewport.size = Vector2i(220, 220)

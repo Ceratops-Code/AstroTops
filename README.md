@@ -3,14 +3,16 @@
 AstroTops is a fast top-down arcade prototype. Choose Trixie, an astronaut, or
 a little planet as pilot; select one of eight ships and ten paint colors; then
 fly through the Sun, eight planets, Moon, Pluto, Haumea, a black hole, and two
-asteroids before the meteor finale.
+asteroids before the meteor finale. Space Rush keeps the original free-order
+gameplay; Solar Tour is an additional mode that highlights and enforces the
+next target from the Sun outward, then awards a Tour Medal.
 
 ## Controls
 
 - Keyboard: WASD or arrow keys; P pauses; R resets; M toggles the tractor beam;
-  Escape goes back
+  T changes mode on the menu; Escape goes back
 - Gamepad: left stick or D-pad; A confirms; X toggles the tractor beam; Start
-  pauses; B goes back
+  pauses; Y changes mode on the menu; B goes back
 - Touch or mouse: drag on the left side of the playfield
 
 Choose **Launch Mission**, then press any keyboard key, gamepad button, or tap to
@@ -25,7 +27,8 @@ rising on a gentler curve; its value and on/off
 state are saved between runs. Captured names use the device's English
 text-to-speech voice at normal speed, one at a time with no intentional gap.
 The countdown uses five short beeps followed by a sharper, louder final tone
-derived from the beep at one-quarter frequency and twice its duration.
+derived from the beep at one-quarter frequency and twice its duration. Audio
+generation, effects, and speech are owned by `scripts/audio_controller.gd`.
 
 ## Run locally
 
@@ -71,6 +74,9 @@ Run the whole suite with Godot 4.7.2 on `PATH`:
 ```powershell
 uv run --locked scripts/run-tests.py --fresh
 ```
+
+The runner first asks Godot to import project assets, so a fresh checkout does
+not require opening the editor before tests.
 
 Pass `--group <group-id>` for a targeted rerun. The runner updates that group,
 preserves only applicable passing results for other groups, and recalculates

@@ -20,6 +20,7 @@ var asteroid_points := PackedVector2Array()
 var pulse_time := 0.0
 var exploding := false
 var explosion_progress := 0.0
+var tour_highlighted := false
 var ringed := false
 var ring_angle := 0.0
 var ring_rx := 0.0
@@ -116,8 +117,15 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	pulse_time += delta
-	if captured or exploding or body_style == "black_hole":
+	if captured or exploding or tour_highlighted or body_style == "black_hole":
 		queue_redraw()
+
+
+func set_tour_highlighted(value: bool) -> void:
+	if tour_highlighted == value:
+		return
+	tour_highlighted = value
+	queue_redraw()
 
 
 func capture(color: Color) -> bool:
@@ -171,6 +179,12 @@ func _draw() -> void:
 		return
 
 	var color := base_color.lerp(captured_color, capture_progress)
+	if tour_highlighted:
+		var marker_radius := visual_extent() + 11.0 + sin(pulse_time * 5.0) * 2.0
+		draw_arc(Vector2.ZERO, marker_radius, 0.0, TAU, 48, Color("ffd777"), 3.0, true)
+		for marker_index in range(4):
+			var marker_angle := pulse_time * 0.7 + float(marker_index) * PI * 0.5
+			draw_circle(Vector2.from_angle(marker_angle) * marker_radius, 3.5, Color("fff3b0"))
 	if captured:
 		var glow_alpha := 0.12 + sin(pulse_time * 4.0) * 0.035
 		draw_circle(Vector2.ZERO, radius + 10.0, Color(captured_color, glow_alpha))

@@ -4,11 +4,7 @@ extends Node2D
 const PlanetScene := preload("res://scripts/planet.gd")
 const ShipScene := preload("res://scripts/player_ship.gd")
 const MeteorScene := preload("res://scripts/meteor.gd")
-
-const SFX_STREAMS := {
-	"meteor": preload("res://assets/sfx_meteor.ogg"),
-	"explosion": preload("res://assets/sfx_explosion.ogg"),
-}
+const AudioControllerScene := preload("res://scripts/audio_controller.gd")
 
 const VIEW_SIZE := Vector2(1280.0, 720.0)
 const HUD_HEIGHT := 136.0
@@ -16,16 +12,6 @@ const SHIP_BOUNDS := Rect2(35.0, 146.0, 1210.0, 536.0)
 const SHIP_START := Vector2(640.0, 410.0)
 const MENU_SHIP_POSITION := Vector2(640.0, 220.0)
 const MENU_SHIP_SCALE := Vector2(1.28, 1.28)
-const SHOUT_SAMPLE_RATE := 22050
-const SHOUT_DURATION := 1.15
-const COUNTDOWN_BEEP_FREQUENCY := 880.0
-const COUNTDOWN_BEEP_DURATION := 0.11
-const COUNTDOWN_BEEP_AMPLITUDE := 0.42
-const COUNTDOWN_BEEP_VOLUME_DB := -5.0
-const COUNTDOWN_BOOP_DURATION_MULTIPLIER := 2.0
-const COUNTDOWN_BOOP_AMPLITUDE := 0.68
-const COUNTDOWN_BOOP_BRIGHTNESS := 0.88
-const COUNTDOWN_BOOP_VOLUME_DB := 2.0
 const SAVE_PATH := "user://astrotops.cfg"
 const TRACTOR_MIN_DISTANCE_FACTOR := 0.07
 const TRACTOR_MAX_DISTANCE_FACTOR := 0.30
@@ -36,7 +22,12 @@ const TRACTOR_PULL_TAPER := 0.15
 const TRACTOR_DEFAULT_STRENGTH := 0.45
 const TRACTOR_DEBUG_SEQUENCE := ["back", "reset", "pause", "close"]
 const TRACTOR_DEBUG_SEQUENCE_TIMEOUT_MS := 1100
-const TTS_RATE := 1.0
+const MODE_NAMES := ["SPACE RUSH", "SOLAR TOUR"]
+const TOUR_ORDER := [
+	"sun", "mercury", "venus", "earth", "moon", "mars", "asteroid_a",
+	"asteroid_b", "jupiter", "saturn", "uranus", "neptune", "pluto",
+	"haumea", "black_hole",
+]
 
 const BRAND_NAME := "ASTROTOPS"
 const MENU_SUBTITLE := "SPACE RUSH"
@@ -59,20 +50,25 @@ const SHIP_LABEL := Rect2(326.0, 302.0, 120.0, 54.0)
 const SHIP_LEFT_BUTTON := Rect2(458.0, 302.0, 82.0, 54.0)
 const SHIP_NAME_BUTTON := Rect2(552.0, 302.0, 310.0, 54.0)
 const SHIP_RIGHT_BUTTON := Rect2(874.0, 302.0, 82.0, 54.0)
-const COLOR_LABEL := Rect2(326.0, 370.0, 120.0, 54.0)
-const COLOR_LEFT_BUTTON := Rect2(458.0, 370.0, 82.0, 54.0)
-const COLOR_NAME_BUTTON := Rect2(552.0, 370.0, 310.0, 54.0)
-const COLOR_RIGHT_BUTTON := Rect2(874.0, 370.0, 82.0, 54.0)
-const PILOT_LABEL := Rect2(326.0, 438.0, 120.0, 54.0)
-const PILOT_LEFT_BUTTON := Rect2(458.0, 438.0, 82.0, 54.0)
-const PILOT_NAME_BUTTON := Rect2(552.0, 438.0, 310.0, 54.0)
-const PILOT_RIGHT_BUTTON := Rect2(874.0, 438.0, 82.0, 54.0)
-const START_BUTTON := Rect2(485.0, 516.0, 310.0, 62.0)
-const RESET_BEST_BUTTON := Rect2(540.0, 636.0, 200.0, 32.0)
+const COLOR_LABEL := Rect2(326.0, 360.0, 120.0, 54.0)
+const COLOR_LEFT_BUTTON := Rect2(458.0, 360.0, 82.0, 54.0)
+const COLOR_NAME_BUTTON := Rect2(552.0, 360.0, 310.0, 54.0)
+const COLOR_RIGHT_BUTTON := Rect2(874.0, 360.0, 82.0, 54.0)
+const PILOT_LABEL := Rect2(326.0, 418.0, 120.0, 54.0)
+const PILOT_LEFT_BUTTON := Rect2(458.0, 418.0, 82.0, 54.0)
+const PILOT_NAME_BUTTON := Rect2(552.0, 418.0, 310.0, 54.0)
+const PILOT_RIGHT_BUTTON := Rect2(874.0, 418.0, 82.0, 54.0)
+const MODE_LABEL := Rect2(326.0, 476.0, 120.0, 54.0)
+const MODE_LEFT_BUTTON := Rect2(458.0, 476.0, 82.0, 54.0)
+const MODE_NAME_BUTTON := Rect2(552.0, 476.0, 310.0, 54.0)
+const MODE_RIGHT_BUTTON := Rect2(874.0, 476.0, 82.0, 54.0)
+const START_BUTTON := Rect2(485.0, 544.0, 310.0, 62.0)
+const RESET_BEST_BUTTON := Rect2(540.0, 646.0, 200.0, 32.0)
 const AGAIN_BUTTON := Rect2(400.0, 545.0, 230.0, 72.0)
 const MENU_BUTTON := Rect2(650.0, 545.0, 230.0, 72.0)
 
 enum GameState { MENU, READY, COUNTDOWN, PLAYING, PAUSED, FINALE, RESULTS }
+enum GameMode { SPACE_RUSH, SOLAR_TOUR }
 
 signal ui_click_requested
 signal target_speech_enqueued(request: Dictionary)
@@ -96,6 +92,7 @@ var pilot_names := ["Trixie", "Astronaut", "Planet"]
 var selected_color_index := 0
 var selected_ship_index := 0
 var selected_pilot_index := 0
+var selected_game_mode := GameMode.SPACE_RUSH
 
 var ship: PlayerShip
 var planets: Array[ColorPlanet] = []
@@ -103,6 +100,7 @@ var stars: Array[Dictionary] = []
 var elapsed_time := 0.0
 var final_time := 0.0
 var best_time := 0.0
+var tour_best_time := 0.0
 var captured_count := 0
 var total_targets := 0
 var countdown_value := 5
@@ -110,6 +108,7 @@ var countdown_phase := 0.0
 var finale_impacts := 0
 var input_hint_time := 0.0
 var run_serial := 0
+var tour_progress_index := 0
 var tractor_beam_enabled := true
 var tractor_beam_strength := TRACTOR_DEFAULT_STRENGTH
 var tractor_target: ColorPlanet
@@ -135,34 +134,18 @@ var overlay_layer: CanvasLayer
 var overlay_shade: ColorRect
 var message_label: Label
 var countdown_label: Label
-var shout_stream: AudioStreamWAV
-var ui_click_stream: AudioStreamWAV
-var countdown_beep_stream: AudioStreamWAV
-var countdown_boop_stream: AudioStreamWAV
-var tts_voice := ""
-var tts_voice_refresh_attempts := 0
-var target_speech_utterance_id := 0
+var audio_controller: AstroAudioController
 var milky_way_texture: Texture2D
 
 
 func _ready() -> void:
 	font = ThemeDB.fallback_font
-	shout_stream = _make_shout_stream()
-	ui_click_stream = _make_mouse_click_stream()
-	countdown_beep_stream = _make_tone_stream(
-		COUNTDOWN_BEEP_FREQUENCY,
-		COUNTDOWN_BEEP_FREQUENCY,
-		COUNTDOWN_BEEP_DURATION,
-		COUNTDOWN_BEEP_AMPLITUDE
-	)
-	countdown_boop_stream = _make_tone_stream(
-		COUNTDOWN_BEEP_FREQUENCY / 4.0,
-		COUNTDOWN_BEEP_FREQUENCY / 4.0,
-		COUNTDOWN_BEEP_DURATION * COUNTDOWN_BOOP_DURATION_MULTIPLIER,
-		COUNTDOWN_BOOP_AMPLITUDE,
-		COUNTDOWN_BOOP_BRIGHTNESS
-	)
-	_setup_tts()
+	audio_controller = AudioControllerScene.new()
+	audio_controller.name = "AudioController"
+	audio_controller.playback_enabled = audio_playback_enabled
+	audio_controller.ui_click_requested.connect(func() -> void: ui_click_requested.emit())
+	audio_controller.target_speech_enqueued.connect(func(request: Dictionary) -> void: target_speech_enqueued.emit(request))
+	add_child(audio_controller)
 	_make_stars()
 	_load_settings()
 	if ResourceLoader.exists("res://assets/milky_way_background.png"):
@@ -288,6 +271,7 @@ func _load_settings() -> void:
 	var config := ConfigFile.new()
 	if config.load(settings_path) == OK:
 		best_time = float(config.get_value("times", "best", 0.0))
+		tour_best_time = float(config.get_value("times", "tour_best", 0.0))
 		tractor_beam_enabled = bool(config.get_value("tractor_beam", "enabled", true))
 		tractor_beam_strength = clampf(float(config.get_value("tractor_beam", "strength", TRACTOR_DEFAULT_STRENGTH)), 0.0, 1.0)
 
@@ -300,15 +284,24 @@ func _save_settings() -> void:
 func _settings_config() -> ConfigFile:
 	var config := ConfigFile.new()
 	config.set_value("times", "best", best_time)
+	config.set_value("times", "tour_best", tour_best_time)
 	config.set_value("tractor_beam", "enabled", tractor_beam_enabled)
 	config.set_value("tractor_beam", "strength", tractor_beam_strength)
 	return config
 
 
 func _save_best_time() -> void:
-	if best_time <= 0.0 or final_time < best_time:
+	if _is_tour_mode():
+		if tour_best_time <= 0.0 or final_time < tour_best_time:
+			tour_best_time = final_time
+			_save_settings()
+	elif best_time <= 0.0 or final_time < best_time:
 		best_time = final_time
 		_save_settings()
+
+
+func _active_best_time() -> float:
+	return tour_best_time if _is_tour_mode() else best_time
 
 
 func _body_specs() -> Array[Dictionary]:
@@ -416,7 +409,9 @@ func _clear_planets() -> void:
 func _prepare_run() -> void:
 	_stop_target_speech()
 	_setup_tts()
+	tour_progress_index = 0
 	_spawn_planets()
+	_refresh_tour_highlights()
 	captured_count = 0
 	elapsed_time = 0.0
 	final_time = 0.0
@@ -467,15 +462,46 @@ func _toggle_pause() -> void:
 
 
 func _check_planet_contacts() -> void:
+	var required_tour_style := _tour_target_style()
 	for planet in planets:
 		if not is_instance_valid(planet) or planet.captured:
+			continue
+		if _is_tour_mode() and planet.body_style != required_tour_style:
 			continue
 		if ship.position.distance_to(planet.position) <= planet.capture_radius() + ship.hit_radius * 0.72:
 			if planet.capture(palette[selected_color_index]):
 				captured_count += 1
 				_speak_target_name(planet.body_name)
+				if _is_tour_mode():
+					tour_progress_index += 1
+					_refresh_tour_highlights()
 				if captured_count >= total_targets:
 					_finish_run()
+
+
+func _is_tour_mode() -> bool:
+	return selected_game_mode == GameMode.SOLAR_TOUR
+
+
+func _tour_target_style() -> String:
+	if not _is_tour_mode() or tour_progress_index >= TOUR_ORDER.size():
+		return ""
+	return String(TOUR_ORDER[tour_progress_index])
+
+
+func _tour_target_name() -> String:
+	var target_style := _tour_target_style()
+	for planet in planets:
+		if is_instance_valid(planet) and planet.body_style == target_style:
+			return planet.body_name
+	return ""
+
+
+func _refresh_tour_highlights() -> void:
+	var target_style := _tour_target_style()
+	for planet in planets:
+		if is_instance_valid(planet):
+			planet.set_tour_highlighted(_is_tour_mode() and not planet.captured and planet.body_style == target_style)
 
 
 func _finish_run() -> void:
@@ -620,6 +646,8 @@ func _best_tractor_candidate(course_direction: Vector2) -> Dictionary:
 	for planet in planets:
 		if not is_instance_valid(planet) or planet.captured or not planet.is_visible_in_tree():
 			continue
+		if _is_tour_mode() and planet.body_style != _tour_target_style():
+			continue
 		var target_screen := canvas_transform * planet.global_position
 		var visual_extent := planet.visual_extent()
 		var extent_x_screen := canvas_transform * planet.to_global(Vector2(visual_extent, 0.0))
@@ -685,6 +713,8 @@ func _input(event: InputEvent) -> void:
 				_change_pilot(-1)
 			elif event.keycode == KEY_E:
 				_change_pilot(1)
+			elif event.keycode == KEY_T:
+				_change_mode(1)
 			elif event.keycode in [KEY_ENTER, KEY_SPACE]:
 				_play_ui_click()
 				_prepare_run()
@@ -718,6 +748,8 @@ func _input(event: InputEvent) -> void:
 			_change_pilot(-1)
 		elif state == GameState.MENU and event.button_index == JOY_BUTTON_RIGHT_SHOULDER:
 			_change_pilot(1)
+		elif state == GameState.MENU and event.button_index == JOY_BUTTON_Y:
+			_change_mode(1)
 		elif event.button_index == JOY_BUTTON_A and state in [GameState.MENU, GameState.RESULTS]:
 			_play_ui_click()
 			_prepare_run()
@@ -915,6 +947,10 @@ func _handle_menu_click(position: Vector2) -> void:
 		_change_pilot(-1)
 	elif PILOT_RIGHT_BUTTON.has_point(position):
 		_change_pilot(1)
+	elif MODE_LEFT_BUTTON.has_point(position):
+		_change_mode(-1)
+	elif MODE_RIGHT_BUTTON.has_point(position):
+		_change_mode(1)
 	elif START_BUTTON.has_point(position):
 		_play_ui_click()
 		_prepare_run()
@@ -948,6 +984,12 @@ func _change_pilot(step: int) -> void:
 	_play_ui_click()
 
 
+func _change_mode(step: int) -> void:
+	selected_game_mode = wrapi(selected_game_mode + step, 0, MODE_NAMES.size())
+	best_reset_confirmation_until = 0
+	_play_ui_click()
+
+
 func _can_adjust_tractor_beam() -> bool:
 	return state in [GameState.READY, GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED]
 
@@ -973,7 +1015,10 @@ func _update_tractor_strength_from_x(pointer_x: float) -> void:
 func _request_best_score_reset() -> void:
 	var now := Time.get_ticks_msec()
 	if now <= best_reset_confirmation_until:
-		best_time = 0.0
+		if _is_tour_mode():
+			tour_best_time = 0.0
+		else:
+			best_time = 0.0
 		best_reset_confirmation_until = 0
 		_save_settings()
 		_play_ui_click()
@@ -982,196 +1027,32 @@ func _request_best_score_reset() -> void:
 		_play_ui_click()
 
 
-func _make_mouse_click_stream() -> AudioStreamWAV:
-	# Two short, damped transients mimic a mechanical mouse press and release.
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = SHOUT_SAMPLE_RATE
-	stream.stereo = false
-	var duration := 0.070
-	var sample_count := int(duration * float(SHOUT_SAMPLE_RATE))
-	var samples := PackedByteArray()
-	samples.resize(sample_count * 2)
-	for index in range(sample_count):
-		var time := float(index) / float(SHOUT_SAMPLE_RATE)
-		var press := exp(-time * 105.0) * (
-			sin(time * TAU * 2920.0) * 0.52 + sin(time * TAU * 1680.0) * 0.26
-		)
-		var release_time := time - 0.032
-		var release := 0.0
-		if release_time >= 0.0:
-			release = exp(-release_time * 145.0) * (
-				sin(release_time * TAU * 2380.0) * 0.30 + sin(release_time * TAU * 1120.0) * 0.16
-			)
-		var value := clampf(press + release, -0.72, 0.72)
-		var pcm := int(round(value * 32767.0))
-		samples[index * 2] = pcm & 0xff
-		samples[index * 2 + 1] = (pcm >> 8) & 0xff
-	stream.data = samples
-	return stream
-
-
-func _make_tone_stream(
-	start_frequency: float,
-	end_frequency: float,
-	duration: float,
-	amplitude: float,
-	brightness := 0.0
-) -> AudioStreamWAV:
-	# Smooth envelopes avoid clicks; optional odd harmonics give the low final
-	# tone enough edge to remain sharp instead of becoming a dull sine thump.
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = SHOUT_SAMPLE_RATE
-	stream.stereo = false
-	var sample_count := int(duration * float(SHOUT_SAMPLE_RATE))
-	var samples := PackedByteArray()
-	samples.resize(sample_count * 2)
-	var phase := 0.0
-	for index in range(sample_count):
-		var time := float(index) / float(SHOUT_SAMPLE_RATE)
-		var progress := time / duration
-		var frequency := lerpf(start_frequency, end_frequency, progress)
-		phase += TAU * frequency / float(SHOUT_SAMPLE_RATE)
-		var attack := clampf(time / 0.008, 0.0, 1.0)
-		var release := clampf((duration - time) / minf(0.045, duration * 0.35), 0.0, 1.0)
-		var rounded_tone := sin(phase) * 0.82 + sin(phase * 2.0) * 0.12
-		var bright_edge := sin(phase * 3.0) * 0.15 + sin(phase * 5.0) * 0.08
-		var tone := (rounded_tone + bright_edge * brightness) / (0.94 + brightness * 0.23)
-		var value := clampf(tone * attack * release * amplitude, -1.0, 1.0)
-		var pcm := int(round(value * 32767.0))
-		samples[index * 2] = pcm & 0xff
-		samples[index * 2 + 1] = (pcm >> 8) & 0xff
-	stream.data = samples
-	return stream
-
-
-func _play_generated_stream(stream: AudioStreamWAV, volume_db: float) -> void:
-	if stream == null or not audio_playback_enabled:
-		return
-	var player := AudioStreamPlayer.new()
-	player.stream = stream
-	player.volume_db = volume_db
-	add_child(player)
-	player.finished.connect(player.queue_free)
-	player.play()
-
-
 func _play_ui_click() -> void:
-	ui_click_requested.emit()
-	_play_generated_stream(ui_click_stream, -8.0)
+	audio_controller.play_ui_click()
 
 
 func _play_countdown_tone(final_boop: bool) -> void:
-	_play_generated_stream(
-		countdown_boop_stream if final_boop else countdown_beep_stream,
-		COUNTDOWN_BOOP_VOLUME_DB if final_boop else COUNTDOWN_BEEP_VOLUME_DB
-	)
+	audio_controller.play_countdown_tone(final_boop)
 
 
 func _play_sfx(effect: String, pitch := 1.0, volume_db := 0.0) -> void:
-	if not audio_playback_enabled or not SFX_STREAMS.has(effect):
-		return
-	# One-shot players self-remove, allowing closely spaced meteor impacts to overlap cleanly.
-	var player := AudioStreamPlayer.new()
-	player.stream = SFX_STREAMS[effect]
-	player.pitch_scale = pitch
-	player.volume_db = volume_db
-	add_child(player)
-	player.finished.connect(player.queue_free)
-	player.play()
+	audio_controller.play_sfx(effect, pitch, volume_db)
 
 
 func _setup_tts() -> void:
-	if not tts_voice.is_empty():
-		return
-	tts_voice_refresh_attempts += 1
-	if not DisplayServer.has_feature(DisplayServer.FEATURE_TEXT_TO_SPEECH):
-		return
-	var voices := DisplayServer.tts_get_voices_for_language("en")
-	if voices.is_empty():
-		voices = DisplayServer.tts_get_voices_for_language("en_US")
-	if voices.is_empty():
-		voices = DisplayServer.tts_get_voices_for_language("en-US")
-	if not voices.is_empty():
-		tts_voice = String(voices[0])
+	audio_controller.setup_tts()
 
 
 func _speak_target_name(target_name: String) -> void:
-	target_speech_utterance_id += 1
-	var request := _target_speech_request(target_name, target_speech_utterance_id)
-	target_speech_enqueued.emit(request)
-	if tts_voice.is_empty():
-		_setup_tts()
-		if tts_voice.is_empty():
-			return
-	# Godot's native synthesizer owns the utterance queue. Submitting immediately
-	# removes the application-side pause while interrupt=false keeps names ordered
-	# and non-overlapping.
-	DisplayServer.tts_speak(
-		String(request["text"]),
-		tts_voice,
-		int(request["volume"]),
-		float(request["pitch"]),
-		float(request["rate"]),
-		int(request["utterance_id"]),
-		bool(request["interrupt"])
-	)
-
-
-func _target_speech_request(target_name: String, utterance_id: int) -> Dictionary:
-	return {
-		"text": "how MAY uh" if target_name == "Haumea" else target_name,
-		"volume": 58,
-		"pitch": 1.0,
-		"rate": TTS_RATE,
-		"utterance_id": utterance_id,
-		"interrupt": false,
-	}
+	audio_controller.speak_target_name(target_name)
 
 
 func _stop_target_speech() -> void:
-	if not tts_voice.is_empty():
-		DisplayServer.tts_stop()
-
-
-func _make_shout_stream() -> AudioStreamWAV:
-	# Build a short vowel-like shout in memory so every platform hears the same finale cue.
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = SHOUT_SAMPLE_RATE
-	stream.stereo = false
-	var sample_count := int(SHOUT_DURATION * float(SHOUT_SAMPLE_RATE))
-	var samples := PackedByteArray()
-	samples.resize(sample_count * 2)
-	var phase := 0.0
-	for index in range(sample_count):
-		var time := float(index) / float(SHOUT_SAMPLE_RATE)
-		var progress := time / SHOUT_DURATION
-		var attack := clampf(time / 0.055, 0.0, 1.0)
-		var release := clampf((SHOUT_DURATION - time) / 0.24, 0.0, 1.0)
-		var pitch := lerpf(174.0, 132.0, progress) + sin(time * TAU * 2.2) * 3.5
-		phase += TAU * pitch / float(SHOUT_SAMPLE_RATE)
-		var voice := sin(phase) * 0.58 + sin(phase * 2.0) * 0.20 + sin(phase * 3.0) * 0.10
-		var formants := sin(time * TAU * 720.0) * 0.075 + sin(time * TAU * 1120.0) * 0.045
-		var tremolo := 0.91 + sin(time * TAU * 5.2) * 0.09
-		var value := clampf((voice + formants) * attack * release * tremolo * 0.52, -1.0, 1.0)
-		var pcm := int(round(value * 32767.0))
-		samples[index * 2] = pcm & 0xff
-		samples[index * 2 + 1] = (pcm >> 8) & 0xff
-	stream.data = samples
-	return stream
+	audio_controller.stop_target_speech()
 
 
 func _play_shout() -> void:
-	if shout_stream == null or not audio_playback_enabled:
-		return
-	var player := AudioStreamPlayer.new()
-	player.stream = shout_stream
-	player.volume_db = -11.0
-	add_child(player)
-	player.finished.connect(player.queue_free)
-	player.play()
+	audio_controller.play_shout()
 
 
 func _format_time(value: float) -> String:
@@ -1442,11 +1323,16 @@ func _draw_menu() -> void:
 	_arrow_button(PILOT_LEFT_BUTTON, -1.0, palette[selected_color_index])
 	_arrow_button(PILOT_RIGHT_BUTTON, 1.0, palette[selected_color_index])
 	_selector(PILOT_NAME_BUTTON, pilot_names[selected_pilot_index])
+	_section_label(MODE_LABEL, "MODE")
+	_arrow_button(MODE_LEFT_BUTTON, -1.0, palette[selected_color_index])
+	_arrow_button(MODE_RIGHT_BUTTON, 1.0, palette[selected_color_index])
+	_selector(MODE_NAME_BUTTON, MODE_NAMES[selected_game_mode])
 	_button(START_BUTTON, "LAUNCH MISSION", palette[selected_color_index])
 	var reset_label := "TAP AGAIN TO RESET" if Time.get_ticks_msec() <= best_reset_confirmation_until else "RESET BEST TIME"
 	_button(RESET_BEST_BUTTON, reset_label, Color("ffc857"))
-	var best_label := "BEST TIME  --:--.--" if best_time <= 0.0 else "BEST TIME  %s" % _format_time(best_time)
-	_center_text(best_label, 618.0, 22, Color("e7edff"))
+	var active_best := _active_best_time()
+	var best_label := "BEST TIME  --:--.--" if active_best <= 0.0 else "BEST TIME  %s" % _format_time(active_best)
+	_center_text(best_label, 632.0, 22, Color("e7edff"))
 	_center_text("WASD / arrows • Gamepad stick / D-pad • Touch drag • Q/E pilot", 704.0, 15, Color("7f8bae"))
 
 
@@ -1460,6 +1346,10 @@ func _draw_game_hud() -> void:
 	var shown_time := final_time if state in [GameState.FINALE, GameState.RESULTS] else elapsed_time
 	draw_string(font, Vector2(210.0, 49.0), _format_time(shown_time), HORIZONTAL_ALIGNMENT_CENTER, 180.0, 27, Color.WHITE)
 	draw_string(font, Vector2(410.0, 48.0), "%d / %d TARGETS" % [captured_count, total_targets], HORIZONTAL_ALIGNMENT_CENTER, 275.0, 19, Color("dbe5ff"))
+	if _is_tour_mode():
+		var next_target := _tour_target_name()
+		var tour_status := "TOUR COMPLETE" if next_target.is_empty() else "NEXT  " + next_target.to_upper()
+		draw_string(font, Vector2(410.0, 73.0), tour_status, HORIZONTAL_ALIGNMENT_CENTER, 275.0, 15, Color("ffd777"))
 	_button(BACK_BUTTON, "BACK", Color("8291b9"))
 	_button(RESET_BUTTON, "RESET", Color("ffc857"))
 	var can_pause := state in [GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED]
@@ -1492,8 +1382,12 @@ func _draw_results() -> void:
 	draw_rect(Rect2(300.0, 148.0, 680.0, 490.0), palette[selected_color_index], false, 4.0)
 	_center_text(RESULT_TITLE, 220.0, 43, palette[selected_color_index])
 	_center_text(_result_pilot_message(), 270.0, RESULT_PILOT_FONT_SIZE, Color("d7e1ff"))
+	if _is_tour_mode():
+		draw_circle(Vector2(640.0, 322.0), 28.0, Color("704f16"))
+		draw_arc(Vector2(640.0, 322.0), 28.0, 0.0, TAU, 36, Color("ffd777"), 4.0, true)
+		_center_text("TOUR MEDAL", 329.0, 18, Color("fff0ac"))
 	_center_text(_format_time(final_time), 375.0, 68, Color.WHITE)
-	_center_text("BEST TIME  " + _format_time(best_time), 435.0, 23, Color("ffd777"))
+	_center_text("BEST TIME  " + _format_time(_active_best_time()), 435.0, 23, Color("ffd777"))
 	_button(AGAIN_BUTTON, "RUN AGAIN", palette[selected_color_index])
 	_button(MENU_BUTTON, "MENU", Color("8291b9"))
 
@@ -1503,4 +1397,6 @@ func _tractor_button_label() -> String:
 
 
 func _result_pilot_message() -> String:
+	if _is_tour_mode():
+		return "%s completed the solar tour" % pilot_names[selected_pilot_index]
 	return "%s painted every target" % pilot_names[selected_pilot_index]
