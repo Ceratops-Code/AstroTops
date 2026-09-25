@@ -1,5 +1,12 @@
 {
-  "artifact": null,
+  "artifact": {
+    "artifactLength": 83517545,
+    "artifactPath": ".build/artifacts/android/AstroTops.apk",
+    "artifactSha256": "d30f8abeffc9b51a273287b2576b6b64dd2636c7d4847935ece33471212ef8a1",
+    "schema": "astrotops-build-record.v1",
+    "sourceCommit": "3117e9c293dc1ae749788c4411c0e4a92cde8626",
+    "version": "astrotops-local-20260925-3117e9c"
+  },
   "assertions": 9,
   "command": [
     "{python}",
@@ -14,13 +21,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260925T183134Z-3117e9c293dc/delivery-lifecycle/output.log"
+    "evidence/20260925T183411Z-3117e9c293dc/delivery-lifecycle/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "39abcf9e2f29f6103d1e90ae21d58768cd0235ca67029099a9b12493bb1bf22e",
-  "finishedAt": 1790361100.07813,
+  "fingerprint": "032a34d3479875d1d5fa7a314358ae10e45b72dc09000556ffe809d1bd037bbb",
+  "finishedAt": 1790361259.0419958,
   "id": "delivery-lifecycle",
   "observations": [
     {
@@ -53,23 +60,23 @@
     },
     {
       "actual": [
-        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-jzbefyzb\\godot",
+        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-8d14tyke\\godot",
         "--headless",
         "--path",
-        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-jzbefyzb\\repo",
+        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-8d14tyke\\repo",
         "--import"
       ],
       "id": "runner-import-command"
     },
     {
-      "actual": "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-jzbefyzb\\repo",
+      "actual": "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-8d14tyke\\repo",
       "id": "runner-import-working-directory"
     }
   ],
   "outcome": "passed",
-  "runId": "20260925T183134Z-3117e9c293dc",
+  "runId": "20260925T183411Z-3117e9c293dc",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.011,
+  "seconds": 0.004,
   "source": {
     "commit": "3117e9c293dc1ae749788c4411c0e4a92cde8626",
     "digest": "592a5c75520804a0907860a9ca1d08fe7ebe45e617b3c0ea11d70aade9b082a4",
