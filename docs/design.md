@@ -192,10 +192,11 @@ to exact artifact bytes. Atomic sibling files prevent partial JSON replacement.
 ### 8.2 APIs and integrations
 
 Godot Input and `InputEvent` are the player-control interface. `DisplayServer`
-owns the native text-to-speech queue; AstroTops submits English name, voice,
-volume, pitch, rate, utterance identifier, and `interrupt=false`. Missing voice
-support degrades to silent names without blocking capture. `ConfigFile` is the
-local persistence interface.
+owns the native text-to-speech queue. AstroTops retries English voice discovery
+at mission setup and again when a capture finds no cached voice, then submits
+the name, voice, volume, pitch, rate, utterance identifier, and
+`interrupt=false`. Missing voice support still degrades to silent names without
+blocking capture. `ConfigFile` is the local persistence interface.
 
 The SDLC contract is [`sdlc/sdlc.yml`](../sdlc/sdlc.yml). Repository helpers
 use subprocess argument arrays rather than shell strings. The Android install

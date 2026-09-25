@@ -25,7 +25,7 @@ const COUNTDOWN_BEEP_VOLUME_DB := -5.0
 const COUNTDOWN_BOOP_DURATION_MULTIPLIER := 2.0
 const COUNTDOWN_BOOP_AMPLITUDE := 0.68
 const COUNTDOWN_BOOP_BRIGHTNESS := 0.88
-const COUNTDOWN_BOOP_VOLUME_DB := -1.5
+const COUNTDOWN_BOOP_VOLUME_DB := 2.0
 const SAVE_PATH := "user://astrotops.cfg"
 const TRACTOR_MIN_DISTANCE_FACTOR := 0.07
 const TRACTOR_MAX_DISTANCE_FACTOR := 0.30
@@ -140,6 +140,7 @@ var ui_click_stream: AudioStreamWAV
 var countdown_beep_stream: AudioStreamWAV
 var countdown_boop_stream: AudioStreamWAV
 var tts_voice := ""
+var tts_voice_refresh_attempts := 0
 var target_speech_utterance_id := 0
 var milky_way_texture: Texture2D
 
@@ -414,6 +415,7 @@ func _clear_planets() -> void:
 
 func _prepare_run() -> void:
 	_stop_target_speech()
+	_setup_tts()
 	_spawn_planets()
 	captured_count = 0
 	elapsed_time = 0.0
@@ -1081,9 +1083,14 @@ func _play_sfx(effect: String, pitch := 1.0, volume_db := 0.0) -> void:
 
 
 func _setup_tts() -> void:
+	if not tts_voice.is_empty():
+		return
+	tts_voice_refresh_attempts += 1
 	if not DisplayServer.has_feature(DisplayServer.FEATURE_TEXT_TO_SPEECH):
 		return
 	var voices := DisplayServer.tts_get_voices_for_language("en")
+	if voices.is_empty():
+		voices = DisplayServer.tts_get_voices_for_language("en_US")
 	if voices.is_empty():
 		voices = DisplayServer.tts_get_voices_for_language("en-US")
 	if not voices.is_empty():
@@ -1095,7 +1102,9 @@ func _speak_target_name(target_name: String) -> void:
 	var request := _target_speech_request(target_name, target_speech_utterance_id)
 	target_speech_enqueued.emit(request)
 	if tts_voice.is_empty():
-		return
+		_setup_tts()
+		if tts_voice.is_empty():
+			return
 	# Godot's native synthesizer owns the utterance queue. Submitting immediately
 	# removes the application-side pause while interrupt=false keeps names ordered
 	# and non-overlapping.
