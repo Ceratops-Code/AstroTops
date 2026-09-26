@@ -274,14 +274,16 @@ func _test_audio_speech() -> void:
 	var main: Variant = await _new_main(root)
 	var audio: AstroAudioController = main.audio_controller
 	_assert_near("AUDIO-01/boop-frequency-ratio", audio.COUNTDOWN_BEEP_FREQUENCY / 4.0, 220.0, 0.001)
-	_assert_near("AUDIO-01/boop-double-duration", audio.countdown_boop_stream.get_length(), audio.countdown_beep_stream.get_length() * 2.0, 0.002)
+	_assert_near("AUDIO-01/boop-2x-current-duration", audio.countdown_boop_stream.get_length(), audio.countdown_beep_stream.get_length() * 4.0, 0.002)
 	var beep_peak := _pcm_peak(audio.countdown_beep_stream)
 	var boop_peak := _pcm_peak(audio.countdown_boop_stream)
 	_assert_true("AUDIO-01/boop-louder-pcm", boop_peak > beep_peak, {"beep": beep_peak, "boop": boop_peak}, "boop > beep")
 	_assert_true("AUDIO-01/boop-louder-playback", audio.COUNTDOWN_BOOP_VOLUME_DB > audio.COUNTDOWN_BEEP_VOLUME_DB, {"beep_db": audio.COUNTDOWN_BEEP_VOLUME_DB, "boop_db": audio.COUNTDOWN_BOOP_VOLUME_DB}, "boop dB > beep dB")
-	_assert_near("AUDIO-01/boop-1.5x-gain", db_to_linear(audio.COUNTDOWN_BOOP_VOLUME_DB - -1.5), 1.5, 0.02)
+	_assert_near("AUDIO-01/boop-1.5x-current-gain", db_to_linear(audio.COUNTDOWN_BOOP_VOLUME_DB - 2.0), 1.5, 0.02)
 	_assert_true("AUDIO-01/boop-bright-harmonics", audio.COUNTDOWN_BOOP_BRIGHTNESS >= 0.75, audio.COUNTDOWN_BOOP_BRIGHTNESS, ">= 0.75")
 	_assert_true("AUDIO-02/click-is-short", audio.ui_click_stream.get_length() < 0.09, audio.ui_click_stream.get_length(), "< 0.09 seconds")
+	_assert_equal("AUDIO-04/explosion-resource", audio.SFX_STREAMS["explosion"].resource_path, "res://assets/sfx_explosion.ogg")
+	_assert_near("AUDIO-04/bubble-pop-duration", audio.SFX_STREAMS["explosion"].get_length(), 1.79, 0.04)
 	_assert_near("AUDIO-03/finale-shout-duration", audio.shout_stream.get_length(), audio.SHOUT_DURATION, 0.002)
 	audio.tts_voice = ""
 	var refresh_attempts_before: int = int(audio.tts_voice_refresh_attempts)
@@ -529,6 +531,9 @@ func _test_gameplay_flow() -> void:
 	_assert_equal("TOUR-01/one-highlight", tour_main.planets.filter(func(planet: ColorPlanet) -> bool: return planet.tour_highlighted).size(), 1)
 	var out_of_order: ColorPlanet = _planet_by_style(tour_main, "mercury")
 	var first_target: ColorPlanet = _planet_by_style(tour_main, "sun")
+	_assert_true("TOUR-01/initial-arrow-cue", first_target.is_tour_guide_visible(), first_target.tour_guide_time_remaining, "> 0 seconds")
+	first_target._process(first_target.TOUR_GUIDE_DURATION)
+	_assert_true("TOUR-01/arrow-cue-times-out", not first_target.is_tour_guide_visible() and first_target.tour_highlighted, {"guide": first_target.tour_guide_time_remaining, "highlighted": first_target.tour_highlighted}, "arrows hidden; marker remains")
 	for planet in tour_main.planets:
 		planet.visible = planet in [first_target, out_of_order]
 	tour_main.ship.position = Vector2(640.0, 600.0)
@@ -547,6 +552,7 @@ func _test_gameplay_flow() -> void:
 	tour_main._check_planet_contacts()
 	_assert_equal("TOUR-01/order-advances", [tour_main.captured_count, tour_main._tour_target_style()], [1, "mercury"])
 	_assert_true("TOUR-01/next-target-highlighted", out_of_order.tour_highlighted, out_of_order.body_style)
+	_assert_true("TOUR-01/next-target-arrow-cue-reset", out_of_order.is_tour_guide_visible(), out_of_order.tour_guide_time_remaining, "> 0 seconds")
 	tour_main.elapsed_time = 19.5
 	for tour_index in range(1, tour_main.TOUR_ORDER.size()):
 		var tour_target: ColorPlanet = _planet_by_style(tour_main, String(tour_main.TOUR_ORDER[tour_index]))

@@ -5,6 +5,9 @@ extends Node2D
 const LABEL_FONT_SIZE := 20
 const ASTEROID_CAPTURE_SCALE := 1.3
 const BLACK_HOLE_CAPTURE_BLEND := 0.50
+const TOUR_GUIDE_DURATION := 2.5
+const TOUR_MARKER_COLOR := Color("ffd777")
+const TOUR_MARKER_BRIGHT_COLOR := Color("fff3b0")
 
 var body_name := "Planet"
 var body_style := "mercury"
@@ -21,6 +24,7 @@ var pulse_time := 0.0
 var exploding := false
 var explosion_progress := 0.0
 var tour_highlighted := false
+var tour_guide_time_remaining := 0.0
 var ringed := false
 var ring_angle := 0.0
 var ring_rx := 0.0
@@ -117,6 +121,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	pulse_time += delta
+	if tour_highlighted and tour_guide_time_remaining > 0.0:
+		tour_guide_time_remaining = maxf(0.0, tour_guide_time_remaining - delta)
 	if captured or exploding or tour_highlighted or body_style == "black_hole":
 		queue_redraw()
 
@@ -125,7 +131,37 @@ func set_tour_highlighted(value: bool) -> void:
 	if tour_highlighted == value:
 		return
 	tour_highlighted = value
+	# Each new target gets one short guidance window; the stronger ring persists afterward.
+	tour_guide_time_remaining = TOUR_GUIDE_DURATION if value else 0.0
 	queue_redraw()
+
+
+func is_tour_guide_visible() -> bool:
+	return tour_highlighted and tour_guide_time_remaining > 0.0
+
+
+func _draw_tour_guide_arrows(marker_radius: float) -> void:
+	# Four cardinal arrows animate inward so the target remains clear from any approach.
+	var approach := sin(pulse_time * 7.0) * 4.0
+	for arrow_index in range(4):
+		var angle := float(arrow_index) * PI * 0.5
+		var direction := Vector2.from_angle(angle)
+		var tangent := direction.orthogonal()
+		var tip := direction * (marker_radius + 7.0)
+		var base_center := direction * (marker_radius + 28.0 + approach)
+		var arrow_points := PackedVector2Array([
+			tip,
+			base_center + tangent * 9.0,
+			base_center - tangent * 9.0,
+		])
+		draw_colored_polygon(arrow_points, TOUR_MARKER_BRIGHT_COLOR)
+		draw_line(
+			base_center,
+			direction * (marker_radius + 42.0 + approach),
+			TOUR_MARKER_COLOR,
+			5.0,
+			true
+		)
 
 
 func capture(color: Color) -> bool:
@@ -180,11 +216,14 @@ func _draw() -> void:
 
 	var color := base_color.lerp(captured_color, capture_progress)
 	if tour_highlighted:
-		var marker_radius := visual_extent() + 11.0 + sin(pulse_time * 5.0) * 2.0
-		draw_arc(Vector2.ZERO, marker_radius, 0.0, TAU, 48, Color("ffd777"), 3.0, true)
-		for marker_index in range(4):
-			var marker_angle := pulse_time * 0.7 + float(marker_index) * PI * 0.5
-			draw_circle(Vector2.from_angle(marker_angle) * marker_radius, 3.5, Color("fff3b0"))
+		var marker_radius := visual_extent() + 14.0 + sin(pulse_time * 5.0) * 2.5
+		draw_arc(Vector2.ZERO, marker_radius + 5.0, 0.0, TAU, 64, Color(1.0, 0.72, 0.18, 0.28), 9.0, true)
+		draw_arc(Vector2.ZERO, marker_radius, 0.0, TAU, 64, TOUR_MARKER_COLOR, 5.0, true)
+		for marker_index in range(8):
+			var marker_angle := pulse_time * 0.7 + float(marker_index) * PI * 0.25
+			draw_circle(Vector2.from_angle(marker_angle) * marker_radius, 4.0, TOUR_MARKER_BRIGHT_COLOR)
+		if is_tour_guide_visible():
+			_draw_tour_guide_arrows(marker_radius)
 	if captured:
 		var glow_alpha := 0.12 + sin(pulse_time * 4.0) * 0.035
 		draw_circle(Vector2.ZERO, radius + 10.0, Color(captured_color, glow_alpha))

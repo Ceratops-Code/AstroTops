@@ -124,8 +124,8 @@ bounded evidence, artifact identity, and deterministic Android deployment.
 - [`scripts/player_ship.gd`](../scripts/player_ship.gd) owns movement bounds,
   velocity, eight ship styles, cockpit placement, and three pilots.
 - [`scripts/planet.gd`](../scripts/planet.gd) owns each target's recognizable
-  rendering, capture radius, paint transition, black-hole treatment, and
-  explosion animation.
+  rendering, capture radius, paint transition, black-hole treatment, Solar Tour
+  marker and timed arrow cue, and explosion animation.
 - [`scripts/meteor.gd`](../scripts/meteor.gd) owns one curved meteor flight and
   reports impact to the game shell.
 - [`scripts/regression_tests.gd`](../scripts/regression_tests.gd) is the Godot
@@ -149,7 +149,8 @@ submitted in capture order without an application-side delay.
 
 Space Rush remains the default mode and accepts targets in any order. Solar Tour
 is an additive menu choice: it preserves the same roster and finale, accepts only
-the highlighted next body from the Sun outward, and records a separate best time.
+the highlighted next body from the Sun outward, shows inward arrows for the first
+2.5 seconds of every new target, and records a separate best time.
 Completing the ordered roster adds a Tour Medal to the results panel.
 
 The tractor beam selects at most one visible, uncaptured body whose bearing is
