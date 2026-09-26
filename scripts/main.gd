@@ -895,16 +895,14 @@ func _handle_tractor_debug_sequence(button: String) -> bool:
 		if button != String(TRACTOR_DEBUG_SEQUENCE[0]):
 			return false
 
-	var starts_sequence := tractor_debug_sequence_index == 0
 	tractor_debug_sequence_index += 1
 	tractor_debug_sequence_serial += 1
 	tractor_debug_sequence_deadline_ms = now + TRACTOR_DEBUG_SEQUENCE_TIMEOUT_MS
 	_play_ui_click()
-	if starts_sequence:
-		var sequence_serial := tractor_debug_sequence_serial
-		get_tree().create_timer(float(TRACTOR_DEBUG_SEQUENCE_TIMEOUT_MS) / 1000.0).timeout.connect(
-			_on_tractor_debug_back_timeout.bind(sequence_serial)
-		)
+	var sequence_serial := tractor_debug_sequence_serial
+	get_tree().create_timer(float(TRACTOR_DEBUG_SEQUENCE_TIMEOUT_MS) / 1000.0).timeout.connect(
+		_on_tractor_debug_back_timeout.bind(sequence_serial)
+	)
 	if tractor_debug_sequence_index == TRACTOR_DEBUG_SEQUENCE.size():
 		tractor_debug_field_visible = not tractor_debug_field_visible
 		_reset_tractor_debug_sequence()
@@ -919,7 +917,7 @@ func _reset_tractor_debug_sequence() -> void:
 
 
 func _resolve_pending_debug_back() -> bool:
-	if tractor_debug_sequence_index != 1:
+	if tractor_debug_sequence_index <= 0:
 		return false
 	_reset_tractor_debug_sequence()
 	_return_to_menu(false)
@@ -927,7 +925,7 @@ func _resolve_pending_debug_back() -> bool:
 
 
 func _on_tractor_debug_back_timeout(sequence_serial: int) -> void:
-	if sequence_serial != tractor_debug_sequence_serial or tractor_debug_sequence_index != 1:
+	if sequence_serial != tractor_debug_sequence_serial or tractor_debug_sequence_index <= 0:
 		return
 	_resolve_pending_debug_back()
 

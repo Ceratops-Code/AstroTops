@@ -371,6 +371,23 @@ func _test_tractor_beam() -> void:
 	_assert_equal("TRACTOR-05/wrong-order-resets", main.tractor_debug_sequence_index, 0)
 	_assert_equal("TRACTOR-05/wrong-order-resolves-back", main.state, main.GameState.MENU)
 	main.state = main.GameState.PLAYING
+	main._handle_system_button(main.BACK_BUTTON.get_center())
+	var first_prefix_serial: int = main.tractor_debug_sequence_serial
+	main._handle_system_button(main.RESET_BUTTON.get_center())
+	var partial_prefix_serial: int = main.tractor_debug_sequence_serial
+	main._on_tractor_debug_back_timeout(first_prefix_serial)
+	_assert_equal("TRACTOR-05/stale-prefix-timer-ignored", main.state, main.GameState.PLAYING)
+	_assert_equal("TRACTOR-05/partial-prefix-retained", main.tractor_debug_sequence_index, 2)
+	main._on_tractor_debug_back_timeout(partial_prefix_serial)
+	_assert_equal("TRACTOR-05/partial-prefix-timeout-resolves-back", main.state, main.GameState.MENU)
+	_assert_equal("TRACTOR-05/partial-prefix-timeout-resets", main.tractor_debug_sequence_index, 0)
+	main.state = main.GameState.PLAYING
+	main._handle_system_button(main.BACK_BUTTON.get_center())
+	main._handle_system_button(main.RESET_BUTTON.get_center())
+	main._handle_system_button(main.TRACTOR_BEAM_BUTTON.get_center())
+	_assert_equal("TRACTOR-05/partial-prefix-interrupt-resolves-back", main.state, main.GameState.MENU)
+	_assert_equal("TRACTOR-05/partial-prefix-interrupt-resets", main.tractor_debug_sequence_index, 0)
+	main.state = main.GameState.PLAYING
 	for button_rect in [main.BACK_BUTTON, main.RESET_BUTTON, main.PAUSE_BUTTON, main.CLOSE_BUTTON]:
 		main._handle_system_button(button_rect.get_center())
 	_assert_equal("TRACTOR-05/secret-sequence-shows", main.tractor_debug_field_visible, true)

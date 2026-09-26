@@ -316,6 +316,46 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         str(fake_repo),
         str(import_calls[0][1].get("cwd")),
     )
+    merged_source = SourceIdentity(
+        commit="synthetic-merge",
+        digest="source-digest",
+        exact_tags=(),
+        dirty_paths=(),
+    )
+    tagged_artifact = ArtifactIdentity(
+        version="astrotops-local-test",
+        source_commit="tagged-source",
+        path=".build/artifacts/android/AstroTops.apk",
+        sha256=expected_hash,
+        length=artifact.stat().st_size,
+    )
+    check(
+        "delivery-validation-survives-content-identical-merge",
+        True,
+        qualification_source_matches(
+            {"commit": "tagged-source", "digest": "source-digest"},
+            merged_source,
+            tagged_artifact,
+        ),
+    )
+    check(
+        "delivery-validation-rejects-different-content",
+        False,
+        qualification_source_matches(
+            {"commit": "tagged-source", "digest": "different-digest"},
+            merged_source,
+            tagged_artifact,
+        ),
+    )
+    check(
+        "delivery-validation-rejects-unqualified-commit",
+        False,
+        qualification_source_matches(
+            {"commit": "unrelated-source", "digest": "source-digest"},
+            merged_source,
+            tagged_artifact,
+        ),
+    )
     return {
         "group": "delivery-lifecycle",
         "status": "passed" if not failures else "failed",
@@ -594,6 +634,20 @@ def load_group_result(path: pathlib.Path) -> dict[str, object] | None:
     return value if isinstance(value, dict) and value.get("schema") == GROUP_SCHEMA else None
 
 
+def qualification_source_matches(
+    recorded_source: object,
+    source_identity: SourceIdentity,
+    artifact_identity: ArtifactIdentity,
+) -> bool:
+    """Bind validation to the tagged source while tolerating a content-identical merge commit."""
+
+    return (
+        isinstance(recorded_source, dict)
+        and recorded_source.get("commit") == artifact_identity.source_commit
+        and recorded_source.get("digest") == source_identity.digest
+    )
+
+
 def applicable_qualified_artifact(
     repo_root: pathlib.Path,
     source_identity: SourceIdentity,
@@ -690,9 +744,8 @@ def verify_delivery(
             failures.append(
                 f"delivery/validation expected=passed actual={validation.get('outcome')}"
             )
-        if not isinstance(validation_source, dict) or (
-            validation_source.get("commit") != source_identity.commit
-            or validation_source.get("digest") != source_identity.digest
+        if not qualification_source_matches(
+            validation_source, source_identity, artifact_identity
         ):
             failures.append("delivery/validation expected=applicable result actual=stale")
         if (
