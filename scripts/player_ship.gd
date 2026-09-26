@@ -14,6 +14,9 @@ const COCKPIT_COLOR := Color("010205")
 const TRIXIE_PILOT_SCALE := 2.04
 const ASTRONAUT_OUTER_SCALE := 0.90
 const PLANET_PILOT_SCALE := 0.74
+const PLANET_PILOT_RING_ROTATION := -0.28
+const PLANET_PILOT_RING_X_SCALE := 1.42
+const PLANET_PILOT_RING_Y_SCALE := 0.42
 const COCKPIT_RADII := [13.0, 13.0, 13.0, 15.0, 13.0, 13.0, 13.0, 12.0]
 const COCKPIT_OFFSETS := [
 	Vector2(-1.0, 8.0), Vector2(1.0, 7.0), Vector2(0.0, 6.0), Vector2(-1.0, 1.0),
@@ -110,11 +113,8 @@ func _draw_astronaut_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
 
 func _draw_planet_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
 	var planet_radius := cockpit_radius * PLANET_PILOT_SCALE
-	var ring := PackedVector2Array()
-	for index in range(25):
-		var angle := TAU * float(index) / 24.0
-		ring.append(cockpit + Vector2(cos(angle) * planet_radius * 1.42, sin(angle) * planet_radius * 0.42).rotated(-0.28))
-	draw_polyline(ring, Color("ffe18a"), 2.2, true)
+	# The far arc is painted first and becomes occluded by the planet body.
+	draw_polyline(_planet_pilot_ring_arc(cockpit, planet_radius, PI, TAU), Color("b99a50"), 2.2, true)
 	draw_circle(cockpit, planet_radius, Color("7258d8"))
 	draw_colored_polygon(PackedVector2Array([
 		cockpit + Vector2(-planet_radius * 0.70, -planet_radius * 0.18),
@@ -124,6 +124,23 @@ func _draw_planet_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
 	]), Color("75e0a0"))
 	draw_circle(cockpit + Vector2(-2.6, 0.8), 1.15, Color("11152b"))
 	draw_circle(cockpit + Vector2(2.6, 0.8), 1.15, Color("11152b"))
+	# The near arc is painted last, crossing the lower face as a foreground ring.
+	draw_polyline(_planet_pilot_ring_arc(cockpit, planet_radius, 0.0, PI), Color("ffe18a"), 2.4, true)
+
+
+func _planet_pilot_ring_arc(cockpit: Vector2, planet_radius: float, from_angle: float, to_angle: float) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	for index in range(17):
+		var angle := lerpf(from_angle, to_angle, float(index) / 16.0)
+		points.append(_planet_pilot_ring_point(cockpit, planet_radius, angle))
+	return points
+
+
+func _planet_pilot_ring_point(cockpit: Vector2, planet_radius: float, angle: float) -> Vector2:
+	return cockpit + Vector2(
+		cos(angle) * planet_radius * PLANET_PILOT_RING_X_SCALE,
+		sin(angle) * planet_radius * PLANET_PILOT_RING_Y_SCALE
+	).rotated(PLANET_PILOT_RING_ROTATION)
 
 
 func _ship_target_size() -> Vector2:

@@ -36,6 +36,18 @@ const READY_MESSAGE := "PRESS ANY KEY, GAMEPAD BUTTON, OR TAP\nTO START"
 const PAUSE_MESSAGE := "FLIGHT PAUSED\nPRESS \"RESUME\" BUTTON WHEN YOU ARE READY"
 const RESULT_TITLE := "MISSION COMPLETE!"
 const RESULT_PILOT_FONT_SIZE := 28
+const RESULT_PANEL := Rect2(300.0, 148.0, 680.0, 490.0)
+const RESULT_TITLE_BASELINE := 220.0
+const RESULT_PILOT_BASELINE := 270.0
+const RESULT_MEDAL_CENTER := Vector2(640.0, 315.0)
+const RESULT_MEDAL_RADIUS := 26.0
+const RESULT_MEDAL_LABEL_BASELINE := 354.0
+const RESULT_TIME_BASELINE := 375.0
+const RESULT_TOUR_TIME_BASELINE := 443.0
+const RESULT_BEST_BASELINE := 435.0
+const RESULT_TOUR_BEST_BASELINE := 505.0
+const RESULT_TIME_FONT_SIZE := 68
+const RESULT_BEST_FONT_SIZE := 23
 const TRACTOR_POWER_LABEL := "POWER"
 
 const BACK_BUTTON := Rect2(704.0, 16.0, 128.0, 50.0)
@@ -1065,6 +1077,34 @@ func _center_text(text: String, y: float, size: int, color := Color.WHITE) -> vo
 	draw_string(font, Vector2(0.0, y), text, HORIZONTAL_ALIGNMENT_CENTER, VIEW_SIZE.x, size, color)
 
 
+func _centered_text_bounds(text: String, baseline: float, size: int) -> Rect2:
+	var active_font := font if font != null else ThemeDB.fallback_font
+	var text_size := active_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size)
+	var ascent := active_font.get_ascent(size)
+	var descent := active_font.get_descent(size)
+	return Rect2(Vector2((VIEW_SIZE.x - text_size.x) * 0.5, baseline - ascent), Vector2(text_size.x, ascent + descent))
+
+
+func _result_layout_bounds() -> Dictionary:
+	# These are the actual rendered bounds, shared with regression checks for both modes.
+	var tour_mode := _is_tour_mode()
+	var time_baseline := RESULT_TOUR_TIME_BASELINE if tour_mode else RESULT_TIME_BASELINE
+	var best_baseline := RESULT_TOUR_BEST_BASELINE if tour_mode else RESULT_BEST_BASELINE
+	var layout := {
+		"panel": RESULT_PANEL,
+		"title": _centered_text_bounds(RESULT_TITLE, RESULT_TITLE_BASELINE, 43),
+		"pilot": _centered_text_bounds(_result_pilot_message(), RESULT_PILOT_BASELINE, RESULT_PILOT_FONT_SIZE),
+		"time": _centered_text_bounds(_format_time(final_time), time_baseline, RESULT_TIME_FONT_SIZE),
+		"best": _centered_text_bounds("BEST TIME  " + _format_time(_active_best_time()), best_baseline, RESULT_BEST_FONT_SIZE),
+		"actions": AGAIN_BUTTON.merge(MENU_BUTTON),
+	}
+	if tour_mode:
+		var medal_icon := Rect2(RESULT_MEDAL_CENTER - Vector2.ONE * RESULT_MEDAL_RADIUS, Vector2.ONE * RESULT_MEDAL_RADIUS * 2.0)
+		var medal_label := _centered_text_bounds("TOUR MEDAL", RESULT_MEDAL_LABEL_BASELINE, 18)
+		layout["medal"] = medal_icon.merge(medal_label)
+	return layout
+
+
 func _chamfered_points(rect: Rect2, cut := 8.0) -> PackedVector2Array:
 	return PackedVector2Array([
 		rect.position + Vector2(cut, 0.0),
@@ -1378,16 +1418,18 @@ func _draw_touch_stick() -> void:
 
 
 func _draw_results() -> void:
-	draw_rect(Rect2(300.0, 148.0, 680.0, 490.0), Color(0.025, 0.03, 0.12, 0.96), true)
-	draw_rect(Rect2(300.0, 148.0, 680.0, 490.0), palette[selected_color_index], false, 4.0)
-	_center_text(RESULT_TITLE, 220.0, 43, palette[selected_color_index])
-	_center_text(_result_pilot_message(), 270.0, RESULT_PILOT_FONT_SIZE, Color("d7e1ff"))
+	draw_rect(RESULT_PANEL, Color(0.025, 0.03, 0.12, 0.96), true)
+	draw_rect(RESULT_PANEL, palette[selected_color_index], false, 4.0)
+	_center_text(RESULT_TITLE, RESULT_TITLE_BASELINE, 43, palette[selected_color_index])
+	_center_text(_result_pilot_message(), RESULT_PILOT_BASELINE, RESULT_PILOT_FONT_SIZE, Color("d7e1ff"))
 	if _is_tour_mode():
-		draw_circle(Vector2(640.0, 322.0), 28.0, Color("704f16"))
-		draw_arc(Vector2(640.0, 322.0), 28.0, 0.0, TAU, 36, Color("ffd777"), 4.0, true)
-		_center_text("TOUR MEDAL", 329.0, 18, Color("fff0ac"))
-	_center_text(_format_time(final_time), 375.0, 68, Color.WHITE)
-	_center_text("BEST TIME  " + _format_time(_active_best_time()), 435.0, 23, Color("ffd777"))
+		draw_circle(RESULT_MEDAL_CENTER, RESULT_MEDAL_RADIUS, Color("704f16"))
+		draw_arc(RESULT_MEDAL_CENTER, RESULT_MEDAL_RADIUS, 0.0, TAU, 36, Color("ffd777"), 4.0, true)
+		_center_text("TOUR MEDAL", RESULT_MEDAL_LABEL_BASELINE, 18, Color("fff0ac"))
+	var time_baseline := RESULT_TOUR_TIME_BASELINE if _is_tour_mode() else RESULT_TIME_BASELINE
+	var best_baseline := RESULT_TOUR_BEST_BASELINE if _is_tour_mode() else RESULT_BEST_BASELINE
+	_center_text(_format_time(final_time), time_baseline, RESULT_TIME_FONT_SIZE, Color.WHITE)
+	_center_text("BEST TIME  " + _format_time(_active_best_time()), best_baseline, RESULT_BEST_FONT_SIZE, Color("ffd777"))
 	_button(AGAIN_BUTTON, "RUN AGAIN", palette[selected_color_index])
 	_button(MENU_BUTTON, "MENU", Color("8291b9"))
 

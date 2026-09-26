@@ -574,6 +574,30 @@ func _planet_by_style(main: Variant, style: String) -> ColorPlanet:
 	return null
 
 
+func _assert_result_layout(main: Variant, variant: String) -> void:
+	var layout: Dictionary = main._result_layout_bounds()
+	var ordered_keys := ["title", "pilot"]
+	if layout.has("medal"):
+		ordered_keys.append("medal")
+	ordered_keys.append_array(["time", "best", "actions"])
+	var collisions: Array[String] = []
+	for index in range(1, ordered_keys.size()):
+		var previous: Rect2 = layout[ordered_keys[index - 1]]
+		var current: Rect2 = layout[ordered_keys[index]]
+		if previous.end.y > current.position.y:
+			collisions.append("%s/%s" % [ordered_keys[index - 1], ordered_keys[index]])
+	_assert_true("RESULT-03/%s-nonoverlap" % variant, collisions.is_empty(), collisions, "vertically separated result elements")
+	var safe_panel: Rect2 = layout["panel"].grow(-8.0)
+	var outside: Array[String] = []
+	for key in ordered_keys:
+		if not safe_panel.encloses(layout[key]):
+			outside.append(key)
+	_assert_true("RESULT-03/%s-inside-panel" % variant, outside.is_empty(), outside, "all result elements inside panel")
+	if layout.has("medal"):
+		var medal_gap: float = layout["time"].position.y - layout["medal"].end.y
+		_assert_true("RESULT-03/solar-tour-medal-time-gap", medal_gap >= 6.0, medal_gap, ">= 6 pixels")
+
+
 func _test_pause_results() -> void:
 	var main: Variant = await _new_main(root, "persistent-settings.cfg")
 	main.state = main.GameState.PLAYING
@@ -594,6 +618,24 @@ func _test_pause_results() -> void:
 	_assert_true("RESULT-01/pilot-line-size", main.RESULT_PILOT_FONT_SIZE >= 28, main.RESULT_PILOT_FONT_SIZE, ">= 28")
 	main.selected_pilot_index = 0
 	_assert_equal("RESULT-01/pilot-line", main._result_pilot_message(), "Trixie painted every target")
+	main.state = main.GameState.RESULTS
+	main.final_time = 62.44
+	main.best_time = 62.44
+	main.selected_game_mode = main.GameMode.SPACE_RUSH
+	_assert_equal("RESULT-03/minute-time-format", main._format_time(main.final_time), "01:02.44")
+	_assert_result_layout(main, "space-rush")
+	for pilot_index in range(1, main.pilot_names.size()):
+		main.selected_pilot_index = pilot_index
+		_assert_result_layout(main, "space-rush-pilot-%d" % pilot_index)
+	main.selected_game_mode = main.GameMode.SOLAR_TOUR
+	main.tour_best_time = 62.44
+	main.selected_pilot_index = 0
+	_assert_result_layout(main, "solar-tour")
+	for pilot_index in range(1, main.pilot_names.size()):
+		main.selected_pilot_index = pilot_index
+		_assert_result_layout(main, "solar-tour-pilot-%d" % pilot_index)
+	main.selected_pilot_index = 0
+	main.selected_game_mode = main.GameMode.SPACE_RUSH
 	main.best_time = 34.039
 	main._request_best_score_reset()
 	_assert_near("PERSIST-01/reset-first-tap-arms", main.best_time, 34.039, 0.0001)
@@ -721,9 +763,10 @@ func _test_rendered_ui() -> void:
 	var countdown_image: Image = await _capture(viewport, "countdown.png")
 	var countdown_difference := _different_pixels(playing_image, countdown_image, Rect2i(390, 180, 500, 370), 0.04, 2)
 	_assert_true("RENDER-03/countdown-visible-over-ship", countdown_difference > 1200, countdown_difference, "> 1200 sampled pixels")
+	main.selected_game_mode = main.GameMode.SPACE_RUSH
 	main.state = main.GameState.RESULTS
-	main.final_time = 34.039
-	main.best_time = 34.039
+	main.final_time = 62.44
+	main.best_time = 62.44
 	main.ship.visible = false
 	main._update_overlay()
 	main.queue_redraw()
@@ -749,8 +792,8 @@ func _test_rendered_ui() -> void:
 	main.tour_progress_index = main.TOUR_ORDER.size()
 	main.captured_count = main.total_targets
 	main.state = main.GameState.RESULTS
-	main.final_time = 41.25
-	main.tour_best_time = 41.25
+	main.final_time = 62.44
+	main.tour_best_time = 62.44
 	main.ship.visible = false
 	main._update_overlay()
 	main.queue_redraw()
@@ -777,6 +820,17 @@ func _test_rendered_ui() -> void:
 		var sample_point := Vector2i(cockpit + Vector2.from_angle(float(sample_index) * PI * 0.5) * sample_radius)
 		var sample := ship_image.get_pixelv(sample_point)
 		_assert_true("RENDER-05/black-cockpit-ring-%d" % sample_index, maxf(sample.r, maxf(sample.g, sample.b)) < 0.12, sample, "dark filled ring")
+	isolated_ship.configure(Color("41f4c6"), Rect2(0.0, 0.0, 220.0, 220.0), 4, 2)
+	isolated_ship.scale = Vector2.ONE * 2.5
+	var planet_pilot_image: Image = await _capture(ship_viewport, "planet-pilot.png")
+	var planet_cockpit: Vector2 = isolated_ship.COCKPIT_OFFSETS[4]
+	var planet_radius: float = isolated_ship.COCKPIT_RADII[4] * isolated_ship.PLANET_PILOT_SCALE
+	var front_ring_point := Vector2i((isolated_ship.position + isolated_ship._planet_pilot_ring_point(planet_cockpit, planet_radius, PI * 0.5) * isolated_ship.scale).round())
+	var back_ring_point := Vector2i((isolated_ship.position + isolated_ship._planet_pilot_ring_point(planet_cockpit, planet_radius, PI * 1.5) * isolated_ship.scale).round())
+	var front_ring_sample := planet_pilot_image.get_pixelv(front_ring_point)
+	var back_ring_sample := planet_pilot_image.get_pixelv(back_ring_point)
+	_assert_true("PILOT-02/ring-front-visible", front_ring_sample.r > 0.72 and front_ring_sample.g > 0.55 and front_ring_sample.b < 0.72, front_ring_sample, "gold foreground arc")
+	_assert_true("PILOT-02/ring-back-occluded", not (back_ring_sample.r > 0.72 and back_ring_sample.g > 0.55 and back_ring_sample.b < 0.72), back_ring_sample, "planet body covers rear arc")
 
 	var target_viewport := SubViewport.new()
 	target_viewport.size = Vector2i(500, 260)

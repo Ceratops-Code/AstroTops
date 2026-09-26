@@ -152,6 +152,8 @@ is an additive menu choice: it preserves the same roster and finale, accepts onl
 the highlighted next body from the Sun outward, shows inward arrows for the first
 2.5 seconds of every new target, and records a separate best time.
 Completing the ordered roster adds a Tour Medal to the results panel.
+Both modes derive their result layout from the fallback font's actual bounds;
+the Solar Tour medal occupies its own row above the elapsed and best times.
 
 The tractor beam selects at most one visible, uncaptured body whose bearing is
 eligible for its course-aligned pear-shaped field. It moves that body toward
@@ -165,6 +167,8 @@ Capturing the final target freezes the run time, updates the best score when
 appropriate, and creates one meteor per target. Each impact starts that target's
 explosion. After all impacts, the results view hides the ship and offers replay
 or menu recovery. Reset returns the current run to Ready; Back returns to Menu.
+The planet pilot draws its far ring arc before the planet body and its near arc
+after the face, so the ring visibly wraps around rather than sitting behind it.
 
 ## 7 Deployment and operations
 
