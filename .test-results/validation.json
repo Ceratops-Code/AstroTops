@@ -1,0 +1,109 @@
+{
+  "environment": {
+    "machine": "AMD64",
+    "platform": "win32",
+    "python": "3.12.14"
+  },
+  "evidence": [],
+  "failures": [],
+  "finishedAt": "2026-09-26T19:36:57.738774+00:00",
+  "outcome": "passed",
+  "requiredChecks": [
+    "repository-contract",
+    "npm-markdown-lint",
+    "ruff",
+    "mypy",
+    "actionlint"
+  ],
+  "results": [
+    {
+      "command": [
+        "{python}",
+        "scripts/validate-repository.py",
+        "--contract-only"
+      ],
+      "cwd": ".",
+      "execution": "executed",
+      "exitCode": 0,
+      "id": "repository-contract",
+      "outcome": "passed",
+      "seconds": 0.581,
+      "status": "passed"
+    },
+    {
+      "command": [
+        "npm.cmd",
+        "--prefix",
+        "scripts",
+        "run",
+        "lint:markdown"
+      ],
+      "cwd": ".",
+      "execution": "executed",
+      "exitCode": 0,
+      "id": "npm-markdown-lint",
+      "outcome": "passed",
+      "seconds": 0.548,
+      "status": "passed"
+    },
+    {
+      "command": [
+        "{python}",
+        "-m",
+        "ruff",
+        "check",
+        ".",
+        "--config",
+        "scripts/pyproject.toml"
+      ],
+      "cwd": ".",
+      "execution": "executed",
+      "exitCode": 0,
+      "id": "ruff",
+      "outcome": "passed",
+      "seconds": 0.097,
+      "status": "passed"
+    },
+    {
+      "command": [
+        "{python}",
+        "-m",
+        "mypy",
+        "--config-file",
+        "scripts/pyproject.toml"
+      ],
+      "cwd": ".",
+      "execution": "executed",
+      "exitCode": 0,
+      "id": "mypy",
+      "outcome": "passed",
+      "seconds": 1.01,
+      "status": "passed"
+    },
+    {
+      "command": [
+        "{python}",
+        "scripts/run-actionlint.py"
+      ],
+      "cwd": ".",
+      "execution": "executed",
+      "exitCode": 0,
+      "id": "actionlint",
+      "outcome": "passed",
+      "seconds": 0.286,
+      "status": "passed"
+    }
+  ],
+  "runId": "20260926T193655.192538Z",
+  "schema": "astrotops-repository-validation.v1",
+  "scope": "repository",
+  "source": {
+    "commit": "1081dbea3c016b400a84c6a94ac49f68dfadf5b3",
+    "digest": "c1e2042202fac05b9d4cc1c6b16fc2df065c3e1fa7167b2be9552fe39ff14307",
+    "dirty": false,
+    "exactTags": [
+      "astrotops-local-20260926-1081dbe"
+    ]
+  },
+  "status": "passed"
+}

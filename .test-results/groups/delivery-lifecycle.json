@@ -1,0 +1,101 @@
+{
+  "artifact": {
+    "artifactLength": 83484861,
+    "artifactPath": ".build/artifacts/android/AstroTops.apk",
+    "artifactSha256": "41bca25fbb98a3c5acb0047c4f71b2b50883b029bd7823483246136f1a86e9c5",
+    "schema": "astrotops-build-record.v1",
+    "sourceCommit": "1081dbea3c016b400a84c6a94ac49f68dfadf5b3",
+    "version": "astrotops-local-20260926-1081dbe"
+  },
+  "assertions": 12,
+  "command": [
+    "{python}",
+    "scripts/run-tests.py",
+    "--group",
+    "delivery-lifecycle"
+  ],
+  "environment": {
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "platform": "windows",
+    "python": "3.12.14",
+    "renderer": "gl_compatibility"
+  },
+  "evidence": [
+    "evidence/20260926T193832Z-1081dbea3c01/delivery-lifecycle/output.log"
+  ],
+  "execution": "executed",
+  "exitCode": 0,
+  "failures": [],
+  "fingerprint": "cb3f48674841f8092d4a7a375e7a0cb268c795a604630833d060afe548f1276a",
+  "finishedAt": 1790451520.007478,
+  "id": "delivery-lifecycle",
+  "observations": [
+    {
+      "actual": 0,
+      "id": "exact-apk-skips-install"
+    },
+    {
+      "actual": 1,
+      "id": "exact-apk-launches"
+    },
+    {
+      "actual": "ceratops-deployment-result.v1",
+      "id": "deployment-receipt-schema"
+    },
+    {
+      "actual": "ece6cd63b2d04954431213a82441e997c6858b4615ded82fb22f38c1e910c95d",
+      "id": "deployment-receipt-hash"
+    },
+    {
+      "actual": 1,
+      "id": "changed-apk-installs-once"
+    },
+    {
+      "actual": "ece6cd63b2d04954431213a82441e997c6858b4615ded82fb22f38c1e910c95d",
+      "id": "installed-apk-is-verified"
+    },
+    {
+      "actual": true,
+      "id": "false-success-connect-is-rejected"
+    },
+    {
+      "actual": [
+        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-0d_9ckb5\\godot",
+        "--headless",
+        "--path",
+        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-0d_9ckb5\\repo",
+        "--import"
+      ],
+      "id": "runner-import-command"
+    },
+    {
+      "actual": "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-0d_9ckb5\\repo",
+      "id": "runner-import-working-directory"
+    },
+    {
+      "actual": true,
+      "id": "delivery-validation-survives-content-identical-merge"
+    },
+    {
+      "actual": false,
+      "id": "delivery-validation-rejects-different-content"
+    },
+    {
+      "actual": false,
+      "id": "delivery-validation-rejects-unqualified-commit"
+    }
+  ],
+  "outcome": "passed",
+  "runId": "20260926T193832Z-1081dbea3c01",
+  "schema": "astrotops-test-group-result.v1",
+  "seconds": 0.009,
+  "source": {
+    "commit": "1081dbea3c016b400a84c6a94ac49f68dfadf5b3",
+    "digest": "c1e2042202fac05b9d4cc1c6b16fc2df065c3e1fa7167b2be9552fe39ff14307",
+    "dirty": false,
+    "exactTags": [
+      "astrotops-local-20260926-1081dbe"
+    ]
+  },
+  "status": "passed"
+}

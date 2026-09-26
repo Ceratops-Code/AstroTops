@@ -1,7 +1,7 @@
 Godot Engine
 ============
 
-Cosmotops uses the Godot Engine, available under the following license:
+AstroTops uses the Godot Engine, available under the following license:
 
 Copyright (c) 2014-present Godot Engine contributors.
 Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.
@@ -27,9 +27,17 @@ SOFTWARE.
 Kenney CC0 Assets
 =================
 
-Cosmotops includes selected ship graphics from "Space Shooter Remastered" and
+AstroTops includes selected ship graphics from "Space Shooter Remastered" and
 selected audio from "Sci-Fi Sounds" and "Interface Sounds", created and
 distributed by Kenney (https://kenney.nl/).
 
 These assets are dedicated to the public domain under Creative Commons Zero
 (CC0 1.0): https://creativecommons.org/publicdomain/zero/1.0/
+
+Milky Way Background
+====================
+
+`assets/milky_way_background.png` was generated specifically for AstroTops with
+OpenAI's built-in image-generation tool on 2026-09-24, using a project-owner-
+supplied image only as a composition and color-mood reference. No third-party
+source image is bundled as the game background.

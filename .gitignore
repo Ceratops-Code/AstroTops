@@ -1,6 +1,6 @@
 .godot/
 android/
-build/
-*.tmp
+.*.tmp
 /scripts/node_modules/
-/.build/
+/.build/artifacts/
+/.test-results/evidence/

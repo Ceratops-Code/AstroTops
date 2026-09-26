@@ -39,14 +39,63 @@ repository:
             - scripts/validate-repository.py
     test:
       requires:
-        capabilities: []
-      no-op: No repository test command has been detected or declared.
+        capabilities:
+          - godot
+          - uv
+      steps:
+        - run:
+            - uv
+            - run
+            - --locked
+            - scripts/run-tests.py
+            - --scope
+            - repository
 deliverables:
+  packages:
+    astrotops-android-apk:
+      source: .
+      prerequisites: []
+      artifact:
+        type: android-apk
+        output-directory: .build/artifacts/android
+        filename-pattern: AstroTops.apk
+      actions:
+        build:
+          requires:
+            capabilities:
+              - godot
+              - powershell
+          result-schema: ceratops-build-result.v1
+          steps:
+            - run:
+                - powershell.exe
+                - -NoProfile
+                - -Command
+                - New-Item -ItemType Directory -Force -Path '.build/artifacts/android' | Out-Null
+            - run:
+                - godot
+                - --headless
+                - --path
+                - .
+                - --export-debug
+                - Android
+                - .build/artifacts/android/AstroTops.apk
+            - run:
+                - uv
+                - run
+                - --locked
+                - scripts/result_records.py
+                - build-result
+                - --artifact
+                - .build/artifacts/android/AstroTops.apk
+                - --type
+                - android-apk
   apps:
-    cosmotops:
+    astrotops:
       source: .
       manifest: export_presets.cfg
-      prerequisites: []
+      prerequisites:
+        - astrotops-android-apk
       actions:
         validate:
           requires:
@@ -63,58 +112,43 @@ deliverables:
         test:
           requires:
             capabilities: []
-          no-op: No persistent Godot automated test suite is committed.
+          no-op: Repository tests own the grouped gameplay and rendered-app qualification.
         install:
           requires:
             capabilities:
               - adb
-              - godot
-              - powershell
+              - uv
           parameters:
-            - godot_executable
             - adb_executable
             - device
+            - source_tag
+          result-schema: ceratops-deployment-result.v1
           steps:
             - run:
-                - powershell.exe
-                - -NoProfile
-                - -Command
-                - New-Item -ItemType Directory -Force -Path 'build/android' | Out-Null
+                - uv
+                - run
+                - --locked
+                - scripts/run-tests.py
+                - --verify-delivery
+                - --source-tag
+                - "{source_tag}"
+                - --artifact
+                - .build/artifacts/android/AstroTops.apk
             - run:
-                - "{godot_executable}"
-                - --headless
-                - --path
-                - .
-                - --install-android-build-template
-                - --export-debug
-                - Android
-                - build/android/Cosmotops.apk
-            - run:
+                - uv
+                - run
+                - --locked
+                - scripts/result_records.py
+                - android-deploy
+                - --adb-executable
                 - "{adb_executable}"
-                - connect
+                - --device
                 - "{device}"
-            - run:
-                - "{adb_executable}"
-                - -s
-                - "{device}"
-                - install
-                - -r
-                - build/android/Cosmotops.apk
-            - run:
-                - "{adb_executable}"
-                - -s
-                - "{device}"
-                - shell
-                - am
-                - start
-                - -W
-                - -n
-                - com.ceratopscode.cosmotops/com.godot.game.GodotAppLauncher
-            - run:
-                - "{adb_executable}"
-                - -s
-                - "{device}"
-                - shell
-                - pm
-                - path
-                - com.ceratopscode.cosmotops
+                - --package
+                - com.ceratopscode.astrotops
+                - --activity
+                - com.ceratopscode.astrotops/com.godot.game.GodotAppLauncher
+                - --artifact
+                - .build/artifacts/android/AstroTops.apk
+                - --type
+                - android-apk
