@@ -1,5 +1,12 @@
 {
-  "artifact": null,
+  "artifact": {
+    "artifactLength": 83489073,
+    "artifactPath": ".build/artifacts/android/AstroTops.apk",
+    "artifactSha256": "5196262b865e85ddec4d3d182511d1cb1b564c2283fb100c3d86e9212faa0175",
+    "schema": "astrotops-build-record.v1",
+    "sourceCommit": "d07fcf20478d6230f4a563e90b0ad567dbd901a2",
+    "version": "astrotops-local-20260926-d07fcf2"
+  },
   "assertions": 9,
   "command": [
     "{python}",
@@ -14,13 +21,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260926T183527Z-d07fcf20478d/delivery-lifecycle/output.log"
+    "evidence/20260926T185921Z-d07fcf20478d/delivery-lifecycle/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "e83e593caa1891bb687f56778bc5abbd758d27d3e14058b2f6d2dbc18c1ce8af",
-  "finishedAt": 1790447734.7862303,
+  "fingerprint": "ecbe031e84850ca418f957968facfa45c7428e0209afe644d8502d3d67172f78",
+  "finishedAt": 1790449168.2741766,
   "id": "delivery-lifecycle",
   "observations": [
     {
@@ -53,28 +60,30 @@
     },
     {
       "actual": [
-        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-k2ynpq3d\\godot",
+        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-630rfdiu\\godot",
         "--headless",
         "--path",
-        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-k2ynpq3d\\repo",
+        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-630rfdiu\\repo",
         "--import"
       ],
       "id": "runner-import-command"
     },
     {
-      "actual": "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-k2ynpq3d\\repo",
+      "actual": "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-630rfdiu\\repo",
       "id": "runner-import-working-directory"
     }
   ],
   "outcome": "passed",
-  "runId": "20260926T183527Z-d07fcf20478d",
+  "runId": "20260926T185921Z-d07fcf20478d",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.01,
+  "seconds": 0.005,
   "source": {
     "commit": "d07fcf20478d6230f4a563e90b0ad567dbd901a2",
     "digest": "6008dce8fcb2e7fa05d153432d9d8c6c34b6690aa972953ab6fba022e59c5b23",
     "dirty": false,
-    "exactTags": []
+    "exactTags": [
+      "astrotops-local-20260926-d07fcf2"
+    ]
   },
   "status": "passed"
 }
