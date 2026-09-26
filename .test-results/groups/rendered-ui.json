@@ -1,12 +1,5 @@
 {
-  "artifact": {
-    "artifactLength": 83489073,
-    "artifactPath": ".build/artifacts/android/AstroTops.apk",
-    "artifactSha256": "5196262b865e85ddec4d3d182511d1cb1b564c2283fb100c3d86e9212faa0175",
-    "schema": "astrotops-build-record.v1",
-    "sourceCommit": "d07fcf20478d6230f4a563e90b0ad567dbd901a2",
-    "version": "astrotops-local-20260926-d07fcf2"
-  },
+  "artifact": null,
   "assertions": 41,
   "command": [
     "{godot}",
@@ -33,26 +26,26 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/app-icon-adaptive.png",
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/app-icon.png",
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/cockpit.png",
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/countdown.png",
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/menu.png",
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/output.log",
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/paused.png",
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/planet-pilot.png",
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/playing.png",
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/results.png",
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/targets.png",
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/tour-results.png",
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/tour.png",
-    "evidence/20260926T185921Z-d07fcf20478d/rendered-ui/tractor-debug.png"
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/app-icon-adaptive.png",
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/app-icon.png",
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/cockpit.png",
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/countdown.png",
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/menu.png",
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/output.log",
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/paused.png",
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/planet-pilot.png",
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/playing.png",
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/results.png",
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/targets.png",
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/tour-results.png",
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/tour.png",
+    "evidence/20260926T193658Z-1081dbea3c01/rendered-ui/tractor-debug.png"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "832e35ec38ee6f1df18b7f46c74b652cbbf2f577a0aec3506fa1ed8ab17674ea",
-  "finishedAt": 1790449174.776428,
+  "fingerprint": "afb501fee212425ff55d364db81588bc0ad0771651483d5cd3701d987b59d62e",
+  "finishedAt": 1790451431.9920704,
   "id": "rendered-ui",
   "observations": [
     {
@@ -65,15 +58,15 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260926T185921Z-d07fcf20478d",
+  "runId": "20260926T193658Z-1081dbea3c01",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 6.497,
+  "seconds": 6.224,
   "source": {
-    "commit": "d07fcf20478d6230f4a563e90b0ad567dbd901a2",
-    "digest": "6008dce8fcb2e7fa05d153432d9d8c6c34b6690aa972953ab6fba022e59c5b23",
+    "commit": "1081dbea3c016b400a84c6a94ac49f68dfadf5b3",
+    "digest": "c1e2042202fac05b9d4cc1c6b16fc2df065c3e1fa7167b2be9552fe39ff14307",
     "dirty": false,
     "exactTags": [
-      "astrotops-local-20260926-d07fcf2"
+      "astrotops-local-20260926-1081dbe"
     ]
   },
   "status": "passed"
