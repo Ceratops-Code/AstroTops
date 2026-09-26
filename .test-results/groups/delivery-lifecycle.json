@@ -1,5 +1,12 @@
 {
-  "artifact": null,
+  "artifact": {
+    "artifactLength": 83484513,
+    "artifactPath": ".build/artifacts/android/AstroTops.apk",
+    "artifactSha256": "d5f25b374352560ad6f84d94d019b46b5ff428669211ffbe6fec6a692cdeccc9",
+    "schema": "astrotops-build-record.v1",
+    "sourceCommit": "0b6c663c7a5772e4c2a37c927161887942f94652",
+    "version": "astrotops-local-20260926-0b6c663"
+  },
   "assertions": 9,
   "command": [
     "{python}",
@@ -14,13 +21,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260926T180400Z-0b6c663c7a57/delivery-lifecycle/output.log"
+    "evidence/20260926T180615Z-0b6c663c7a57/delivery-lifecycle/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "98af887999ed7c4b0814731049789f5dd3144b910ab669f63228a2ad773e5558",
-  "finishedAt": 1790445848.2373242,
+  "fingerprint": "376b25188198b9a26ca8b69a0ab92a1faf0e084319dcb92e850ae2540de97bb5",
+  "finishedAt": 1790445982.813434,
   "id": "delivery-lifecycle",
   "observations": [
     {
@@ -53,23 +60,23 @@
     },
     {
       "actual": [
-        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-9n35l6qq\\godot",
+        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-m1mix_yj\\godot",
         "--headless",
         "--path",
-        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-9n35l6qq\\repo",
+        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-m1mix_yj\\repo",
         "--import"
       ],
       "id": "runner-import-command"
     },
     {
-      "actual": "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-9n35l6qq\\repo",
+      "actual": "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-m1mix_yj\\repo",
       "id": "runner-import-working-directory"
     }
   ],
   "outcome": "passed",
-  "runId": "20260926T180400Z-0b6c663c7a57",
+  "runId": "20260926T180615Z-0b6c663c7a57",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.011,
+  "seconds": 0.0,
   "source": {
     "commit": "0b6c663c7a5772e4c2a37c927161887942f94652",
     "digest": "88c9b1e5599426b073a1008bd2d14f4dfc9448aa6389393249d6291d8170a58e",
