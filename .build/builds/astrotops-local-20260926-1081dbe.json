@@ -1,0 +1,10 @@
+{
+  "approval": null,
+  "artifactLength": 83484861,
+  "artifactPath": ".build/artifacts/android/AstroTops.apk",
+  "artifactSha256": "41bca25fbb98a3c5acb0047c4f71b2b50883b029bd7823483246136f1a86e9c5",
+  "schema": "astrotops-build-record.v1",
+  "sourceCommit": "1081dbea3c016b400a84c6a94ac49f68dfadf5b3",
+  "sourceDigest": "c1e2042202fac05b9d4cc1c6b16fc2df065c3e1fa7167b2be9552fe39ff14307",
+  "version": "astrotops-local-20260926-1081dbe"
+}
