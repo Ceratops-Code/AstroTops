@@ -131,10 +131,11 @@ bounded evidence, artifact identity, and deterministic Android deployment.
 - [`scripts/planet.gd`](../scripts/planet.gd) owns each target's recognizable
   rendering, capture radius, paint transition, black-hole treatment, Solar Tour
   marker and timed arrow cue, and explosion animation.
-- [`scripts/traxy.gd`](../scripts/traxy.gd) owns Traxy's atlas frame selection,
-  flee and corner-escape steering, planet avoidance, captured float and blink,
-  collision bounce, suit-accent recoloring, capture cloud, and progressive hook
-  and tow cable rendering.
+- [`scripts/traxy.gd`](../scripts/traxy.gd) owns Traxy's single-frame overhead
+  chair rotation, independent steering-thruster rendering, flee and
+  corner-escape steering, planet avoidance, captured float and blink, collision
+  bounce, suit-accent recoloring, capture cloud, and progressive hook and tow
+  cable rendering.
 - [`scripts/meteor.gd`](../scripts/meteor.gd) owns one curved meteor flight and
   reports impact to the game shell.
 - [`scripts/regression_tests.gd`](../scripts/regression_tests.gd) is the Godot
@@ -284,6 +285,10 @@ activity, installed hash, or launch confirmation differs.
    grid or pathfinder would add world data and replanning for a small open arena.
    Direct flee, obstacle repulsion, edge tangents, short corner locks, and a
    displacement watchdog keep motion responsive without that lifecycle cost.
+7. **Accepted: one smoothly rotated overhead Traxy chair.** Larger directional
+   atlases retain switching thresholds, while two mirrored frames fail for
+   vertical escape. Angular interpolation turns one approved overhead frame
+   continuously; code-rendered rear thrusters rotate with it and bias on turns.
 
 ## 10 Quality scenarios
 
@@ -348,8 +353,9 @@ groups. Headless Godot groups observe menu, controls, audio requests, tractor
 behavior, target models, ship and pilot models, gameplay flow, pause, results,
 and persistence. The rendered group captures actual Godot output for menu,
 play, pause, countdown, results, cockpit, targets, the hidden tractor field,
-Traxy's running, capture-cloud, shocked, progressive-hook, and cable-tow states,
-the standalone icon, and the layered adaptive icon under a circular mask.
+Traxy's smoothly turned overhead chair, independent thrusters, capture-cloud,
+shocked, progressive-hook, and cable-tow states, the standalone icon, and the
+layered adaptive icon under a circular mask.
 Python tests cover result lifecycle, automatic Godot asset-import bootstrapping,
 and ADB behavior.
 

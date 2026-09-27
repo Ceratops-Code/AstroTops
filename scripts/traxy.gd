@@ -6,8 +6,12 @@ const ATLAS_TEXTURE: Texture2D = preload("res://assets/traxy.png")
 const CELL_SIZE := Vector2(256.0, 256.0)
 const CHAIR_DRAW_SIZE := Vector2(118.0, 118.0)
 const FLOAT_DRAW_SIZE := Vector2(126.0, 126.0)
+const FLEE_FRAME_INDEX := 3
 const FLEE_SPEED := 154.0
 const FLEE_ACCELERATION := 560.0
+const FLEE_ROTATION_RESPONSE := 7.2
+const THRUSTER_RESPONSE := 11.0
+const THRUSTER_PULSE_SPEED := 10.5
 const FLOAT_SPEED := 48.0
 const FLOAT_MIN_SPEED := 36.0
 const FLOAT_ROTATION_SPEED := 0.22
@@ -35,6 +39,11 @@ var escape_direction := Vector2.ZERO
 var escape_lock_remaining := 0.0
 var stuck_elapsed := 0.0
 var stuck_origin := Vector2.ZERO
+var flee_visual_rotation := 0.0
+var flee_target_rotation := 0.0
+var thruster_elapsed := 0.0
+var left_thruster_power := 1.0
+var right_thruster_power := 1.0
 var blink_elapsed := 0.0
 var capture_poof_elapsed := CAPTURE_POOF_DURATION
 var capture_poof_world_position := Vector2.ZERO
@@ -42,11 +51,22 @@ var hook_elapsed := 0.0
 var tow_elapsed := 0.0
 var tow_exit_direction := Vector2.RIGHT
 var tow_ship: PlayerShip
+var thruster_layer: Node2D
+var left_thruster: Node2D
+var right_thruster: Node2D
 var sprite: Sprite2D
+var flee_material: ShaderMaterial
 var random := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
+	thruster_layer = Node2D.new()
+	thruster_layer.show_behind_parent = true
+	left_thruster = _make_thruster_flame(Vector2(-40.0, 0.0))
+	right_thruster = _make_thruster_flame(Vector2(40.0, 0.0))
+	thruster_layer.add_child(left_thruster)
+	thruster_layer.add_child(right_thruster)
+	add_child(thruster_layer)
 	sprite = Sprite2D.new()
 	sprite.texture = ATLAS_TEXTURE
 	sprite.region_enabled = true
@@ -55,6 +75,7 @@ func _ready() -> void:
 	# the character at the hook latch and at the center of the capture cloud.
 	sprite.show_behind_parent = true
 	add_child(sprite)
+	_apply_flee_material()
 	_sync_sprite()
 	queue_redraw()
 
@@ -66,12 +87,18 @@ func configure(bounds: Rect2, ship_position: Vector2, obstacles: Array[ColorPlan
 	position = _choose_spawn_position(ship_position, obstacles)
 	velocity = _safe_direction(position - ship_position, Vector2.RIGHT) * FLEE_SPEED
 	last_direction = velocity.normalized()
+	flee_target_rotation = flee_rotation_for_direction(velocity)
+	flee_visual_rotation = flee_target_rotation
+	thruster_elapsed = 0.0
+	left_thruster_power = 1.0
+	right_thruster_power = 1.0
 	stuck_origin = position
 	motion_state = MotionState.FLEEING
 	rotation = 0.0
 	capture_poof_elapsed = CAPTURE_POOF_DURATION
 	hook_elapsed = 0.0
 	tow_ship = null
+	_apply_flee_material()
 	_sync_sprite()
 
 
@@ -161,10 +188,16 @@ func begin_tow(ship_node: PlayerShip, exit_direction: Vector2) -> void:
 func current_frame_index() -> int:
 	if motion_state != MotionState.FLEEING:
 		return 5 if _eyes_closed() else 4
-	var direction := velocity if velocity.length_squared() > 4.0 else last_direction
-	if absf(direction.x) >= absf(direction.y):
-		return 0 if direction.x >= 0.0 else 1
-	return 3 if direction.y >= 0.0 else 2
+	return FLEE_FRAME_INDEX
+
+
+func flee_rotation_for_direction(direction: Vector2) -> float:
+	# The approved overhead chair frame points down at zero rotation.
+	return wrapf(_safe_direction(direction, Vector2.DOWN).angle() - Vector2.DOWN.angle(), -PI, PI)
+
+
+func flee_visual_direction() -> Vector2:
+	return Vector2.DOWN.rotated(flee_visual_rotation)
 
 
 func _choose_spawn_position(ship_position: Vector2, obstacles: Array[ColorPlanet]) -> Vector2:
@@ -217,6 +250,7 @@ func _update_flee(delta: float, ship_position: Vector2, obstacles: Array[ColorPl
 	_clamp_to_bounds()
 	if velocity.length_squared() > 4.0:
 		last_direction = velocity.normalized()
+	_update_flee_visual(delta, velocity if velocity.length_squared() > 4.0 else desired_direction)
 
 	stuck_elapsed += delta
 	if stuck_elapsed >= STUCK_WINDOW:
@@ -225,6 +259,21 @@ func _update_flee(delta: float, ship_position: Vector2, obstacles: Array[ColorPl
 			escape_lock_remaining = ESCAPE_LOCK_DURATION
 		stuck_origin = position
 		stuck_elapsed = 0.0
+
+
+func _update_flee_visual(delta: float, direction: Vector2) -> void:
+	# Shortest-arc interpolation prevents both atlas thresholds and a full spin
+	# when the escape vector crosses the -PI/PI boundary.
+	flee_target_rotation = flee_rotation_for_direction(direction)
+	var turn_error := wrapf(flee_target_rotation - flee_visual_rotation, -PI, PI)
+	var rotation_weight := 1.0 - exp(-FLEE_ROTATION_RESPONSE * maxf(delta, 0.0))
+	flee_visual_rotation = wrapf(lerp_angle(flee_visual_rotation, flee_target_rotation, rotation_weight), -PI, PI)
+	thruster_elapsed += maxf(delta, 0.0)
+	var pulse := 0.94 + sin(thruster_elapsed * THRUSTER_PULSE_SPEED) * 0.08
+	var turn_bias := clampf(turn_error / PI, -0.34, 0.34)
+	var thruster_weight := 1.0 - exp(-THRUSTER_RESPONSE * maxf(delta, 0.0))
+	left_thruster_power = lerpf(left_thruster_power, pulse - turn_bias, thruster_weight)
+	right_thruster_power = lerpf(right_thruster_power, pulse + turn_bias, thruster_weight)
 
 
 func _update_float(delta: float, obstacles: Array[ColorPlanet]) -> void:
@@ -354,12 +403,63 @@ func _sync_sprite() -> void:
 	sprite.region_rect = Rect2(Vector2(frame % 3, frame / 3) * CELL_SIZE, CELL_SIZE)
 	var draw_size := CHAIR_DRAW_SIZE if motion_state == MotionState.FLEEING else FLOAT_DRAW_SIZE
 	sprite.scale = draw_size / CELL_SIZE
+	sprite.rotation = flee_visual_rotation if motion_state == MotionState.FLEEING else 0.0
 	sprite.position = Vector2.ZERO
+	if is_instance_valid(thruster_layer):
+		thruster_layer.visible = motion_state == MotionState.FLEEING
+		thruster_layer.rotation = flee_visual_rotation
+	if is_instance_valid(left_thruster):
+		left_thruster.scale = Vector2(1.0, clampf(left_thruster_power, 0.58, 1.34))
+	if is_instance_valid(right_thruster):
+		right_thruster.scale = Vector2(1.0, clampf(right_thruster_power, 0.58, 1.34))
 	if motion_state == MotionState.HOOKING and is_instance_valid(tow_ship):
 		var latch := hook_latch_progress()
 		if latch > 0.0 and latch < 1.0:
 			var ship_local := to_local(tow_ship.global_position)
 			sprite.position = _safe_direction(ship_local, Vector2.RIGHT) * sin(latch * PI) * 7.0
+
+
+func _make_thruster_flame(flame_position: Vector2) -> Node2D:
+	# Exhaust is separate from the chair art so each side can react to steering
+	# while the complete visual rotates continuously as one unit.
+	var flame := Node2D.new()
+	flame.position = flame_position
+	var outer := Polygon2D.new()
+	outer.polygon = PackedVector2Array([Vector2(-6.0, 0.0), Vector2(6.0, 0.0), Vector2(4.5, -11.0), Vector2(0.0, -25.0), Vector2(-4.5, -11.0)])
+	outer.color = Color("ff5a1f")
+	flame.add_child(outer)
+	var middle := Polygon2D.new()
+	middle.polygon = PackedVector2Array([Vector2(-4.0, -1.0), Vector2(4.0, -1.0), Vector2(3.0, -10.0), Vector2(0.0, -20.0), Vector2(-3.0, -10.0)])
+	middle.color = Color("ffd23f")
+	flame.add_child(middle)
+	var core := Polygon2D.new()
+	core.polygon = PackedVector2Array([Vector2(-2.2, -2.0), Vector2(2.2, -2.0), Vector2(1.6, -8.0), Vector2(0.0, -15.0), Vector2(-1.6, -8.0)])
+	core.color = Color("dffbff")
+	flame.add_child(core)
+	return flame
+
+
+func _apply_flee_material() -> void:
+	if not is_instance_valid(sprite):
+		return
+	if flee_material == null:
+		# Frame 3 is the approved overhead chair. Mask only its two baked flame
+		# ellipses in atlas coordinates; the code-rendered exhaust replaces them.
+		var shader := Shader.new()
+		shader.code = """shader_type canvas_item;
+void fragment() {
+	vec4 pixel = texture(TEXTURE, UV);
+	vec2 atlas_pixel = UV * vec2(768.0, 512.0);
+	vec2 local_pixel = atlas_pixel - vec2(0.0, 256.0);
+	vec2 left_flame = (local_pixel - vec2(64.0, 69.0)) / vec2(22.0, 59.0);
+	vec2 right_flame = (local_pixel - vec2(181.0, 69.0)) / vec2(22.0, 59.0);
+	float baked_flame = max(1.0 - smoothstep(0.82, 1.0, length(left_flame)), 1.0 - smoothstep(0.82, 1.0, length(right_flame)));
+	pixel.a *= 1.0 - baked_flame;
+	COLOR = pixel;
+}"""
+		flee_material = ShaderMaterial.new()
+		flee_material.shader = shader
+	sprite.material = flee_material
 
 
 func _apply_captured_accent() -> void:

@@ -27,7 +27,9 @@ actions. The slider controls both pull strength and range, with pull strength
 rising on a gentler curve; its value and on/off
 state are saved between runs. Captured names use the device's English
 text-to-speech voice at normal speed, one at a time. Traxy flees the ship without
-camping in corners. Catching him produces a white cloud and a short nonverbal
+camping in corners; one overhead chair sprite turns smoothly toward his escape
+vector while two independent rear thrusters pulse and bias through turns.
+Catching him produces a white cloud and a short nonverbal
 poof before his name is spoken; his label and only his suit adopt the ship
 color. He then floats with a shocked blink, rotates slowly clockwise, and
 bounces off planets and edges. After every planet and Traxy are explicitly
@@ -48,9 +50,10 @@ The authoritative architecture and lifecycle description is in
 [`docs/design.md`](docs/design.md).
 
 Trixie's source artwork is stored in `assets/trixie.png`; Traxy's six-frame
-directional and shocked atlas is `assets/traxy.png`. Ship sprites and sound
-effects are CC0 assets from Kenney; planets, the black hole, meteors, and visual
-effects are drawn procedurally at runtime. The generated Milky Way image is
+source atlas is `assets/traxy.png`, with one overhead chair frame and two shocked
+frames selected at runtime. Chair exhaust is drawn separately in code. Ship
+sprites and sound effects are CC0 assets from Kenney; planets, the black hole,
+meteors, and visual effects are drawn procedurally at runtime. The generated Milky Way image is
 stored in `assets/milky_way_background.png` and is rotated, cropped, and dimmed
 by the game at runtime.
 

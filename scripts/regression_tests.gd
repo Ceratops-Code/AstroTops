@@ -505,7 +505,23 @@ func _test_targets() -> void:
 	for direction in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
 		traxy.velocity = direction * traxy.FLEE_SPEED
 		direction_frames.append(traxy.current_frame_index())
-	_assert_equal("TRAXY-01/directional-chair-frames", direction_frames, [0, 1, 2, 3])
+	_assert_equal("TRAXY-01/single-overhead-chair-frame", direction_frames, [traxy.FLEE_FRAME_INDEX, traxy.FLEE_FRAME_INDEX, traxy.FLEE_FRAME_INDEX, traxy.FLEE_FRAME_INDEX])
+	_assert_true("TRAXY-01/separate-thrusters", is_instance_valid(traxy.thruster_layer) and traxy.thruster_layer.get_child_count() == 2, traxy.thruster_layer.get_child_count(), "two code-rendered thrusters")
+	traxy.flee_visual_rotation = 0.0
+	traxy.left_thruster_power = 1.0
+	traxy.right_thruster_power = 1.0
+	var right_target_rotation := traxy.flee_rotation_for_direction(Vector2.RIGHT)
+	traxy._update_flee_visual(0.05, Vector2.RIGHT)
+	var first_turn_rotation := traxy.flee_visual_rotation
+	_assert_true("TRAXY-01/rotation-interpolates", absf(first_turn_rotation) > 0.05 and absf(wrapf(right_target_rotation - first_turn_rotation, -PI, PI)) > 0.05, first_turn_rotation, "moves toward target without snapping")
+	_assert_true("TRAXY-01/turn-responsive-thrusters", absf(traxy.left_thruster_power - traxy.right_thruster_power) > 0.08, [traxy.left_thruster_power, traxy.right_thruster_power], "unequal while turning")
+	for _step in range(40):
+		traxy._update_flee_visual(0.05, Vector2.RIGHT)
+	_assert_true("TRAXY-01/rotation-converges", traxy.flee_visual_direction().dot(Vector2.RIGHT) > 0.995, traxy.flee_visual_direction(), Vector2.RIGHT)
+	traxy.flee_visual_rotation = traxy.flee_rotation_for_direction(Vector2(1.0, 0.99))
+	var before_threshold_crossing := traxy.flee_visual_rotation
+	traxy._update_flee_visual(0.016, Vector2(0.99, 1.0))
+	_assert_true("TRAXY-01/no-direction-threshold-tremble", absf(wrapf(traxy.flee_visual_rotation - before_threshold_crossing, -PI, PI)) < 0.01, traxy.flee_visual_rotation, before_threshold_crossing)
 	traxy.position = Vector2(640.0, 410.0)
 	traxy.velocity = Vector2.ZERO
 	traxy.stuck_origin = traxy.position
@@ -523,6 +539,7 @@ func _test_targets() -> void:
 	_assert_true("TRAXY-01/remains-in-playfield", main.SHIP_BOUNDS.grow(-traxy.capture_radius()).has_point(traxy.position), traxy.position)
 	_assert_true("TRAXY-02/capture", traxy.capture(Color("ff4e9c")), traxy.motion_state)
 	_assert_equal("TRAXY-02/floating-state", traxy.motion_state, traxy.MotionState.FLOATING)
+	_assert_true("TRAXY-02/capture-hides-chair-thrusters", not traxy.thruster_layer.visible, traxy.thruster_layer.visible, false)
 	_assert_color_near("TRAXY-02/captured-name-uses-ship-color", traxy.name_label_color(), Color("ff4e9c"), 0.001)
 	_assert_near("TRAXY-02/capture-starts-white-poof", traxy.capture_poof_elapsed, 0.0, 0.001)
 	traxy.blink_elapsed = 0.0
@@ -545,7 +562,7 @@ func _test_targets() -> void:
 	var earth_obstacle: Array[ColorPlanet] = [earth]
 	traxy.update_active(0.02, Vector2.ZERO, earth_obstacle)
 	_assert_true("TRAXY-02/planet-bounce", traxy.velocity.x > 0.0, traxy.velocity)
-	_observe("TARGET/roster-and-render-model", "celestial roster plus Traxy's directional chair, corner escape, shocked blink, and bounded bounce behavior")
+	_observe("TARGET/roster-and-render-model", "celestial roster plus Traxy's smoothly rotating overhead chair, independent steering thrusters, corner escape, shocked blink, and bounded bounce behavior")
 
 
 func _test_ships_pilots() -> void:
@@ -1026,7 +1043,10 @@ func _test_rendered_ui() -> void:
 	traxy_viewport.add_child(running_traxy)
 	running_traxy.configure(Rect2(0.0, 0.0, 520.0, 260.0), Vector2.ZERO, no_planets, 90)
 	running_traxy.position = Vector2(135.0, 120.0)
-	running_traxy.velocity = Vector2.RIGHT * running_traxy.FLEE_SPEED
+	running_traxy.flee_visual_rotation = -PI / 3.0
+	running_traxy.left_thruster_power = 0.68
+	running_traxy.right_thruster_power = 1.28
+	running_traxy._sync_sprite()
 	var shocked_traxy: Traxy = TraxyScript.new()
 	traxy_viewport.add_child(shocked_traxy)
 	shocked_traxy.configure(Rect2(0.0, 0.0, 520.0, 260.0), Vector2.ZERO, no_planets, 91)
@@ -1045,6 +1065,8 @@ func _test_rendered_ui() -> void:
 			if pixel.g > pixel.r * 1.18 and pixel.g > pixel.b * 0.82:
 				traxy_green_pixels[0 if x < 260 else 1] += 1
 	_assert_true("TRAXY-01/rendered-chair", traxy_green_pixels[0] > 120, traxy_green_pixels[0], "> 120 sampled green pixels")
+	_assert_near("TRAXY-01/rendered-smooth-chair-rotation", running_traxy.sprite.rotation, -PI / 3.0, 0.001)
+	_assert_true("TRAXY-01/rendered-separate-thrusters", running_traxy.thruster_layer.visible and running_traxy.left_thruster.scale.y < running_traxy.right_thruster.scale.y, [running_traxy.left_thruster.scale.y, running_traxy.right_thruster.scale.y], "visible unequal thrust")
 	_assert_true("TRAXY-02/rendered-shocked-pose", traxy_green_pixels[1] > 120, traxy_green_pixels[1], "> 120 sampled green pixels")
 
 	var color_viewport := SubViewport.new()
