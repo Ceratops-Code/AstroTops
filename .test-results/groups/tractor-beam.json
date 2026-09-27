@@ -23,13 +23,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T050600Z-e989eeba1787/tractor-beam/output.log"
+    "evidence/20260927T053300Z-76801f36520f/tractor-beam/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "a84b78de9b33ff705957efa959dee00be648a0a04c4681c98aafb336e2642816",
-  "finishedAt": 1790485567.181814,
+  "fingerprint": "c9a82bb08bf37aca35b6bf5d6861d3d8a8e32ef7f928b35f569ca52c2e432908",
+  "finishedAt": 1790487186.6087663,
   "id": "tractor-beam",
   "observations": [
     {
@@ -38,12 +38,12 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T050600Z-e989eeba1787",
+  "runId": "20260927T053300Z-76801f36520f",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.373,
+  "seconds": 0.379,
   "source": {
-    "commit": "e989eeba1787846fe9d3fe6001b7806fabb9079e",
-    "digest": "9fae5c3400fe48e86531223b195015f225cf5dc06106b98a1199902e2bcfd5c7",
+    "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
+    "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
     "dirty": false,
     "exactTags": []
   },

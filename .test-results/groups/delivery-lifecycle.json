@@ -1,6 +1,6 @@
 {
   "artifact": null,
-  "assertions": 39,
+  "assertions": 40,
   "command": [
     "{python}",
     "scripts/run-tests.py",
@@ -14,13 +14,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T050600Z-e989eeba1787/delivery-lifecycle/output.log"
+    "evidence/20260927T053300Z-76801f36520f/delivery-lifecycle/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "7d03fccde94521fd564fd8d15546147a07262cc94b3c9c7ef83fdaa295218616",
-  "finishedAt": 1790485569.029456,
+  "fingerprint": "3f5aadba0ca3588eb8fd18cd15d8bc8f5492b63c3b568869f72eca30a84847e2",
+  "finishedAt": 1790487188.4750729,
   "id": "delivery-lifecycle",
   "observations": [
     {
@@ -114,6 +114,10 @@
       "id": "godot-mismatched-path-self-provisions"
     },
     {
+      "actual": "{temp}\\tool-cache\\godot\\4.7.2\\godot-test",
+      "id": "godot-prerelease-path-self-provisions"
+    },
+    {
       "actual": 1,
       "id": "android-source-downloads-once"
     },
@@ -198,12 +202,12 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T050600Z-e989eeba1787",
+  "runId": "20260927T053300Z-76801f36520f",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.139,
+  "seconds": 0.146,
   "source": {
-    "commit": "e989eeba1787846fe9d3fe6001b7806fabb9079e",
-    "digest": "9fae5c3400fe48e86531223b195015f225cf5dc06106b98a1199902e2bcfd5c7",
+    "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
+    "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
     "dirty": false,
     "exactTags": []
   },
