@@ -16,7 +16,8 @@
     {"path": "export_presets.cfg", "role": "Android package identity, architecture, and launcher-icon export configuration"},
     {"path": "sdlc/sdlc.yml", "role": "Repository build, validation, delivery, and Android installation workflow"},
     {"path": "docs/feature-acceptance.json", "role": "Current requirement-to-observable-test contract"},
-    {"path": "scripts/run-tests.py", "role": "Pinned Godot provisioning, project validation, Android export, and grouped regression execution"},
+    {"path": "scripts/godot_toolchain.py", "role": "Pinned Godot editor and Android source-template provisioning, project-template installation, validation, and export"},
+    {"path": "scripts/run-tests.py", "role": "Grouped regression orchestration and shipping-lifecycle acceptance tests"},
     {"path": "scripts/result_records.py", "role": "Runtime owner of bounded validation, test, build, and deployment result records"},
     {"path": "docs/result_records.py.tmpl", "role": "Reusable adoption seed; never runtime authority for this repository"},
     {"path": "docs/design.md", "role": "Architectural rationale, boundaries, quality goals, and maintenance policy"}
@@ -141,9 +142,12 @@ bounded evidence, artifact identity, and deterministic Android deployment.
   reports impact to the game shell.
 - [`scripts/regression_tests.gd`](../scripts/regression_tests.gd) is the Godot
   behavior and rendered-surface harness.
-- [`scripts/run-tests.py`](../scripts/run-tests.py) resolves or atomically
-  provisions the pinned Godot editor, validates and exports the project,
-  selects test groups, isolates settings, and assembles applicable results.
+- [`scripts/godot_toolchain.py`](../scripts/godot_toolchain.py) resolves or
+  atomically provisions the pinned Godot editor and Android source template,
+  installs a missing project build template, and owns validation and export
+  commands.
+- [`scripts/run-tests.py`](../scripts/run-tests.py) selects test groups, isolates
+  settings, exercises the shipping lifecycle, and assembles applicable results.
 - [`scripts/validate-repository.py`](../scripts/validate-repository.py) checks
   repository structure and contracts independently from gameplay tests.
 - [`scripts/result_records.py`](../scripts/result_records.py) is the only
@@ -235,10 +239,13 @@ Tracked `.test-results/groups/*.json`, `.test-results/tests.json`, and
 tested. Raw `.test-results/evidence/<run-id>/` content is ignored and bounded to
 the current run plus at most two predecessors. Build records bind a source tag
 to exact artifact bytes. Atomic sibling files prevent partial JSON replacement.
-The external Godot tool cache is owned by `scripts/run-tests.py`, grouped by
-version, cleaned at every provision attempt, and bounded to the current runtime
-plus two predecessors. Interrupted downloads and extractions are helper-owned
-orphans and are removed while holding the cache lock.
+The external editor and Android-template caches are owned by
+`scripts/godot_toolchain.py`, separated by artifact purpose, grouped by version,
+cleaned at every provision attempt, and each bounded to the current version plus
+two predecessors. Interrupted downloads and extractions are helper-owned
+orphans and are removed while holding the applicable cache lock. The ignored
+project `android` directory is created only when absent; valid matching content
+is reused, while unexpected existing content is preserved and blocks export.
 
 ### 8.2 APIs and integrations
 
@@ -276,6 +283,11 @@ extraction, verifies every cached member and the reported editor version, and
 publishes a cache entry only after all checks pass. Unsupported platforms and
 offline or integrity failures stop before remote shipping mutation with an
 explicit executable-override path.
+Android provisioning uses HTTP ranges against Godot's official template mirror
+to retrieve only the pinned source member, verifies that member's exact length
+and SHA-256, and stages extraction before publishing either cache or project
+content. A matching locally installed template or explicit offline override is
+reused only after the same verification.
 
 ## 9 Decisions and alternatives
 
@@ -372,9 +384,10 @@ play, pause, countdown, results, cockpit, targets, the hidden tractor field,
 Traxy's smoothly turned overhead chair, independent thrusters, capture-cloud,
 shocked, progressive-hook, and cable-tow states, the standalone icon, and the
 layered adaptive icon under a circular mask.
-Python tests cover result lifecycle, automatic Godot provisioning, tamper
-repair, bounded cache retention, project validation and export commands,
-asset-import bootstrapping, and ADB behavior.
+Python tests cover result lifecycle, automatic editor and Android-template
+provisioning, tamper repair, bounded cache retention, safe project-template
+installation, project validation and export commands, asset-import
+bootstrapping, and ADB behavior.
 
 Repository validation is separate from tests. Candidate qualification records
 the immutable source tag and exact APK identity. Delivery reuses only applicable

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Provision Godot and run AstroTops validation, export, and regressions.
+"""Run AstroTops validation, export, and grouped regressions.
 
-The helper owns the pinned Godot tool cache used by repository lifecycle steps.
+``godot_toolchain`` owns the pinned editor and Android-template lifecycle.
 The feature inventory owns group coverage and source-file ownership. Each test
 group runs in an isolated temporary directory; rendered tests use a real Godot
 OpenGL window (under Xvfb on Linux). The runner atomically updates the affected
@@ -19,20 +19,32 @@ import os
 import pathlib
 import platform
 import shutil
-import stat
 import subprocess
 import sys
 import tempfile
 import time
-import urllib.request
 import zipfile
-from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 
 _SCRIPT_DIRECTORY = pathlib.Path(__file__).resolve().parent
 if str(_SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIRECTORY))
 
+from godot_toolchain import (  # noqa: E402
+    GODOT_TEMPLATE_IDENTIFIER,
+    GODOT_VERSION,
+    _prune_version_cache,
+    _sha256,
+    android_build_template_ready,
+    bootstrap_godot_imports,
+    export_debug_project,
+    godot_version,
+    install_android_build_template,
+    provision_android_source_template,
+    provision_godot,
+    resolve_godot,
+    validate_godot_project,
+)
 from result_records import (  # noqa: E402
     GROUP_SCHEMA,
     RESULT_SCHEMA,
@@ -48,30 +60,6 @@ from result_records import (  # noqa: E402
 
 INVENTORY_SCHEMA = "astrotops-test-inventory.v1"
 GODOT_RESULT_PREFIX = "ASTROTOPS_TEST_RESULT="
-GODOT_VERSION = "4.7.2"
-GODOT_CACHE_SCHEMA = "astrotops-godot-cache.v1"
-GODOT_CACHE_PREDECESSORS = 2
-GODOT_CACHE_LOCK_STALE_SECONDS = 900.0
-GODOT_CACHE_LOCK_WAIT_SECONDS = 120.0
-GODOT_ARCHIVES: dict[tuple[str, str], dict[str, object]] = {
-    ("windows", "x86_64"): {
-        "url": "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip",
-        "sha256": "731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953",
-        "size": 86_013_866,
-        "members": [
-            "Godot_v4.7.2-stable_win64.exe",
-            "Godot_v4.7.2-stable_win64_console.exe",
-        ],
-        "executable": "Godot_v4.7.2-stable_win64_console.exe",
-    },
-    ("linux", "x86_64"): {
-        "url": "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip",
-        "sha256": "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4",
-        "size": 77_860_424,
-        "members": ["Godot_v4.7.2-stable_linux.x86_64"],
-        "executable": "Godot_v4.7.2-stable_linux.x86_64",
-    },
-}
 
 
 def load_inventory(repo_root: pathlib.Path) -> tuple[dict[str, object], list[dict[str, object]]]:
@@ -123,467 +111,6 @@ def load_inventory(repo_root: pathlib.Path) -> tuple[dict[str, object], list[dic
     if covered != declared:
         raise ValueError(f"Feature coverage omits groups: {sorted(declared - covered)}")
     return inventory, validated_groups
-
-
-def godot_version(executable: pathlib.Path) -> str:
-    completed = subprocess.run(
-        [str(executable), "--version"],
-        check=False,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=30,
-    )
-    if completed.returncode:
-        raise RuntimeError("Godot version probe failed: " + completed.stderr.strip())
-    return completed.stdout.strip().splitlines()[0]
-
-
-def _require_godot_version(
-    executable: pathlib.Path,
-    *,
-    version_probe: Callable[[pathlib.Path], str] = godot_version,
-) -> str:
-    """Reject a runtime that is present but not the repository's pinned version."""
-
-    version = version_probe(executable)
-    if not version.startswith(GODOT_VERSION + "."):
-        raise RuntimeError(
-            f"Godot {GODOT_VERSION} is required; {executable} reports {version!r}."
-        )
-    return version
-
-
-def godot_cache_root(environ: Mapping[str, str] | None = None) -> pathlib.Path:
-    """Return the user-cache owner for versioned AstroTops Godot runtimes."""
-
-    values = os.environ if environ is None else environ
-    override = values.get("ASTROTOPS_TOOL_CACHE")
-    if override:
-        return pathlib.Path(override).expanduser().resolve() / "godot"
-    if platform.system().lower() == "windows":
-        base = pathlib.Path(
-            values.get("LOCALAPPDATA", pathlib.Path.home() / "AppData" / "Local")
-        )
-        return base / "Ceratops" / "AstroTops" / "tools" / "godot"
-    base = pathlib.Path(values.get("XDG_CACHE_HOME", pathlib.Path.home() / ".cache"))
-    return base / "ceratops" / "astrotops" / "tools" / "godot"
-
-
-def _normalized_architecture(machine: str) -> str:
-    value = machine.lower().replace("-", "_")
-    if value in {"amd64", "x64", "x86_64"}:
-        return "x86_64"
-    return value
-
-
-def godot_archive_spec(
-    system_name: str | None = None,
-    machine: str | None = None,
-) -> dict[str, object]:
-    """Select the exact official archive supported for this host."""
-
-    key = (
-        (system_name or platform.system()).lower(),
-        _normalized_architecture(machine or platform.machine()),
-    )
-    selected = GODOT_ARCHIVES.get(key)
-    if selected is None:
-        raise RuntimeError(
-            "No pinned Godot archive is declared for "
-            f"{key[0]}/{key[1]}; pass --godot or set GODOT_EXECUTABLE."
-        )
-    return dict(selected)
-
-
-def _sha256(path: pathlib.Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _download_godot_archive(url: str, destination: pathlib.Path) -> None:
-    """Download one official archive without modifying global installer state."""
-
-    request = urllib.request.Request(url, headers={"User-Agent": "AstroTops-tool-bootstrap/1"})
-    with urllib.request.urlopen(request, timeout=120) as response:
-        with destination.open("wb") as output:
-            shutil.copyfileobj(response, output, length=1024 * 1024)
-
-
-class _GodotCacheLock:
-    """Serialize cache mutation and recover only demonstrably stale owners."""
-
-    def __init__(self, root: pathlib.Path) -> None:
-        self.path = root / ".provision-lock"
-        self.token = f"{os.getpid()}-{time.time_ns()}"
-
-    def __enter__(self) -> None:
-        deadline = time.monotonic() + GODOT_CACHE_LOCK_WAIT_SECONDS
-        while True:
-            try:
-                self.path.mkdir()
-                (self.path / "owner").write_text(
-                    self.token + "\n", encoding="utf-8", newline="\n"
-                )
-                return
-            except FileExistsError as error:
-                if not self.path.is_dir() or self.path.is_symlink():
-                    raise RuntimeError(
-                        f"Godot cache lock has an invalid type: {self.path}"
-                    ) from error
-                age = time.time() - self.path.stat().st_mtime
-                if age > GODOT_CACHE_LOCK_STALE_SECONDS:
-                    shutil.rmtree(self.path)
-                    continue
-                if time.monotonic() >= deadline:
-                    raise RuntimeError(
-                        f"Timed out waiting for Godot cache lock: {self.path}"
-                    ) from error
-                time.sleep(0.25)
-
-    def __exit__(self, *_error: object) -> None:
-        owner = self.path / "owner"
-        try:
-            if owner.read_text(encoding="utf-8").strip() == self.token:
-                shutil.rmtree(self.path)
-        except FileNotFoundError:
-            return
-
-
-def _cleanup_godot_orphans(root: pathlib.Path) -> None:
-    """Remove interrupted helper-owned downloads and extraction directories."""
-
-    for child in root.iterdir():
-        if not child.name.startswith((".download-", ".extract-")):
-            continue
-        if child.is_dir() and not child.is_symlink():
-            shutil.rmtree(child)
-        else:
-            child.unlink()
-
-
-def _prune_godot_cache(root: pathlib.Path, current_version: str) -> None:
-    """Retain the current runtime and at most two most-recent predecessors."""
-
-    predecessors = [
-        child
-        for child in root.iterdir()
-        if child.is_dir()
-        and not child.is_symlink()
-        and not child.name.startswith(".")
-        and child.name != current_version
-    ]
-    predecessors.sort(key=lambda path: path.stat().st_mtime, reverse=True)
-    for obsolete in predecessors[GODOT_CACHE_PREDECESSORS:]:
-        shutil.rmtree(obsolete)
-
-
-def _cached_godot(
-    version_root: pathlib.Path,
-    spec: Mapping[str, object],
-    *,
-    version_probe: Callable[[pathlib.Path], str] = godot_version,
-) -> pathlib.Path | None:
-    """Return one complete, untampered cached runtime or no candidate."""
-
-    manifest_path = version_root / "manifest.json"
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    if not isinstance(manifest, dict):
-        return None
-    expected = {
-        "schema": GODOT_CACHE_SCHEMA,
-        "version": GODOT_VERSION,
-        "archiveSha256": spec["sha256"],
-        "archiveSize": spec["size"],
-        "source": spec["url"],
-        "executable": spec["executable"],
-    }
-    if any(manifest.get(key) != value for key, value in expected.items()):
-        return None
-    member_hashes = manifest.get("memberSha256")
-    members = spec.get("members")
-    if not isinstance(member_hashes, dict) or not isinstance(members, list):
-        return None
-    for member in members:
-        if not isinstance(member, str):
-            return None
-        path = version_root / pathlib.PurePosixPath(member).name
-        if not path.is_file() or member_hashes.get(member) != _sha256(path):
-            return None
-    executable_name = spec.get("executable")
-    if not isinstance(executable_name, str):
-        return None
-    executable = version_root / executable_name
-    try:
-        _require_godot_version(executable, version_probe=version_probe)
-    except (OSError, RuntimeError, subprocess.SubprocessError):
-        return None
-    return executable
-
-
-def _extract_godot_archive(
-    archive_path: pathlib.Path,
-    destination: pathlib.Path,
-    members: list[str],
-) -> dict[str, str]:
-    """Extract only allowlisted files and return their content hashes."""
-
-    hashes: dict[str, str] = {}
-    with zipfile.ZipFile(archive_path) as archive:
-        for member in members:
-            info = archive.getinfo(member)
-            target = destination / pathlib.PurePosixPath(member).name
-            with archive.open(info) as source, target.open("wb") as output:
-                shutil.copyfileobj(source, output, length=1024 * 1024)
-            hashes[member] = _sha256(target)
-    return hashes
-
-
-def provision_godot(
-    *,
-    cache_root: pathlib.Path | None = None,
-    spec: Mapping[str, object] | None = None,
-    download: Callable[[str, pathlib.Path], None] = _download_godot_archive,
-    version_probe: Callable[[pathlib.Path], str] = godot_version,
-) -> pathlib.Path:
-    """Provision the pinned runtime atomically in the bounded user tool cache."""
-
-    selected = dict(spec or godot_archive_spec())
-    root = (cache_root or godot_cache_root()).expanduser().resolve()
-    root.mkdir(parents=True, exist_ok=True)
-    with _GodotCacheLock(root):
-        _cleanup_godot_orphans(root)
-        version_root = root / GODOT_VERSION
-        cached = _cached_godot(version_root, selected, version_probe=version_probe)
-        if cached is not None:
-            os.utime(version_root)
-            _prune_godot_cache(root, GODOT_VERSION)
-            return cached
-        if version_root.exists():
-            if version_root.is_symlink() or not version_root.is_dir():
-                raise RuntimeError(f"Godot cache entry has an invalid type: {version_root}")
-            shutil.rmtree(version_root)
-        archive_path = root / f".download-{os.getpid()}-{time.time_ns()}.zip"
-        extraction_root = pathlib.Path(tempfile.mkdtemp(prefix=".extract-", dir=root))
-        try:
-            url = selected.get("url")
-            expected_hash = selected.get("sha256")
-            expected_size = selected.get("size")
-            raw_members = selected.get("members")
-            executable_name = selected.get("executable")
-            if (
-                not isinstance(url, str)
-                or not isinstance(expected_hash, str)
-                or not isinstance(expected_size, int)
-                or not isinstance(raw_members, list)
-                or not all(isinstance(member, str) for member in raw_members)
-                or not isinstance(executable_name, str)
-            ):
-                raise RuntimeError("Pinned Godot archive metadata is invalid.")
-            members = [str(member) for member in raw_members]
-            download(url, archive_path)
-            actual_size = archive_path.stat().st_size
-            actual_hash = _sha256(archive_path)
-            if actual_size != expected_size or actual_hash != expected_hash:
-                raise RuntimeError(
-                    "Godot archive integrity check failed: "
-                    f"size={actual_size}/{expected_size}, sha256={actual_hash}/{expected_hash}."
-                )
-            member_hashes = _extract_godot_archive(
-                archive_path, extraction_root, members
-            )
-            executable = extraction_root / executable_name
-            if platform.system().lower() != "windows":
-                executable.chmod(
-                    executable.stat().st_mode
-                    | stat.S_IXUSR
-                    | stat.S_IXGRP
-                    | stat.S_IXOTH
-                )
-            _require_godot_version(executable, version_probe=version_probe)
-            manifest = {
-                "schema": GODOT_CACHE_SCHEMA,
-                "version": GODOT_VERSION,
-                "source": url,
-                "archiveSha256": expected_hash,
-                "archiveSize": expected_size,
-                "memberSha256": member_hashes,
-                "executable": executable_name,
-            }
-            (extraction_root / "manifest.json").write_text(
-                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-                newline="\n",
-            )
-            os.replace(extraction_root, version_root)
-        except (OSError, RuntimeError, zipfile.BadZipFile, KeyError) as error:
-            raise RuntimeError(
-                f"Automatic Godot {GODOT_VERSION} provisioning failed in {root}: {error}"
-            ) from error
-        finally:
-            archive_path.unlink(missing_ok=True)
-            if extraction_root.exists():
-                shutil.rmtree(extraction_root)
-        cached = _cached_godot(version_root, selected, version_probe=version_probe)
-        if cached is None:
-            raise RuntimeError("Provisioned Godot cache entry failed final verification.")
-        _prune_godot_cache(root, GODOT_VERSION)
-        return cached
-
-
-def resolve_godot(
-    requested: pathlib.Path | None,
-    *,
-    environ: Mapping[str, str] | None = None,
-    which: Callable[[str], str | None] = shutil.which,
-    provision: Callable[[], pathlib.Path] | None = None,
-    version_probe: Callable[[pathlib.Path], str] = godot_version,
-) -> pathlib.Path:
-    """Resolve an exact caller runtime or self-provision the pinned release."""
-
-    values = os.environ if environ is None else environ
-    if requested is not None:
-        executable = requested.expanduser().resolve(strict=True)
-        _require_godot_version(executable, version_probe=version_probe)
-        return executable
-    rejected: list[str] = []
-    candidates = [values.get("GODOT_EXECUTABLE"), which("godot"), which("godot.exe")]
-    seen: set[str] = set()
-    for candidate in candidates:
-        if not candidate or candidate in seen:
-            continue
-        seen.add(candidate)
-        try:
-            executable = pathlib.Path(candidate).expanduser().resolve(strict=True)
-            _require_godot_version(executable, version_probe=version_probe)
-            return executable
-        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
-            rejected.append(str(error))
-    try:
-        executable = (provision or provision_godot)()
-        _require_godot_version(executable, version_probe=version_probe)
-        return executable
-    except (OSError, RuntimeError, subprocess.SubprocessError) as error:
-        detail = "; ".join(rejected + [str(error)])
-        raise RuntimeError(
-            f"Godot {GODOT_VERSION} could not be resolved. {detail} "
-            "Pass --godot or set GODOT_EXECUTABLE to a verified executable."
-        ) from error
-
-
-def bootstrap_godot_imports(
-    repo_root: pathlib.Path,
-    godot: pathlib.Path,
-    *,
-    run=subprocess.run,
-) -> None:
-    """Make Godot import project assets before scripts try to load them."""
-
-    command = [str(godot), "--headless", "--path", str(repo_root), "--import"]
-    completed = run(
-        command,
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-        timeout=120,
-    )
-    if completed.returncode:
-        detail = (completed.stderr or completed.stdout).strip()
-        raise RuntimeError("Godot asset import failed: " + detail[-1200:])
-
-
-def _run_godot_operation(
-    repo_root: pathlib.Path,
-    godot: pathlib.Path,
-    arguments: list[str],
-    *,
-    timeout: int,
-    run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
-) -> None:
-    """Run one bounded Godot lifecycle command with compact failure evidence."""
-
-    command = [str(godot), *arguments]
-    completed = run(
-        command,
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-        timeout=timeout,
-    )
-    if completed.returncode:
-        detail = (completed.stderr or completed.stdout).strip()
-        raise RuntimeError(
-            f"Godot lifecycle command failed ({completed.returncode}): {detail[-2000:]}"
-        )
-
-
-def validate_godot_project(
-    repo_root: pathlib.Path,
-    godot: pathlib.Path,
-    *,
-    run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
-) -> None:
-    """Parse the project through the pinned editor before shipping side effects."""
-
-    _run_godot_operation(
-        repo_root,
-        godot,
-        ["--headless", "--editor", "--path", str(repo_root), "--quit"],
-        timeout=180,
-        run=run,
-    )
-
-
-def export_debug_project(
-    repo_root: pathlib.Path,
-    godot: pathlib.Path,
-    output: pathlib.Path,
-    *,
-    run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
-) -> pathlib.Path:
-    """Create one fresh Android debug artifact inside the repository boundary."""
-
-    resolved = (
-        output.expanduser().resolve()
-        if output.is_absolute()
-        else (repo_root / output).resolve()
-    )
-    try:
-        resolved.relative_to(repo_root)
-    except ValueError as error:
-        raise RuntimeError(f"Godot export must stay inside {repo_root}: {resolved}") from error
-    resolved.parent.mkdir(parents=True, exist_ok=True)
-    resolved.unlink(missing_ok=True)
-    _run_godot_operation(
-        repo_root,
-        godot,
-        [
-            "--headless",
-            "--path",
-            str(repo_root),
-            "--export-debug",
-            "Android",
-            str(resolved),
-        ],
-        timeout=900,
-        run=run,
-    )
-    if not resolved.is_file() or resolved.stat().st_size <= 0:
-        raise RuntimeError(f"Godot export did not produce a nonempty artifact: {resolved}")
-    return resolved
 
 
 def portable_command(
@@ -845,7 +372,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         predecessor = fake_cache / version
         predecessor.mkdir()
         os.utime(predecessor, (float(index), float(index)))
-    _prune_godot_cache(fake_cache, GODOT_VERSION)
+    _prune_version_cache(fake_cache, GODOT_VERSION)
     retained_versions = sorted(
         path.name for path in fake_cache.iterdir() if path.is_dir() and not path.name.startswith(".")
     )
@@ -880,6 +407,90 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         str(resolved_from_mismatch),
     )
 
+    fake_android_archive = temporary_root / "android-source.zip"
+    with zipfile.ZipFile(
+        fake_android_archive, "w", compression=zipfile.ZIP_DEFLATED
+    ) as archive:
+        archive.writestr("build.gradle", b"// pinned fake Android template\n")
+        archive.writestr("gradlew", b"#!/bin/sh\n")
+    fake_android_spec: dict[str, object] = {
+        "url": "https://example.invalid/export-templates.tpz",
+        "member": "templates/android_source.zip",
+        "filename": "android_source.zip",
+        "sha256": _sha256(fake_android_archive),
+        "size": fake_android_archive.stat().st_size,
+    }
+    android_download_count = 0
+
+    def fake_android_download(
+        _url: str, _member: str, destination: pathlib.Path
+    ) -> None:
+        nonlocal android_download_count
+        android_download_count += 1
+        shutil.copyfile(fake_android_archive, destination)
+
+    fake_android_cache = temporary_root / "tool-cache" / "android-template"
+    android_source = provision_android_source_template(
+        cache_root=fake_android_cache,
+        spec=fake_android_spec,
+        environ={},
+        installed_candidates=[],
+        download=fake_android_download,
+    )
+    check("android-source-downloads-once", 1, android_download_count)
+    reused_android_source = provision_android_source_template(
+        cache_root=fake_android_cache,
+        spec=fake_android_spec,
+        environ={},
+        installed_candidates=[],
+        download=fake_android_download,
+    )
+    check("android-source-cache-is-reused", 1, android_download_count)
+    check(
+        "android-source-cache-path-is-stable",
+        str(android_source),
+        str(reused_android_source),
+    )
+    android_source.write_bytes(b"tampered")
+    repaired_android_source = provision_android_source_template(
+        cache_root=fake_android_cache,
+        spec=fake_android_spec,
+        environ={},
+        installed_candidates=[],
+        download=fake_android_download,
+    )
+    check("android-source-tamper-is-repaired", 2, android_download_count)
+
+    template_repo = temporary_root / "template-repo"
+    template_repo.mkdir()
+    installed_template = install_android_build_template(
+        template_repo, repaired_android_source
+    )
+    check("android-project-template-is-installed", True, installed_template.is_dir())
+    check(
+        "android-project-template-version",
+        GODOT_TEMPLATE_IDENTIFIER,
+        (template_repo / "android" / ".build_version").read_text(
+            encoding="utf-8"
+        ).strip(),
+    )
+    check(
+        "android-project-template-is-reused",
+        str(installed_template),
+        str(install_android_build_template(template_repo, repaired_android_source)),
+    )
+    conflict_repo = temporary_root / "template-conflict-repo"
+    (conflict_repo / "android").mkdir(parents=True)
+    custom_file = conflict_repo / "android" / "custom.txt"
+    custom_file.write_text("preserve me\n", encoding="utf-8", newline="\n")
+    try:
+        install_android_build_template(conflict_repo, repaired_android_source)
+    except RuntimeError as error:
+        conflict_preserved = "preserved" in str(error) and custom_file.is_file()
+    else:
+        conflict_preserved = False
+    check("android-project-template-conflict-is-preserved", True, conflict_preserved)
+
     operation_calls: list[list[str]] = []
 
     def fake_godot_run(
@@ -901,6 +512,12 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         repaired,
         pathlib.Path(".build/artifacts/android/provisioned.apk"),
         run=fake_godot_run,
+        template_provider=lambda: repaired_android_source,
+    )
+    check(
+        "godot-export-installs-android-template",
+        True,
+        android_build_template_ready(fake_repo),
     )
     check(
         "godot-export-produces-artifact",
