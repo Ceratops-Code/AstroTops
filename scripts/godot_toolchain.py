@@ -21,6 +21,7 @@ import platform
 import shutil
 import stat
 import subprocess
+import tempfile
 import time
 import urllib.request
 import zipfile
@@ -798,24 +799,72 @@ def _run_godot_operation(
     timeout: int,
     run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> None:
-    """Run one bounded Godot lifecycle command with compact failure evidence."""
+    """Run one bounded Godot lifecycle command with compact failure evidence.
 
-    command = [str(godot), *arguments]
-    completed = run(
-        command,
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-        timeout=timeout,
-    )
-    if completed.returncode:
-        detail = (completed.stderr or completed.stdout).strip()
+    The helper owns two temporary capture streams for exactly one command and
+    deletes them on exit. File-backed capture prevents persistent descendants,
+    such as a Gradle daemon, from keeping Python's output pipes open after the
+    Godot parent process has completed.
+    """
+
+    command = [str(_godot_operation_executable(godot)), *arguments]
+
+    def captured_tail(stream: object, fallback: object) -> str:
+        if isinstance(fallback, bytes):
+            return fallback.decode("utf-8", errors="replace")[-2000:]
+        if isinstance(fallback, str):
+            return fallback[-2000:]
+        stream.flush()  # type: ignore[attr-defined]
+        stream.seek(0, os.SEEK_END)  # type: ignore[attr-defined]
+        end = stream.tell()  # type: ignore[attr-defined]
+        stream.seek(max(0, end - 8000))  # type: ignore[attr-defined]
+        return stream.read().decode("utf-8", errors="replace")[-2000:]  # type: ignore[attr-defined]
+
+    with (
+        tempfile.TemporaryFile(mode="w+b") as stdout_stream,
+        tempfile.TemporaryFile(mode="w+b") as stderr_stream,
+    ):
+        try:
+            completed = run(
+                command,
+                cwd=repo_root,
+                stdout=stdout_stream,
+                stderr=stderr_stream,
+                check=False,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as error:
+            detail = (
+                captured_tail(stderr_stream, error.stderr)
+                or captured_tail(stdout_stream, error.stdout)
+            ).strip()
+            suffix = f": {detail}" if detail else ""
+            raise RuntimeError(
+                f"Godot lifecycle command timed out after {timeout} seconds{suffix}"
+            ) from error
+        if completed.returncode:
+            detail = (
+                captured_tail(stderr_stream, completed.stderr)
+                or captured_tail(stdout_stream, completed.stdout)
+            ).strip()
+            raise RuntimeError(
+                f"Godot lifecycle command failed ({completed.returncode}): {detail}"
+            )
+
+
+def _godot_operation_executable(godot: pathlib.Path) -> pathlib.Path:
+    """Avoid the Windows console wrapper's all-descendant job-object wait."""
+
+    console_suffix = "_console.exe"
+    if not godot.name.lower().endswith(console_suffix):
+        return godot
+    companion = godot.with_name(godot.name[: -len(console_suffix)] + ".exe")
+    if not companion.is_file():
         raise RuntimeError(
-            f"Godot lifecycle command failed ({completed.returncode}): {detail[-2000:]}"
+            "Godot's Windows console runtime has no non-console companion for "
+            f"bounded lifecycle operations: {companion}"
         )
+    return companion
 
 
 def validate_godot_project(

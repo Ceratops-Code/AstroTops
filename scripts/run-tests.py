@@ -576,15 +576,26 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
             pathlib.Path(command[-1]).write_bytes(b"debug-apk")
         return subprocess.CompletedProcess(command, 0, "", "")
 
-    validate_godot_project(fake_repo, repaired, run=fake_godot_run)
+    operation_console = temporary_root / "Godot_test_console.exe"
+    operation_console.write_bytes(b"fake-console-runtime")
+    operation_worker = temporary_root / "Godot_test.exe"
+    operation_worker.write_bytes(b"fake-non-console-runtime")
+    validate_godot_project(fake_repo, operation_console, run=fake_godot_run)
     check(
         "godot-project-validation-command",
-        [str(repaired), "--headless", "--editor", "--path", str(fake_repo), "--quit"],
+        [
+            str(operation_worker),
+            "--headless",
+            "--editor",
+            "--path",
+            str(fake_repo),
+            "--quit",
+        ],
         operation_calls[0],
     )
     exported = export_debug_project(
         fake_repo,
-        repaired,
+        operation_console,
         pathlib.Path(".build/artifacts/android/provisioned.apk"),
         run=fake_godot_run,
         template_provider=lambda: repaired_android_source,
@@ -598,6 +609,25 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         "godot-export-produces-artifact",
         "debug-apk",
         exported.read_bytes().decode("ascii"),
+    )
+    export_index = next(
+        index
+        for index, command in enumerate(operation_calls)
+        if "--export-debug" in command
+    )
+    export_call = operation_calls[export_index]
+    export_context = operation_contexts[export_index]
+    check(
+        "godot-export-uses-non-console-worker",
+        str(operation_worker),
+        export_call[0],
+    )
+    check(
+        "godot-export-uses-file-backed-capture",
+        True,
+        not export_context.get("capture_output", False)
+        and export_context.get("stdout") not in (None, subprocess.PIPE)
+        and export_context.get("stderr") not in (None, subprocess.PIPE),
     )
     validation_start = len(operation_calls)
     validate_android_build(
