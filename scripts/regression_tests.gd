@@ -5,6 +5,7 @@ const MainScene := preload("res://main.tscn")
 const MeteorScript := preload("res://scripts/meteor.gd")
 const PlanetScript := preload("res://scripts/planet.gd")
 const ShipScript := preload("res://scripts/player_ship.gd")
+const TraxyScript := preload("res://scripts/traxy.gd")
 const RESULT_PREFIX := "ASTROTOPS_TEST_RESULT="
 const GROUPS := [
 	"menu-ui",
@@ -340,13 +341,22 @@ func _test_tractor_beam() -> void:
 	captured_aligned.captured = true
 	await process_frame
 	var candidate: Dictionary = main._best_tractor_candidate(Vector2.UP)
-	_assert_true("TRACTOR-03/close-off-axis-selected", not candidate.is_empty() and candidate["planet"] == close_off_axis, candidate)
+	_assert_true("TRACTOR-03/close-off-axis-selected", not candidate.is_empty() and candidate["target"] == close_off_axis, candidate)
 	var ship_before: Vector2 = main.ship.global_position
 	var planet_before: Vector2 = close_off_axis.global_position
 	main._update_tractor_beam(0.20, Vector2.UP)
 	_assert_equal("TRACTOR-03/ship-course-unchanged", main.ship.global_position, ship_before)
 	_assert_true("TRACTOR-03/planet-moves-closer", close_off_axis.global_position.distance_to(ship_before) < planet_before.distance_to(ship_before), {"before": planet_before, "after": close_off_axis.global_position})
 	_assert_equal("TRACTOR-03/one-active-target", main.tractor_target, close_off_axis)
+	for planet in main.planets:
+		planet.visible = false
+	var traxy: Traxy = TraxyScript.new()
+	main.add_child(traxy)
+	traxy.configure(main.SHIP_BOUNDS, main.ship.position, main.planets, 44)
+	traxy.position = Vector2(640.0, 300.0)
+	main.traxy = traxy
+	var traxy_candidate: Dictionary = main._best_tractor_candidate(Vector2.UP)
+	_assert_equal("TRAXY-01/tractor-selects-traxy", traxy_candidate.get("target"), traxy)
 	main.state = main.GameState.READY
 	main.tractor_beam_enabled = true
 	_assert_equal("TRACTOR-04/on-label", main._tractor_button_label(), "TRACTOR BEAM: ON")
@@ -463,7 +473,67 @@ func _test_targets() -> void:
 			distinct_y[int(round(position.y))] = true
 		_assert_true("TARGET-06/not-a-grid-x-%d" % seed, distinct_x.size() >= specs.size() - 2, distinct_x.size(), ">= %d" % (specs.size() - 2))
 		_assert_true("TARGET-06/not-a-grid-y-%d" % seed, distinct_y.size() >= specs.size() - 3, distinct_y.size(), ">= %d" % (specs.size() - 3))
-	_observe("TARGET/roster-and-render-model", "size hierarchy, ring geometry, capture areas, black-hole blend, Earth silhouettes, and randomized layouts")
+
+	var atlas: Image = load("res://assets/traxy.png").get_image()
+	_assert_equal("TRAXY-01/atlas-size", atlas.get_size(), Vector2i(768, 512))
+	for frame in range(6):
+		var frame_origin := Vector2i((frame % 3) * 256, floori(float(frame) / 3.0) * 256)
+		var corner_alpha := [
+			atlas.get_pixelv(frame_origin).a,
+			atlas.get_pixelv(frame_origin + Vector2i(255, 0)).a,
+			atlas.get_pixelv(frame_origin + Vector2i(0, 255)).a,
+			atlas.get_pixelv(frame_origin + Vector2i(255, 255)).a,
+		]
+		_assert_true("TRAXY-01/transparent-frame-corners-%d" % frame, corner_alpha.max() <= 0.05, corner_alpha, "all <= 0.05")
+	var no_planets: Array[ColorPlanet] = []
+	var traxy: Traxy = TraxyScript.new()
+	root.add_child(traxy)
+	traxy.configure(main.SHIP_BOUNDS, Vector2(420.0, 410.0), no_planets, 70)
+	_assert_true("TRAXY-01/shared-target-contract", traxy is SpaceTarget and asteroid is SpaceTarget, [traxy, asteroid], "both are SpaceTarget")
+	_assert_equal("TRAXY-01/name", traxy.body_name, "Traxy")
+	var direction_frames: Array[int] = []
+	for direction in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
+		traxy.velocity = direction * traxy.FLEE_SPEED
+		direction_frames.append(traxy.current_frame_index())
+	_assert_equal("TRAXY-01/directional-chair-frames", direction_frames, [0, 1, 2, 3])
+	traxy.position = Vector2(640.0, 410.0)
+	traxy.velocity = Vector2.ZERO
+	traxy.stuck_origin = traxy.position
+	var flee_distance_before := traxy.position.distance_to(Vector2(420.0, 410.0))
+	for _step in range(10):
+		traxy.update_active(0.1, Vector2(420.0, 410.0), no_planets)
+	_assert_true("TRAXY-01/flees-ship", traxy.position.distance_to(Vector2(420.0, 410.0)) > flee_distance_before + 40.0, traxy.position)
+	traxy.position = main.SHIP_BOUNDS.position + Vector2.ONE * traxy.capture_radius()
+	traxy.velocity = Vector2.ZERO
+	traxy.stuck_origin = traxy.position
+	var corner_origin := traxy.position
+	for _step in range(10):
+		traxy.update_active(0.1, main.SHIP_BOUNDS.get_center(), no_planets)
+	_assert_true("TRAXY-01/corner-escape", traxy.position.distance_to(corner_origin) > traxy.STUCK_DISTANCE, {"before": corner_origin, "after": traxy.position})
+	_assert_true("TRAXY-01/remains-in-playfield", main.SHIP_BOUNDS.grow(-traxy.capture_radius()).has_point(traxy.position), traxy.position)
+	_assert_true("TRAXY-02/capture", traxy.capture(Color("ff4e9c")), traxy.motion_state)
+	_assert_equal("TRAXY-02/floating-state", traxy.motion_state, traxy.MotionState.FLOATING)
+	traxy.blink_elapsed = 0.0
+	_assert_equal("TRAXY-02/shocked-open-frame", traxy.current_frame_index(), 4)
+	traxy.blink_elapsed = 1.70
+	_assert_equal("TRAXY-02/shocked-closed-frame", traxy.current_frame_index(), 5)
+	traxy.blink_elapsed = 0.0
+	traxy.rotation = 0.0
+	traxy.position = main.SHIP_BOUNDS.get_center()
+	traxy.velocity = Vector2.RIGHT * traxy.FLOAT_SPEED
+	traxy.update_active(1.0, Vector2.ZERO, no_planets)
+	_assert_near("TRAXY-02/slow-clockwise-float", traxy.rotation, traxy.FLOAT_ROTATION_SPEED, 0.001)
+	traxy.position = Vector2(main.SHIP_BOUNDS.position.x + traxy.capture_radius(), main.SHIP_BOUNDS.get_center().y)
+	traxy.velocity = Vector2.LEFT * traxy.FLOAT_SPEED
+	traxy.update_active(0.1, Vector2.ZERO, no_planets)
+	_assert_true("TRAXY-02/edge-bounce", traxy.velocity.x > 0.0, traxy.velocity)
+	earth.position = Vector2(640.0, 410.0)
+	traxy.position = earth.position + Vector2(earth.capture_radius() + traxy.capture_radius() - 1.0, 0.0)
+	traxy.velocity = Vector2.LEFT * traxy.FLOAT_SPEED
+	var earth_obstacle: Array[ColorPlanet] = [earth]
+	traxy.update_active(0.02, Vector2.ZERO, earth_obstacle)
+	_assert_true("TRAXY-02/planet-bounce", traxy.velocity.x > 0.0, traxy.velocity)
+	_observe("TARGET/roster-and-render-model", "celestial roster plus Traxy's directional chair, corner escape, shocked blink, and bounded bounce behavior")
 
 
 func _test_ships_pilots() -> void:
@@ -498,6 +568,10 @@ func _test_ships_pilots() -> void:
 	ship.configure(Color.WHITE, Rect2(0.0, 100.0, 200.0, 200.0), 4, 2)
 	ship.move_ship(Vector2.RIGHT, 2.0)
 	_assert_equal("SHIP-03/movement-bounded", ship.position.x, 200.0)
+	ship.position = Vector2(100.0, 200.0)
+	ship.stop()
+	ship.move_scripted(Vector2.LEFT * 300.0, 1.0)
+	_assert_true("TRAXY-03/scripted-rescue-bypasses-bounds", ship.position.x < 0.0, ship.position.x, "< 0")
 	_assert_equal("PILOT-02/planet-selection", ship.pilot_style, 2)
 	_observe("SHIP/assets", "four raster ships retain high-resolution transparent sources; four procedural ships and three pilots remain selectable")
 
@@ -508,8 +582,9 @@ func _test_gameplay_flow() -> void:
 	main.target_speech_enqueued.connect(_on_target_speech_enqueued)
 	main._prepare_run()
 	_assert_equal("FLOW-01/ready-state", main.state, main.GameState.READY)
-	_assert_equal("FLOW-01/target-count", main.total_targets, 15)
-	_assert_equal("FLOW-01/spawned-count", main.planets.size(), main.total_targets)
+	_assert_equal("FLOW-01/target-count", main.total_targets, 16)
+	_assert_equal("FLOW-01/planet-count", main.planets.size(), 15)
+	_assert_true("TRAXY-01/space-rush-target", is_instance_valid(main.traxy), main.traxy, "spawned Traxy")
 	main._begin_countdown()
 	_assert_equal("FLOW-01/countdown-state", main.state, main.GameState.COUNTDOWN)
 	_assert_equal("FLOW-01/countdown-start", main.countdown_value, 5)
@@ -521,28 +596,53 @@ func _test_gameplay_flow() -> void:
 			main.ship.position = planet.position
 			main._check_planet_contacts()
 	_assert_equal("FLOW-01/captured-count", main.captured_count, main.total_targets)
-	_assert_true("FLOW-01/all-targets-captured", main.planets.all(func(planet: ColorPlanet) -> bool: return planet.captured), main.captured_count)
+	_assert_true("FLOW-01/all-planets-captured", main.planets.all(func(planet: ColorPlanet) -> bool: return planet.captured), main.captured_count)
+	_assert_true("TRAXY-03/auto-captured", main.traxy.captured, main.traxy.motion_state)
 	_assert_equal("FLOW-01/speech-per-capture", speech_events.size(), main.total_targets)
-	_assert_equal("FLOW-01/finale-state", main.state, main.GameState.FINALE)
+	_assert_equal("TRAXY-03/rescue-before-finale", main.state, main.GameState.RESCUE)
 	_assert_near("FLOW-01/final-time", main.final_time, 12.345, 0.001)
 	_assert_near("FLOW-01/best-time", main.best_time, 12.345, 0.001)
+	main._process(0.25)
+	_assert_near("TRAXY-03/timer-frozen-during-rescue", main.elapsed_time, 12.345, 0.001)
 	var meteors: Array[Node] = []
 	for child in main.get_children():
 		if child.get_script() == MeteorScript:
 			meteors.append(child)
-	_assert_equal("FLOW-01/meteor-per-target", meteors.size(), main.total_targets)
+	_assert_equal("TRAXY-03/no-meteors-before-tow", meteors.size(), 0)
+	main.ship.position = main.traxy.position + Vector2(10.0, 0.0)
+	main._update_traxy_rescue(0.02)
+	_assert_true("TRAXY-03/harness-hooked", main.rescue_hooked and main.traxy.motion_state == main.traxy.MotionState.TOWED, main.rescue_hooked)
+	main.ship.position = Vector2(-1000.0, -1000.0)
+	main.traxy.position = Vector2(-1100.0, -1100.0)
+	main._update_traxy_rescue(0.0)
+	_assert_equal("TRAXY-03/finale-after-offscreen", main.state, main.GameState.FINALE)
+	meteors.clear()
+	for child in main.get_children():
+		if child.get_script() == MeteorScript:
+			meteors.append(child)
+	_assert_equal("FLOW-01/meteor-per-planet", meteors.size(), main.planets.size())
 	for planet in main.planets:
 		main._on_meteor_impact(planet)
-	_assert_equal("FLOW-01/impact-count", main.finale_impacts, main.total_targets)
+	_assert_equal("FLOW-01/impact-count", main.finale_impacts, main.planets.size())
 	_assert_true("FLOW-01/all-targets-exploding", main.planets.all(func(planet: ColorPlanet) -> bool: return planet.exploding), main.finale_impacts)
 	main._show_results()
 	_assert_equal("FLOW-01/results-state", main.state, main.GameState.RESULTS)
 	_assert_equal("FLOW-01/ship-hidden", main.ship.visible, false)
 
+	var early_main: Variant = await _new_main(root, "early-traxy-settings.cfg")
+	early_main._prepare_run()
+	early_main.state = early_main.GameState.PLAYING
+	early_main.ship.position = early_main.traxy.position
+	early_main._check_traxy_contact()
+	_assert_equal("TRAXY-02/early-capture-count", early_main.captured_count, 1)
+	_assert_equal("TRAXY-02/early-capture-keeps-playing", early_main.state, early_main.GameState.PLAYING)
+	_assert_equal("TRAXY-02/early-capture-floats", early_main.traxy.motion_state, early_main.traxy.MotionState.FLOATING)
+
 	var tour_main: Variant = await _new_main(root, "tour-flow-settings.cfg")
 	tour_main.selected_game_mode = tour_main.GameMode.SOLAR_TOUR
 	tour_main._prepare_run()
 	tour_main.state = tour_main.GameState.PLAYING
+	_assert_true("TRAXY-01/absent-from-solar-tour", not is_instance_valid(tour_main.traxy), tour_main.traxy, "no Traxy")
 	_assert_equal("TOUR-01/order-covers-roster", tour_main.TOUR_ORDER.size(), tour_main.total_targets)
 	_assert_equal("TOUR-01/first-target", tour_main._tour_target_style(), "sun")
 	_assert_equal("TOUR-01/one-highlight", tour_main.planets.filter(func(planet: ColorPlanet) -> bool: return planet.tour_highlighted).size(), 1)
@@ -557,7 +657,7 @@ func _test_gameplay_flow() -> void:
 	first_target.position = Vector2(640.0, 450.0)
 	out_of_order.position = Vector2(640.0, 510.0)
 	var tour_tractor_candidate: Dictionary = tour_main._best_tractor_candidate(Vector2.UP)
-	_assert_equal("TOUR-01/tractor-follows-order", tour_tractor_candidate.get("planet"), first_target)
+	_assert_equal("TOUR-01/tractor-follows-order", tour_tractor_candidate.get("target"), first_target)
 	for planet in tour_main.planets:
 		planet.visible = true
 	first_target.position = Vector2(300.0, 300.0)
@@ -580,7 +680,7 @@ func _test_gameplay_flow() -> void:
 	_assert_near("TOUR-01/separate-tour-best", tour_main.tour_best_time, 19.5, 0.001)
 	_assert_equal("TOUR-01/rush-best-unchanged", tour_main.best_time, 0.0)
 	_assert_equal("TOUR-01/medal-copy", tour_main._result_pilot_message(), "Trixie completed the solar tour")
-	_observe("FLOW/complete-run", "ready, countdown, play, all captures, one meteor per target, explosions, score, and results")
+	_observe("FLOW/complete-run", "ready, countdown, play, Traxy auto-capture, hook-and-drag rescue, one meteor per planet, explosions, score, and results")
 	_observe("TOUR/ordered-run", "Space Rush remains the default; Solar Tour blocks out-of-order captures, advances its highlight, and keeps a separate best time")
 
 
@@ -748,7 +848,7 @@ func _test_rendered_ui() -> void:
 	main.state = main.GameState.PLAYING
 	main.elapsed_time = 8.72
 	main.captured_count = 0
-	main.total_targets = 15
+	main.total_targets = 16
 	main.ship.visible = true
 	main._update_overlay()
 	main.queue_redraw()
@@ -805,7 +905,7 @@ func _test_rendered_ui() -> void:
 	var tour_without_marker: Image = viewport.get_texture().get_image()
 	var marker_difference := _different_pixels(tour_image, tour_without_marker, Rect2i(0, 136, 1280, 584), 0.03, 2)
 	_assert_true("TOUR-01/rendered-next-target-marker", marker_difference > 50, marker_difference, "> 50 sampled pixels")
-	main._clear_planets()
+	main._clear_targets()
 	main.tour_progress_index = main.TOUR_ORDER.size()
 	main.captured_count = main.total_targets
 	main.state = main.GameState.RESULTS
@@ -878,6 +978,98 @@ func _test_rendered_ui() -> void:
 			if pixel.g > pixel.b * 1.08 and pixel.g > pixel.r * 1.25:
 				green_land_pixels += 1
 	_assert_true("RENDER-07/earth-land-visible", green_land_pixels > 120, green_land_pixels, "> 120 sampled green land pixels")
+
+	var traxy_viewport := SubViewport.new()
+	traxy_viewport.size = Vector2i(520, 260)
+	traxy_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(traxy_viewport)
+	var traxy_background := ColorRect.new()
+	traxy_background.color = Color("071029")
+	traxy_background.size = Vector2(520.0, 260.0)
+	traxy_viewport.add_child(traxy_background)
+	var no_planets: Array[ColorPlanet] = []
+	var running_traxy: Traxy = TraxyScript.new()
+	traxy_viewport.add_child(running_traxy)
+	running_traxy.configure(Rect2(0.0, 0.0, 520.0, 260.0), Vector2.ZERO, no_planets, 90)
+	running_traxy.position = Vector2(135.0, 120.0)
+	running_traxy.velocity = Vector2.RIGHT * running_traxy.FLEE_SPEED
+	var shocked_traxy: Traxy = TraxyScript.new()
+	traxy_viewport.add_child(shocked_traxy)
+	shocked_traxy.configure(Rect2(0.0, 0.0, 520.0, 260.0), Vector2.ZERO, no_planets, 91)
+	shocked_traxy.position = Vector2(385.0, 120.0)
+	shocked_traxy.capture(Color("ff4e9c"))
+	var traxy_image: Image = await _capture(traxy_viewport, "traxy-states.png")
+	var traxy_green_pixels := [0, 0]
+	for y in range(45, 205, 2):
+		for x in range(50, 470, 2):
+			var pixel := traxy_image.get_pixel(x, y)
+			if pixel.g > pixel.r * 1.18 and pixel.g > pixel.b * 0.82:
+				traxy_green_pixels[0 if x < 260 else 1] += 1
+	_assert_true("TRAXY-01/rendered-chair", traxy_green_pixels[0] > 120, traxy_green_pixels[0], "> 120 sampled green pixels")
+	_assert_true("TRAXY-02/rendered-shocked-pose", traxy_green_pixels[1] > 120, traxy_green_pixels[1], "> 120 sampled green pixels")
+
+	var color_viewport := SubViewport.new()
+	color_viewport.size = Vector2i(520, 260)
+	color_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(color_viewport)
+	var color_background := ColorRect.new()
+	color_background.color = Color("071029")
+	color_background.size = Vector2(520.0, 260.0)
+	color_viewport.add_child(color_background)
+	var cyan_traxy: Traxy = TraxyScript.new()
+	color_viewport.add_child(cyan_traxy)
+	cyan_traxy.configure(Rect2(0.0, 0.0, 520.0, 260.0), Vector2.ZERO, no_planets, 93)
+	cyan_traxy.position = Vector2(135.0, 120.0)
+	cyan_traxy.capture(Color("20d9ff"))
+	var pink_traxy: Traxy = TraxyScript.new()
+	color_viewport.add_child(pink_traxy)
+	pink_traxy.configure(Rect2(0.0, 0.0, 520.0, 260.0), Vector2.ZERO, no_planets, 94)
+	pink_traxy.position = Vector2(385.0, 120.0)
+	pink_traxy.capture(Color("ff4e9c"))
+	var color_image: Image = await _capture(color_viewport, "traxy-suit-color.png")
+	var changed_suit_pixels := 0
+	var changed_head_pixels := 0
+	for local_y in range(-60, 61):
+		for local_x in range(-60, 61):
+			var cyan_pixel := color_image.get_pixel(135 + local_x, 120 + local_y)
+			var pink_pixel := color_image.get_pixel(385 + local_x, 120 + local_y)
+			var difference := absf(cyan_pixel.r - pink_pixel.r) + absf(cyan_pixel.g - pink_pixel.g) + absf(cyan_pixel.b - pink_pixel.b)
+			if difference <= 0.12:
+				continue
+			if local_y >= -6 or (abs(local_x) >= 34 and local_y >= -24):
+				changed_suit_pixels += 1
+			elif abs(local_x) <= 30 and local_y <= -12:
+				changed_head_pixels += 1
+	_assert_true("TRAXY-02/spacesuit-adopts-ship-color", changed_suit_pixels > 180, changed_suit_pixels, "> 180 changed suit pixels")
+	_assert_true("TRAXY-02/head-colors-preserved", changed_head_pixels <= 12, changed_head_pixels, "<= 12 changed head pixels")
+
+	var tow_viewport := SubViewport.new()
+	tow_viewport.size = Vector2i(560, 260)
+	tow_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(tow_viewport)
+	var tow_background := ColorRect.new()
+	tow_background.color = Color("071029")
+	tow_background.size = Vector2(560.0, 260.0)
+	tow_viewport.add_child(tow_background)
+	var rescue_ship: PlayerShip = ShipScript.new()
+	rescue_ship.position = Vector2(400.0, 130.0)
+	rescue_ship.configure(Color("41f4c6"), Rect2(0.0, 0.0, 560.0, 260.0), 0, 0)
+	tow_viewport.add_child(rescue_ship)
+	var towed_traxy: Traxy = TraxyScript.new()
+	tow_viewport.add_child(towed_traxy)
+	towed_traxy.configure(Rect2(0.0, 0.0, 560.0, 260.0), Vector2.ZERO, no_planets, 92)
+	towed_traxy.position = Vector2(250.0, 130.0)
+	towed_traxy.capture(Color("ff4e9c"))
+	towed_traxy.begin_tow(rescue_ship, Vector2.RIGHT)
+	towed_traxy.update_active(0.2, rescue_ship.position, no_planets)
+	var tow_image: Image = await _capture(tow_viewport, "traxy-tow.png")
+	var cable_pixels := 0
+	for y in range(115, 151):
+		for x in range(325, 371):
+			var pixel := tow_image.get_pixel(x, y)
+			if pixel.r > 0.70 and pixel.b > 0.35 and pixel.g < 0.68:
+				cable_pixels += 1
+	_assert_true("TRAXY-03/rendered-tow-cable", cable_pixels > 12, cable_pixels, "> 12 pink cable pixels")
 
 	var icon_viewport := SubViewport.new()
 	icon_viewport.size = Vector2i(512, 512)

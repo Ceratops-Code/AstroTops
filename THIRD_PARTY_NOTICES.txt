@@ -41,3 +41,11 @@ Milky Way Background
 OpenAI's built-in image-generation tool on 2026-09-24, using a project-owner-
 supplied image only as a composition and color-mood reference. No third-party
 source image is bundled as the game background.
+
+Traxy Sprite Atlas
+==================
+
+`assets/traxy.png` was generated specifically for AstroTops with OpenAI's
+built-in image-generation tool on 2026-09-26, then assembled and resized into
+the six-frame production atlas used by the game. No third-party source image is
+bundled in the atlas.

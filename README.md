@@ -3,9 +3,10 @@
 AstroTops is a fast top-down arcade prototype. Choose Trixie, an astronaut, or
 a little planet as pilot; select one of eight ships and ten paint colors; then
 fly through the Sun, eight planets, Moon, Pluto, Haumea, a black hole, and two
-asteroids before the meteor finale. Space Rush keeps the original free-order
-gameplay; Solar Tour is an additional mode that highlights and enforces the
-next target from the Sun outward, then awards a Tour Medal.
+asteroids before the meteor finale. Space Rush adds Traxy, a mischievous
+spacesuited T-rex in a thruster chair, as a sixteenth moving target. Solar Tour
+keeps the fifteen-body roster and highlights and enforces the next target from
+the Sun outward, then awards a Tour Medal.
 
 ## Controls
 
@@ -26,6 +27,10 @@ actions. The slider controls both pull strength and range, with pull strength
 rising on a gentler curve; its value and on/off
 state are saved between runs. Captured names use the device's English
 text-to-speech voice at normal speed, one at a time with no intentional gap.
+Traxy flees the ship without camping in corners. Once caught, only his suit
+adopts the ship color while he floats with a shocked blink, rotates slowly
+clockwise, and bounces off planets and edges. Marking every planet makes the
+ship hook his suit and tow him offscreen before the planet-only meteor finale.
 The countdown uses five short beeps followed by a sharper, louder final tone
 derived from the beep at one-quarter frequency and twice its duration. Audio
 generation, effects, and speech are owned by `scripts/audio_controller.gd`.
@@ -38,7 +43,8 @@ GL Compatibility renderer so it can later target Android with the same project.
 The authoritative architecture and lifecycle description is in
 [`docs/design.md`](docs/design.md).
 
-Trixie's source artwork is stored in `assets/trixie.png`. Ship sprites and sound
+Trixie's source artwork is stored in `assets/trixie.png`; Traxy's six-frame
+directional and shocked atlas is `assets/traxy.png`. Ship sprites and sound
 effects are CC0 assets from Kenney; planets, the black hole, meteors, and visual
 effects are drawn procedurally at runtime. The generated Milky Way image is
 stored in `assets/milky_way_background.png` and is rotated, cropped, and dimmed

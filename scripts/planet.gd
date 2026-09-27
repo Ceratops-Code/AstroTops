@@ -1,5 +1,5 @@
 class_name ColorPlanet
-extends Node2D
+extends SpaceTarget
 
 
 const LABEL_FONT_SIZE := 20
@@ -9,19 +9,15 @@ const TOUR_GUIDE_DURATION := 2.5
 const TOUR_MARKER_COLOR := Color("ffd777")
 const TOUR_MARKER_BRIGHT_COLOR := Color("fff3b0")
 
-var body_name := "Planet"
 var body_style := "mercury"
 var radius := 40.0
 var base_color := Color("5f83f2")
 var accent_color := Color("c7d4ef")
-var captured_color := Color("41f4c6")
-var captured := false
 var capture_progress := 0.0
 var seed := 1
 var craters: Array[Dictionary] = []
 var asteroid_points := PackedVector2Array()
 var pulse_time := 0.0
-var exploding := false
 var explosion_progress := 0.0
 var tour_highlighted := false
 var tour_guide_time_remaining := 0.0

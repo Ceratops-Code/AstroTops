@@ -61,6 +61,18 @@ func move_ship(input_vector: Vector2, delta: float) -> void:
 	queue_redraw()
 
 
+func move_scripted(desired_velocity: Vector2, delta: float) -> void:
+	# The rescue sequence deliberately bypasses player bounds so the ship can
+	# tow Traxy fully offscreen after attaching the harness cable.
+	velocity = velocity.move_toward(desired_velocity, acceleration * delta)
+	position += velocity * delta
+	if velocity.length_squared() > 4.0:
+		var desired_rotation := velocity.angle() + PI * 0.5
+		rotation = lerp_angle(rotation, desired_rotation, minf(1.0, delta * 8.0))
+	thrust_amount = move_toward(thrust_amount, clampf(desired_velocity.length() / max_speed, 0.0, 1.0), delta * 5.0)
+	queue_redraw()
+
+
 func stop() -> void:
 	velocity = Vector2.ZERO
 	thrust_amount = 0.0
