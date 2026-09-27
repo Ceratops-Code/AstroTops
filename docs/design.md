@@ -221,10 +221,11 @@ rejects an incomplete toolchain before export, performs a real disposable debug
 export, and runs Gradle lint through the installed source template.
 
 Delivery first verifies saved validation and complete grouped test outcomes
-against the exact APK path, length, and SHA-256. ADB installation connects to
-the named device, compares the installed base APK hash, installs only changed
-bytes, verifies the installed hash, and launches the declared activity. Failed
-or semantically empty ADB responses are failures. There is no production
+against the exact APK path, length, and SHA-256. ADB installation reuses a
+ready USB, network, or secure-mDNS serial and connects only a missing network
+endpoint. It compares the installed base APK hash, installs only changed bytes,
+verifies the installed hash, and launches the declared activity. Failed or
+semantically empty ADB responses are failures. There is no production
 service to monitor; validation JSON, grouped results, build receipts, deployment
 receipts, screenshots, and logs provide operational evidence.
 
