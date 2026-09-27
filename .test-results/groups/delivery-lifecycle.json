@@ -1,13 +1,6 @@
 {
-  "artifact": {
-    "artifactLength": 83855830,
-    "artifactPath": ".build/artifacts/android/AstroTops.apk",
-    "artifactSha256": "3aa3562ee27bdf542413c5311c5a314633bd2ce28d713db627f857253e88e04a",
-    "schema": "astrotops-build-record.v1",
-    "sourceCommit": "854b8bf76e6229fe94ec103bbe4099f1638fd858",
-    "version": "astrotops-local-20260927-854b8bf"
-  },
-  "assertions": 42,
+  "artifact": null,
+  "assertions": 48,
   "command": [
     "{python}",
     "scripts/run-tests.py",
@@ -21,15 +14,19 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T194335Z-854b8bf76e62/delivery-lifecycle/output.log"
+    "evidence/20260927T195417Z-3cf5e0db1071/delivery-lifecycle/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "c4cfd4822f58ed8540a9a7910911316c997058a2599bb2d6c25309a265287bed",
-  "finishedAt": 1790538224.6570783,
+  "fingerprint": "cdc34b0dd6ff67bcc98fbcb11d79dc169191c01d347f9c9fa26b31b79eceed06",
+  "finishedAt": 1790538864.4371254,
   "id": "delivery-lifecycle",
   "observations": [
+    {
+      "actual": 0,
+      "id": "connected-serial-skips-connect"
+    },
     {
       "actual": 0,
       "id": "exact-apk-skips-install"
@@ -53,6 +50,26 @@
     {
       "actual": "ece6cd63b2d04954431213a82441e997c6858b4615ded82fb22f38c1e910c95d",
       "id": "installed-apk-is-verified"
+    },
+    {
+      "actual": 0,
+      "id": "usb-serial-skips-connect"
+    },
+    {
+      "actual": "R9ZY508NZWM",
+      "id": "usb-serial-remains-target"
+    },
+    {
+      "actual": 0,
+      "id": "mdns-serial-skips-connect"
+    },
+    {
+      "actual": "adb-R9ZY508NZWM-probe._adb-tls-connect._tcp",
+      "id": "mdns-serial-remains-target"
+    },
+    {
+      "actual": 1,
+      "id": "network-endpoint-connects"
     },
     {
       "actual": true,
@@ -217,15 +234,15 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T194335Z-854b8bf76e62",
+  "runId": "20260927T195417Z-3cf5e0db1071",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.173,
+  "seconds": 0.159,
   "source": {
-    "commit": "854b8bf76e6229fe94ec103bbe4099f1638fd858",
-    "digest": "69c850f44dfce01a03f3e669186c84d716fdd1acaadc8695c4849fd32f410e91",
+    "commit": "3cf5e0db10715ab64648e0c4bc83625800598aaf",
+    "digest": "de37b6c6d40b4af2c42681ef90297a54aa6d1534f4d69276805b8787e8b329a5",
     "dirty": false,
     "exactTags": [
-      "astrotops-local-20260927-854b8bf"
+      "astrotops-local-20260927-3cf5e0d"
     ]
   },
   "status": "passed"
