@@ -62,9 +62,15 @@ cropped, and dimmed by the game at runtime.
 - Windows: `.build/artifacts/windows/AstroTops.exe`
 - Android: `.build/artifacts/android/AstroTops.apk`
 
-Install Godot's Android build template from
-**Project > Install Android Build Template** before exporting Android. AstroTops
-uses the Gradle exporter so Android's themed launcher icon is packaged correctly.
+The repository provisions its pinned Godot 4.7.2 editor automatically for
+validation, tests, and export when no matching `GODOT_EXECUTABLE` or `godot` on
+`PATH` is available. Android export also provisions only the verified 214 MB
+Android source member from Godot's official template bundle and installs a
+missing project build template automatically. AstroTops uses the Gradle exporter
+so Android's themed launcher icon is packaged correctly. The shipping validation
+also requires a JDK and Android SDK, creates a disposable debug export, runs the
+template's Gradle lint task, and removes the validation-only APK before remote
+shipping can begin.
 
 The APK is a debug-signed ARM64 prototype intended for direct testing, not a
 Play Store release.
@@ -82,11 +88,26 @@ countdown, speech and tones, tractor-beam behavior, targets, ships and pilots,
 pause/results, Android delivery, and rendered UI. The acceptance map is
 `docs/feature-acceptance.json`.
 
-Run the whole suite with Godot 4.7.2 on `PATH`:
+Run the whole suite; the helper resolves or provisions Godot 4.7.2 first:
 
 ```powershell
-uv run --locked scripts/run-tests.py --fresh
+uv run --project scripts --locked scripts/run-tests.py --fresh
 ```
+
+`scripts/run-tests.py --prepare-godot` performs only the editor preflight.
+`scripts/run-tests.py --validate-android-build` checks `JAVA_HOME` or `java` on
+`PATH`, checks `ANDROID_HOME` or `ANDROID_SDK_ROOT`, parses and exports the
+project, and runs Gradle lint.
+Editor and Android-template downloads use pinned official sizes and SHA-256
+hashes, publish to separate versioned caches atomically, remove interrupted
+helper-owned files, and retain the current version plus at most two
+predecessors. The default root is the operating system's user cache under
+`Ceratops/AstroTops/tools`; set `ASTROTOPS_TOOL_CACHE` to relocate it. Set
+`ASTROTOPS_ANDROID_SOURCE_TEMPLATE` to an exact matching local source ZIP for
+offline Android builds. `--godot` remains the explicit per-run editor override,
+followed by `GODOT_EXECUTABLE` and a matching executable on `PATH`. No
+system-wide installer or persistent `PATH` change is made. An existing invalid
+or customized `android` directory is preserved and reported instead of replaced.
 
 The runner first asks Godot to import project assets, so a fresh checkout does
 not require opening the editor before tests.

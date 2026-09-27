@@ -1,6 +1,6 @@
 {
   "artifact": null,
-  "assertions": 12,
+  "assertions": 40,
   "command": [
     "{python}",
     "scripts/run-tests.py",
@@ -14,13 +14,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T032011Z-930dcbb152ec/delivery-lifecycle/output.log"
+    "evidence/20260927T053300Z-76801f36520f/delivery-lifecycle/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "14bb31a0ca666972a5b1e6cc8ee486e073dcb518fba50ef0a5becf39cfa6c05a",
-  "finishedAt": 1790479219.6433384,
+  "fingerprint": "3f5aadba0ca3588eb8fd18cd15d8bc8f5492b63c3b568869f72eca30a84847e2",
+  "finishedAt": 1790487188.4750729,
   "id": "delivery-lifecycle",
   "observations": [
     {
@@ -53,17 +53,140 @@
     },
     {
       "actual": [
-        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-c8tjzjd4\\godot",
+        "{temp}\\godot",
         "--headless",
         "--path",
-        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-c8tjzjd4\\repo",
+        "{temp}\\repo",
         "--import"
       ],
       "id": "runner-import-command"
     },
     {
-      "actual": "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-c8tjzjd4\\repo",
+      "actual": "{temp}\\repo",
       "id": "runner-import-working-directory"
+    },
+    {
+      "actual": false,
+      "id": "godot-cache-staging-is-removable"
+    },
+    {
+      "actual": 1,
+      "id": "godot-provision-downloads-once"
+    },
+    {
+      "actual": true,
+      "id": "godot-provisioned-runtime-exists"
+    },
+    {
+      "actual": 1,
+      "id": "godot-valid-cache-is-reused"
+    },
+    {
+      "actual": "{temp}\\tool-cache\\godot\\4.7.2\\godot-test",
+      "id": "godot-cache-path-is-stable"
+    },
+    {
+      "actual": 2,
+      "id": "godot-tampered-cache-is-repaired"
+    },
+    {
+      "actual": "pinned-godot-runtime",
+      "id": "godot-repair-restores-runtime"
+    },
+    {
+      "actual": true,
+      "id": "godot-bad-archive-is-rejected"
+    },
+    {
+      "actual": [
+        "4.6.2",
+        "4.6.3",
+        "4.7.2"
+      ],
+      "id": "godot-cache-retention-is-bounded"
+    },
+    {
+      "actual": "{temp}\\tool-cache\\godot\\4.7.2\\godot-test",
+      "id": "godot-missing-path-self-provisions"
+    },
+    {
+      "actual": "{temp}\\tool-cache\\godot\\4.7.2\\godot-test",
+      "id": "godot-mismatched-path-self-provisions"
+    },
+    {
+      "actual": "{temp}\\tool-cache\\godot\\4.7.2\\godot-test",
+      "id": "godot-prerelease-path-self-provisions"
+    },
+    {
+      "actual": 1,
+      "id": "android-source-downloads-once"
+    },
+    {
+      "actual": 1,
+      "id": "android-source-cache-is-reused"
+    },
+    {
+      "actual": "{temp}\\tool-cache\\android-template\\4.7.2\\android_source.zip",
+      "id": "android-source-cache-path-is-stable"
+    },
+    {
+      "actual": 2,
+      "id": "android-source-tamper-is-repaired"
+    },
+    {
+      "actual": true,
+      "id": "android-project-template-is-installed"
+    },
+    {
+      "actual": "4.7.2.stable",
+      "id": "android-project-template-version"
+    },
+    {
+      "actual": "{temp}\\template-repo\\android\\build",
+      "id": "android-project-template-is-reused"
+    },
+    {
+      "actual": true,
+      "id": "android-project-template-conflict-is-preserved"
+    },
+    {
+      "actual": [
+        "{temp}\\tool-cache\\godot\\4.7.2\\godot-test",
+        "--headless",
+        "--editor",
+        "--path",
+        "{temp}\\repo",
+        "--quit"
+      ],
+      "id": "godot-project-validation-command"
+    },
+    {
+      "actual": true,
+      "id": "godot-export-installs-android-template"
+    },
+    {
+      "actual": "debug-apk",
+      "id": "godot-export-produces-artifact"
+    },
+    {
+      "actual": true,
+      "id": "android-validation-exports-debug-build"
+    },
+    {
+      "actual": true,
+      "id": "android-validation-runs-gradle-lint"
+    },
+    {
+      "actual": "{temp}\\repo\\android\\build",
+      "id": "android-validation-gradle-working-directory"
+    },
+    {
+      "actual": false,
+      "id": "android-validation-cleans-temporary-apk"
+    },
+    {
+      "actual": true,
+      "id": "android-validation-rejects-missing-jdk-before-export"
     },
     {
       "actual": true,
@@ -79,12 +202,12 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T032011Z-930dcbb152ec",
+  "runId": "20260927T053300Z-76801f36520f",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.005,
+  "seconds": 0.146,
   "source": {
-    "commit": "930dcbb152ec5503eb17b27f7d8a0d57e39dc618",
-    "digest": "b6e41901b88cfae940fdeb51fbcce1166a04f2fb7d304927eccf0f1275d7aa61",
+    "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
+    "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
     "dirty": false,
     "exactTags": []
   },

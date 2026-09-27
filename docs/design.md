@@ -16,6 +16,8 @@
     {"path": "export_presets.cfg", "role": "Android package identity, architecture, and launcher-icon export configuration"},
     {"path": "sdlc/sdlc.yml", "role": "Repository build, validation, delivery, and Android installation workflow"},
     {"path": "docs/feature-acceptance.json", "role": "Current requirement-to-observable-test contract"},
+    {"path": "scripts/godot_toolchain.py", "role": "Pinned Godot editor and Android source-template provisioning, project-template installation, JDK and SDK preflight, validation, export, and Gradle lint"},
+    {"path": "scripts/run-tests.py", "role": "Grouped regression orchestration and shipping-lifecycle acceptance tests"},
     {"path": "scripts/result_records.py", "role": "Runtime owner of bounded validation, test, build, and deployment result records"},
     {"path": "docs/result_records.py.tmpl", "role": "Reusable adoption seed; never runtime authority for this repository"},
     {"path": "docs/design.md", "role": "Architectural rationale, boundaries, quality goals, and maintenance policy"}
@@ -140,8 +142,12 @@ bounded evidence, artifact identity, and deterministic Android deployment.
   reports impact to the game shell.
 - [`scripts/regression_tests.gd`](../scripts/regression_tests.gd) is the Godot
   behavior and rendered-surface harness.
-- [`scripts/run-tests.py`](../scripts/run-tests.py) selects groups, isolates
-  settings, invokes Godot, and assembles applicable results.
+- [`scripts/godot_toolchain.py`](../scripts/godot_toolchain.py) resolves or
+  atomically provisions the pinned Godot editor and Android source template,
+  installs a missing project build template, and owns project validation,
+  Android toolchain preflight, export, and Gradle lint commands.
+- [`scripts/run-tests.py`](../scripts/run-tests.py) selects test groups, isolates
+  settings, exercises the shipping lifecycle, and assembles applicable results.
 - [`scripts/validate-repository.py`](../scripts/validate-repository.py) checks
   repository structure and contracts independently from gameplay tests.
 - [`scripts/result_records.py`](../scripts/result_records.py) is the only
@@ -204,6 +210,13 @@ produces `.build/artifacts/android/AstroTops.apk`; build identity and approval
 metadata live under `.build/builds/`. The immutable source tag is the build
 version, while its resolved commit is traceability metadata. The Gradle export
 uses separate adaptive background, foreground, and monochrome launcher layers.
+Every SDLC step that needs Godot calls the repository helper, which honors an
+explicit executable or a matching `PATH` installation and otherwise provisions
+the pinned official x86_64 archive before the step runs. It never installs a
+system package or changes persistent `PATH` state.
+The app validation action declares its JDK and Android SDK prerequisites,
+rejects an incomplete toolchain before export, performs a real disposable debug
+export, and runs Gradle lint through the installed source template.
 
 Delivery first verifies saved validation and complete grouped test outcomes
 against the exact APK path, length, and SHA-256. ADB installation connects to
@@ -229,6 +242,20 @@ Tracked `.test-results/groups/*.json`, `.test-results/tests.json`, and
 tested. Raw `.test-results/evidence/<run-id>/` content is ignored and bounded to
 the current run plus at most two predecessors. Build records bind a source tag
 to exact artifact bytes. Atomic sibling files prevent partial JSON replacement.
+The external editor and Android-template caches are owned by
+`scripts/godot_toolchain.py`, separated by artifact purpose, grouped by version,
+cleaned at every provision attempt, and each bounded to the current version plus
+two predecessors. Interrupted downloads and extractions are helper-owned
+orphans and are removed while holding the applicable cache lock. On Windows,
+cache staging inherits the cache root's ACL so atomic publication cannot leave
+an administrator-owned entry that the invoking user cannot later rotate or
+remove. The ignored project `android` directory is created only when absent;
+valid matching content is reused, while unexpected existing content is
+preserved and blocks export.
+The same helper owns the fixed validation-only APK under
+`.build/artifacts/android/.validation`; it replaces that file at validation
+start and deletes it at the end, including failure paths. The package build owns
+the separate retained `.build/artifacts/android/AstroTops.apk`.
 
 ### 8.2 APIs and integrations
 
@@ -260,6 +287,21 @@ and reset reconstructs the run. Result recording rejects dirty portable source,
 keeps writes inside the repository, uses atomic replacement, and bounds ignored
 evidence. Artifact delivery fails closed when source, tag, bytes, package,
 activity, installed hash, or launch confirmation differs.
+Godot provisioning downloads only the platform archive declared for the pinned
+version, verifies its exact byte length and SHA-256 before allowlisted
+extraction, verifies every cached member and the reported editor version, and
+publishes a cache entry only after all checks pass. Unsupported platforms and
+offline or integrity failures stop before remote shipping mutation with an
+explicit executable-override path.
+Android provisioning uses HTTP ranges against Godot's official template mirror
+to retrieve only the pinned source member, verifies that member's exact length
+and SHA-256, and stages extraction before publishing either cache or project
+content. A matching locally installed template or explicit offline override is
+reused only after the same verification.
+Android build validation accepts a JDK from `JAVA_HOME` or `PATH`, accepts an
+SDK from `ANDROID_HOME` or `ANDROID_SDK_ROOT`, verifies the SDK's build-tools and
+platforms before doing expensive work, and reports bounded Godot or Gradle
+failure output.
 
 ## 9 Decisions and alternatives
 
@@ -356,8 +398,11 @@ play, pause, countdown, results, cockpit, targets, the hidden tractor field,
 Traxy's smoothly turned overhead chair, independent thrusters, capture-cloud,
 shocked, progressive-hook, and cable-tow states, the standalone icon, and the
 layered adaptive icon under a circular mask.
-Python tests cover result lifecycle, automatic Godot asset-import bootstrapping,
-and ADB behavior.
+Python tests cover result lifecycle, automatic editor and Android-template
+provisioning, tamper repair, bounded cache retention, safe project-template
+installation, project validation, Android toolchain preflight, real export and
+Gradle-lint command composition, temporary-output cleanup, asset-import
+bootstrapping, and ADB behavior.
 
 Repository validation is separate from tests. Candidate qualification records
 the immutable source tag and exact APK identity. Delivery reuses only applicable

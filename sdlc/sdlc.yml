@@ -6,13 +6,10 @@ repository:
       executable: adb
       platforms:
         - windows
-    godot:
-      executable: godot
-      version: 4.7.2
-    powershell:
-      executable: powershell.exe
-      platforms:
-        - windows
+    android-sdk:
+      executable: adb
+    jdk:
+      executable: java
     uv:
       executable: uv
   actions:
@@ -27,6 +24,14 @@ repository:
             - --project
             - scripts
             - --locked
+        - run:
+            - uv
+            - run
+            - --project
+            - scripts
+            - --locked
+            - scripts/run-tests.py
+            - --prepare-godot
     validate:
       requires:
         capabilities:
@@ -35,17 +40,21 @@ repository:
         - run:
             - uv
             - run
+            - --project
+            - scripts
             - --locked
+            - python
             - scripts/validate-repository.py
     test:
       requires:
         capabilities:
-          - godot
           - uv
       steps:
         - run:
             - uv
             - run
+            - --project
+            - scripts
             - --locked
             - scripts/run-tests.py
             - --scope
@@ -63,26 +72,25 @@ deliverables:
         build:
           requires:
             capabilities:
-              - godot
-              - powershell
+              - android-sdk
+              - jdk
+              - uv
           result-schema: ceratops-build-result.v1
           steps:
             - run:
-                - powershell.exe
-                - -NoProfile
-                - -Command
-                - New-Item -ItemType Directory -Force -Path '.build/artifacts/android' | Out-Null
-            - run:
-                - godot
-                - --headless
-                - --path
-                - .
+                - uv
+                - run
+                - --project
+                - scripts
+                - --locked
+                - scripts/run-tests.py
                 - --export-debug
-                - Android
                 - .build/artifacts/android/AstroTops.apk
             - run:
                 - uv
                 - run
+                - --project
+                - scripts
                 - --locked
                 - scripts/result_records.py
                 - build-result
@@ -100,15 +108,21 @@ deliverables:
         validate:
           requires:
             capabilities:
-              - godot
+              - android-sdk
+              - jdk
+              - uv
+          validation-capabilities:
+            - android-build
+            - android-lint
           steps:
             - run:
-                - godot
-                - --headless
-                - --editor
-                - --path
-                - .
-                - --quit
+                - uv
+                - run
+                - --project
+                - scripts
+                - --locked
+                - scripts/run-tests.py
+                - --validate-android-build
         test:
           requires:
             capabilities: []
@@ -127,6 +141,8 @@ deliverables:
             - run:
                 - uv
                 - run
+                - --project
+                - scripts
                 - --locked
                 - scripts/run-tests.py
                 - --verify-delivery
@@ -137,6 +153,8 @@ deliverables:
             - run:
                 - uv
                 - run
+                - --project
+                - scripts
                 - --locked
                 - scripts/result_records.py
                 - android-deploy
