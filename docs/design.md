@@ -178,9 +178,10 @@ is hidden. Back, Reset, Pause/Resume, and Close in that order within the unlock
 window toggles the outline and consumes the sequence; an unmatched Back is
 resolved to its normal menu action after the short window.
 
-Marking the last planet in Space Rush freezes the run time, updates the best
-score, and enters Rescue. If Traxy was not caught, the game captures and
-announces him first. The ship approaches, attaches a visible cable to his suit,
+Marking the last planet in Space Rush leaves the run active while Traxy remains
+uncaught. Traxy must be captured by normal ship contact; only after every planet
+and Traxy are marked does the game freeze the run time, update the best score,
+and enter Rescue. The ship approaches, attaches a visible cable to his suit,
 then accelerates through the nearest screen edge with Traxy trailing behind.
 Only after both are offscreen does the Finale create one meteor per planet;
 Traxy is never a meteor target. Solar Tour proceeds directly from its final body

@@ -595,9 +595,15 @@ func _test_gameplay_flow() -> void:
 		if not planet.captured:
 			main.ship.position = planet.position
 			main._check_planet_contacts()
-	_assert_equal("FLOW-01/captured-count", main.captured_count, main.total_targets)
+	_assert_equal("TRAXY-03/last-planet-count-excludes-traxy", main.captured_count, main.planets.size())
 	_assert_true("FLOW-01/all-planets-captured", main.planets.all(func(planet: ColorPlanet) -> bool: return planet.captured), main.captured_count)
-	_assert_true("TRAXY-03/auto-captured", main.traxy.captured, main.traxy.motion_state)
+	_assert_true("TRAXY-03/last-planet-keeps-traxy-uncaught", not main.traxy.captured, main.traxy.motion_state)
+	_assert_equal("TRAXY-03/last-planet-keeps-playing", main.state, main.GameState.PLAYING)
+	_assert_equal("TRAXY-03/last-planet-speech-excludes-traxy", speech_events.size(), main.planets.size())
+	main.ship.position = main.traxy.position
+	main._check_traxy_contact()
+	_assert_equal("FLOW-01/captured-count", main.captured_count, main.total_targets)
+	_assert_true("TRAXY-03/explicitly-captured", main.traxy.captured, main.traxy.motion_state)
 	_assert_equal("FLOW-01/speech-per-capture", speech_events.size(), main.total_targets)
 	_assert_equal("TRAXY-03/rescue-before-finale", main.state, main.GameState.RESCUE)
 	_assert_near("FLOW-01/final-time", main.final_time, 12.345, 0.001)
@@ -680,7 +686,7 @@ func _test_gameplay_flow() -> void:
 	_assert_near("TOUR-01/separate-tour-best", tour_main.tour_best_time, 19.5, 0.001)
 	_assert_equal("TOUR-01/rush-best-unchanged", tour_main.best_time, 0.0)
 	_assert_equal("TOUR-01/medal-copy", tour_main._result_pilot_message(), "Trixie completed the solar tour")
-	_observe("FLOW/complete-run", "ready, countdown, play, Traxy auto-capture, hook-and-drag rescue, one meteor per planet, explosions, score, and results")
+	_observe("FLOW/complete-run", "ready, countdown, play, explicit Traxy capture, hook-and-drag rescue, one meteor per planet, explosions, score, and results")
 	_observe("TOUR/ordered-run", "Space Rush remains the default; Solar Tour blocks out-of-order captures, advances its highlight, and keeps a separate best time")
 
 

@@ -511,10 +511,10 @@ func _check_planet_contacts() -> void:
 				if _is_tour_mode():
 					tour_progress_index += 1
 					_refresh_tour_highlights()
-	if planets.all(func(planet: ColorPlanet) -> bool: return planet.captured):
+	if _all_planets_captured():
 		if _is_tour_mode():
 			_finish_run()
-		else:
+		elif is_instance_valid(traxy) and traxy.captured:
 			_begin_traxy_rescue()
 
 
@@ -529,13 +529,17 @@ func _capture_traxy() -> void:
 	if is_instance_valid(traxy) and traxy.capture(palette[selected_color_index]):
 		captured_count += 1
 		_speak_target_name(traxy.body_name)
+		if _all_planets_captured():
+			_begin_traxy_rescue()
+
+
+func _all_planets_captured() -> bool:
+	return not planets.is_empty() and planets.all(func(planet: ColorPlanet) -> bool: return planet.captured)
 
 
 func _begin_traxy_rescue() -> void:
-	if state != GameState.PLAYING or not is_instance_valid(traxy):
+	if state != GameState.PLAYING or not is_instance_valid(traxy) or not traxy.captured or not _all_planets_captured():
 		return
-	if not traxy.captured:
-		_capture_traxy()
 	state = GameState.RESCUE
 	tractor_target = null
 	final_time = elapsed_time
