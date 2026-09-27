@@ -648,12 +648,31 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     observations: list[dict[str, object]] = []
     assertions = 0
 
+    def portable(value: object) -> object:
+        """Replace this isolated run's root in retained assertion evidence."""
+
+        if isinstance(value, str):
+            return value.replace(str(temporary_root), "{temp}")
+        if isinstance(value, list):
+            return [portable(item) for item in value]
+        if isinstance(value, tuple):
+            return [portable(item) for item in value]
+        if isinstance(value, dict):
+            return {str(key): portable(item) for key, item in value.items()}
+        return value
+
     def check(identifier: str, expected: object, actual: object) -> None:
         nonlocal assertions
         assertions += 1
-        observations.append({"id": identifier, "actual": actual})
+        observations.append({"id": identifier, "actual": portable(actual)})
         if actual != expected:
-            failures.append({"id": identifier, "expected": expected, "actual": actual})
+            failures.append(
+                {
+                    "id": identifier,
+                    "expected": portable(expected),
+                    "actual": portable(actual),
+                }
+            )
 
     class FakeAdb:
         def __init__(self, installed_hash: str | None, connect_output: str) -> None:
