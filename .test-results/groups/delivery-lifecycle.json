@@ -1,6 +1,6 @@
 {
   "artifact": null,
-  "assertions": 33,
+  "assertions": 38,
   "command": [
     "{python}",
     "scripts/run-tests.py",
@@ -14,13 +14,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T042630Z-60ad7cb85543/delivery-lifecycle/output.log"
+    "evidence/20260927T044301Z-05db780868fc/delivery-lifecycle/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "7d86da463fa482c209de895c33b7e33ea871f9f46a887bf0244b8de68c244f7b",
-  "finishedAt": 1790483198.1558385,
+  "fingerprint": "4e8ca860b1603d6a1de916fb9140e0f7058974ee1fb9716a5d0ce3f0f61fe048",
+  "finishedAt": 1790484189.5129118,
   "id": "delivery-lifecycle",
   "observations": [
     {
@@ -162,6 +162,26 @@
     },
     {
       "actual": true,
+      "id": "android-validation-exports-debug-build"
+    },
+    {
+      "actual": true,
+      "id": "android-validation-runs-gradle-lint"
+    },
+    {
+      "actual": "{temp}\\repo\\android\\build",
+      "id": "android-validation-gradle-working-directory"
+    },
+    {
+      "actual": false,
+      "id": "android-validation-cleans-temporary-apk"
+    },
+    {
+      "actual": true,
+      "id": "android-validation-rejects-missing-jdk-before-export"
+    },
+    {
+      "actual": true,
       "id": "delivery-validation-survives-content-identical-merge"
     },
     {
@@ -174,12 +194,12 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T042630Z-60ad7cb85543",
+  "runId": "20260927T044301Z-05db780868fc",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.131,
+  "seconds": 0.145,
   "source": {
-    "commit": "60ad7cb855433ce5a1d2fced0a6e250742d5295c",
-    "digest": "6ca48ed37ad0b063224578ff3f37f407d689b0381450688ef8175e446258423e",
+    "commit": "05db780868fc8b007c0b2a72e24aab98c6e1fa9c",
+    "digest": "c10a464242da03715e60d0cb832633addeb389f973c5bc2f6ee7c313f4c28535",
     "dirty": false,
     "exactTags": []
   },

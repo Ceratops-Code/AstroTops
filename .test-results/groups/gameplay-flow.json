@@ -23,13 +23,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T042630Z-60ad7cb85543/gameplay-flow/output.log"
+    "evidence/20260927T044301Z-05db780868fc/gameplay-flow/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "a9d65ec9a1e9dc2674bd1e4ebc21dfc27b162d8f2353f46083d992a5e7b46bf7",
-  "finishedAt": 1790483197.5604277,
+  "fingerprint": "ebcc2249b50b839f41720ad8c5ae3ef0363d18067202b363d0bb9a8ed5ab3b21",
+  "finishedAt": 1790484188.8983142,
   "id": "gameplay-flow",
   "observations": [
     {
@@ -42,12 +42,12 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T042630Z-60ad7cb85543",
+  "runId": "20260927T044301Z-05db780868fc",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.46,
+  "seconds": 0.464,
   "source": {
-    "commit": "60ad7cb855433ce5a1d2fced0a6e250742d5295c",
-    "digest": "6ca48ed37ad0b063224578ff3f37f407d689b0381450688ef8175e446258423e",
+    "commit": "05db780868fc8b007c0b2a72e24aab98c6e1fa9c",
+    "digest": "c10a464242da03715e60d0cb832633addeb389f973c5bc2f6ee7c313f4c28535",
     "dirty": false,
     "exactTags": []
   },
