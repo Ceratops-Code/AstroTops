@@ -67,7 +67,10 @@ validation, tests, and export when no matching `GODOT_EXECUTABLE` or `godot` on
 `PATH` is available. Android export also provisions only the verified 214 MB
 Android source member from Godot's official template bundle and installs a
 missing project build template automatically. AstroTops uses the Gradle exporter
-so Android's themed launcher icon is packaged correctly.
+so Android's themed launcher icon is packaged correctly. The shipping validation
+also requires a JDK and Android SDK, creates a disposable debug export, runs the
+template's Gradle lint task, and removes the validation-only APK before remote
+shipping can begin.
 
 The APK is a debug-signed ARM64 prototype intended for direct testing, not a
 Play Store release.
@@ -88,10 +91,13 @@ pause/results, Android delivery, and rendered UI. The acceptance map is
 Run the whole suite; the helper resolves or provisions Godot 4.7.2 first:
 
 ```powershell
-uv run --locked scripts/run-tests.py --fresh
+uv run --project scripts --locked scripts/run-tests.py --fresh
 ```
 
 `scripts/run-tests.py --prepare-godot` performs only the editor preflight.
+`scripts/run-tests.py --validate-android-build` checks `JAVA_HOME` or `java` on
+`PATH`, checks `ANDROID_HOME` or `ANDROID_SDK_ROOT`, parses and exports the
+project, and runs Gradle lint.
 Editor and Android-template downloads use pinned official sizes and SHA-256
 hashes, publish to separate versioned caches atomically, remove interrupted
 helper-owned files, and retain the current version plus at most two

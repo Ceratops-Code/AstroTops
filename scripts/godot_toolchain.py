@@ -6,7 +6,9 @@ official, hash-pinned artifacts into a bounded user cache without changing the
 system installation or persistent ``PATH``. Android exports install a verified
 source template into the ignored repository ``android`` directory only when it
 is absent; an unexpected existing directory is preserved and reported instead
-of being overwritten.
+of being overwritten. Android shipping validation preflights the JDK and SDK,
+performs a real debug export, and runs Gradle lint through the installed source
+template before any remote shipping mutation.
 """
 
 from __future__ import annotations
@@ -847,3 +849,108 @@ def export_debug_project(
     if not resolved.is_file() or resolved.stat().st_size <= 0:
         raise RuntimeError(f"Godot export did not produce a nonempty artifact: {resolved}")
     return resolved
+
+
+def _android_build_environment(
+    environ: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Return an Android build environment or fail before an expensive export."""
+
+    environment = dict(os.environ if environ is None else environ)
+    java_home_value = environment.get("JAVA_HOME", "").strip().strip('"')
+    java_home = pathlib.Path(java_home_value).expanduser() if java_home_value else None
+    java_names = ("java.exe", "java") if os.name == "nt" else ("java", "java.exe")
+    java_from_home = bool(
+        java_home
+        and any((java_home / "bin" / name).is_file() for name in java_names)
+    )
+    if not java_from_home and shutil.which("java", path=environment.get("PATH")) is None:
+        raise RuntimeError(
+            "Android validation requires a JDK: set JAVA_HOME to a JDK or add java to PATH."
+        )
+
+    sdk_value = (
+        environment.get("ANDROID_HOME", "").strip().strip('"')
+        or environment.get("ANDROID_SDK_ROOT", "").strip().strip('"')
+    )
+    sdk_root = pathlib.Path(sdk_value).expanduser() if sdk_value else None
+    if not sdk_root or not sdk_root.is_dir():
+        raise RuntimeError(
+            "Android validation requires an SDK: set ANDROID_HOME or ANDROID_SDK_ROOT."
+        )
+    missing = [
+        name for name in ("build-tools", "platforms") if not (sdk_root / name).is_dir()
+    ]
+    if missing:
+        raise RuntimeError(
+            f"Android SDK at {sdk_root} is missing required directories: {', '.join(missing)}"
+        )
+    return environment
+
+
+def validate_android_build(
+    repo_root: pathlib.Path,
+    godot: pathlib.Path,
+    *,
+    run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+    template_provider: Callable[[], pathlib.Path] = provision_android_source_template,
+    environ: Mapping[str, str] | None = None,
+) -> None:
+    """Parse, export, and lint Android while cleaning the validation-only APK."""
+
+    root = repo_root.expanduser().resolve(strict=True)
+    environment = _android_build_environment(environ)
+    validation_directory = root / ".build" / "artifacts" / "android" / ".validation"
+    validation_apk = validation_directory / "AstroTops.apk"
+    try:
+        validate_godot_project(root, godot, run=run)
+        export_debug_project(
+            root,
+            godot,
+            validation_apk,
+            run=run,
+            template_provider=template_provider,
+        )
+        wrapper_name = "gradlew.bat" if os.name == "nt" else "gradlew"
+        wrapper = root / "android" / "build" / wrapper_name
+        if not wrapper.is_file():
+            raise RuntimeError(f"Android source template has no Gradle wrapper: {wrapper}")
+        if os.name == "nt":
+            command = [
+                environment.get("COMSPEC") or "cmd.exe",
+                "/d",
+                "/s",
+                "/c",
+                str(wrapper),
+                "lint",
+                "--no-daemon",
+                "--console=plain",
+            ]
+        else:
+            command = [
+                shutil.which("sh", path=environment.get("PATH")) or "/bin/sh",
+                str(wrapper),
+                "lint",
+                "--no-daemon",
+                "--console=plain",
+            ]
+        completed = run(
+            command,
+            cwd=wrapper.parent,
+            env=environment,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=900,
+        )
+        if completed.returncode:
+            detail = (completed.stderr or completed.stdout).strip()
+            raise RuntimeError(
+                f"Android Gradle lint failed ({completed.returncode}): {detail[-2000:]}"
+            )
+    finally:
+        validation_apk.unlink(missing_ok=True)
+        if validation_directory.is_dir() and not any(validation_directory.iterdir()):
+            validation_directory.rmdir()

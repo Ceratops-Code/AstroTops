@@ -6,6 +6,10 @@ repository:
       executable: adb
       platforms:
         - windows
+    android-sdk:
+      executable: adb
+    jdk:
+      executable: java
     uv:
       executable: uv
   actions:
@@ -23,6 +27,8 @@ repository:
         - run:
             - uv
             - run
+            - --project
+            - scripts
             - --locked
             - scripts/run-tests.py
             - --prepare-godot
@@ -34,7 +40,10 @@ repository:
         - run:
             - uv
             - run
+            - --project
+            - scripts
             - --locked
+            - python
             - scripts/validate-repository.py
     test:
       requires:
@@ -44,6 +53,8 @@ repository:
         - run:
             - uv
             - run
+            - --project
+            - scripts
             - --locked
             - scripts/run-tests.py
             - --scope
@@ -67,6 +78,8 @@ deliverables:
             - run:
                 - uv
                 - run
+                - --project
+                - scripts
                 - --locked
                 - scripts/run-tests.py
                 - --export-debug
@@ -74,6 +87,8 @@ deliverables:
             - run:
                 - uv
                 - run
+                - --project
+                - scripts
                 - --locked
                 - scripts/result_records.py
                 - build-result
@@ -91,14 +106,21 @@ deliverables:
         validate:
           requires:
             capabilities:
+              - android-sdk
+              - jdk
               - uv
+          validation-capabilities:
+            - android-build
+            - android-lint
           steps:
             - run:
                 - uv
                 - run
+                - --project
+                - scripts
                 - --locked
                 - scripts/run-tests.py
-                - --validate-project
+                - --validate-android-build
         test:
           requires:
             capabilities: []
@@ -117,6 +139,8 @@ deliverables:
             - run:
                 - uv
                 - run
+                - --project
+                - scripts
                 - --locked
                 - scripts/run-tests.py
                 - --verify-delivery
@@ -127,6 +151,8 @@ deliverables:
             - run:
                 - uv
                 - run
+                - --project
+                - scripts
                 - --locked
                 - scripts/result_records.py
                 - android-deploy

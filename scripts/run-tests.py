@@ -43,6 +43,7 @@ from godot_toolchain import (  # noqa: E402
     provision_android_source_template,
     provision_godot,
     resolve_godot,
+    validate_android_build,
     validate_godot_project,
 )
 from result_records import (  # noqa: E402
@@ -413,6 +414,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     ) as archive:
         archive.writestr("build.gradle", b"// pinned fake Android template\n")
         archive.writestr("gradlew", b"#!/bin/sh\n")
+        archive.writestr("gradlew.bat", b"@echo off\r\n")
     fake_android_spec: dict[str, object] = {
         "url": "https://example.invalid/export-templates.tpz",
         "member": "templates/android_source.zip",
@@ -491,12 +493,27 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         conflict_preserved = False
     check("android-project-template-conflict-is-preserved", True, conflict_preserved)
 
+    fake_java_home = temporary_root / "jdk"
+    (fake_java_home / "bin").mkdir(parents=True)
+    (fake_java_home / "bin" / "java").write_bytes(b"fake-java")
+    (fake_java_home / "bin" / "java.exe").write_bytes(b"fake-java")
+    fake_android_sdk = temporary_root / "android-sdk"
+    (fake_android_sdk / "build-tools").mkdir(parents=True)
+    (fake_android_sdk / "platforms").mkdir()
+    fake_android_environment = {
+        "ANDROID_HOME": str(fake_android_sdk),
+        "COMSPEC": "cmd.exe",
+        "JAVA_HOME": str(fake_java_home),
+        "PATH": "",
+    }
     operation_calls: list[list[str]] = []
+    operation_contexts: list[dict[str, object]] = []
 
     def fake_godot_run(
-        command: list[str], **_kwargs: object
+        command: list[str], **kwargs: object
     ) -> subprocess.CompletedProcess[str]:
         operation_calls.append(command)
+        operation_contexts.append(kwargs)
         if "--export-debug" in command:
             pathlib.Path(command[-1]).write_bytes(b"debug-apk")
         return subprocess.CompletedProcess(command, 0, "", "")
@@ -523,6 +540,60 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         "godot-export-produces-artifact",
         "debug-apk",
         exported.read_bytes().decode("ascii"),
+    )
+    validation_start = len(operation_calls)
+    validate_android_build(
+        fake_repo,
+        repaired,
+        run=fake_godot_run,
+        template_provider=lambda: repaired_android_source,
+        environ=fake_android_environment,
+    )
+    validation_calls = operation_calls[validation_start:]
+    check(
+        "android-validation-exports-debug-build",
+        True,
+        any("--export-debug" in command for command in validation_calls),
+    )
+    check(
+        "android-validation-runs-gradle-lint",
+        True,
+        bool(validation_calls and "lint" in validation_calls[-1]),
+    )
+    check(
+        "android-validation-gradle-working-directory",
+        str(fake_repo / "android" / "build"),
+        str(operation_contexts[-1].get("cwd")),
+    )
+    check(
+        "android-validation-cleans-temporary-apk",
+        False,
+        (
+            fake_repo
+            / ".build"
+            / "artifacts"
+            / "android"
+            / ".validation"
+            / "AstroTops.apk"
+        ).exists(),
+    )
+    calls_before_missing_jdk = len(operation_calls)
+    try:
+        validate_android_build(
+            fake_repo,
+            repaired,
+            run=fake_godot_run,
+            template_provider=lambda: repaired_android_source,
+            environ={"ANDROID_HOME": str(fake_android_sdk), "PATH": ""},
+        )
+    except RuntimeError as error:
+        missing_jdk_rejected = "requires a JDK" in str(error)
+    else:
+        missing_jdk_rejected = False
+    check(
+        "android-validation-rejects-missing-jdk-before-export",
+        True,
+        missing_jdk_rejected and len(operation_calls) == calls_before_missing_jdk,
     )
 
     merged_source = SourceIdentity(
@@ -1059,6 +1130,11 @@ def main() -> int:
         help="Parse the project with the pinned Godot editor and stop.",
     )
     mode.add_argument(
+        "--validate-android-build",
+        action="store_true",
+        help="Parse, export, and Gradle-lint Android with explicit toolchain preflight.",
+    )
+    mode.add_argument(
         "--export-debug",
         type=pathlib.Path,
         help="Export the Android debug artifact to a repository-relative path and stop.",
@@ -1074,7 +1150,10 @@ def main() -> int:
 
     repo_root = args.repo_root.expanduser().resolve(strict=True)
     lifecycle_mode = bool(
-        args.prepare_godot or args.validate_project or args.export_debug is not None
+        args.prepare_godot
+        or args.validate_project
+        or args.validate_android_build
+        or args.export_debug is not None
     )
     if lifecycle_mode:
         if args.group or args.fresh or args.no_record or args.source_tag or args.artifact:
@@ -1083,7 +1162,9 @@ def main() -> int:
             )
         try:
             godot = resolve_godot(args.godot)
-            if args.validate_project:
+            if args.validate_android_build:
+                validate_android_build(repo_root, godot)
+            elif args.validate_project:
                 validate_godot_project(repo_root, godot)
             elif args.export_debug is not None:
                 export_debug_project(repo_root, godot, args.export_debug)
