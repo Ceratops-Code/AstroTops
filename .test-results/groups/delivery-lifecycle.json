@@ -1,6 +1,6 @@
 {
   "artifact": null,
-  "assertions": 24,
+  "assertions": 33,
   "command": [
     "{python}",
     "scripts/run-tests.py",
@@ -14,13 +14,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T035055Z-6a7f8aaaee3c/delivery-lifecycle/output.log"
+    "evidence/20260927T042630Z-60ad7cb85543/delivery-lifecycle/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "ffe73dc7b5b772898ce913c05253c00e279e08396c50d8df8d8817a9d4b9ee36",
-  "finishedAt": 1790481063.0877864,
+  "fingerprint": "7d86da463fa482c209de895c33b7e33ea871f9f46a887bf0244b8de68c244f7b",
+  "finishedAt": 1790483198.1558385,
   "id": "delivery-lifecycle",
   "observations": [
     {
@@ -110,6 +110,38 @@
       "id": "godot-mismatched-path-self-provisions"
     },
     {
+      "actual": 1,
+      "id": "android-source-downloads-once"
+    },
+    {
+      "actual": 1,
+      "id": "android-source-cache-is-reused"
+    },
+    {
+      "actual": "{temp}\\tool-cache\\android-template\\4.7.2\\android_source.zip",
+      "id": "android-source-cache-path-is-stable"
+    },
+    {
+      "actual": 2,
+      "id": "android-source-tamper-is-repaired"
+    },
+    {
+      "actual": true,
+      "id": "android-project-template-is-installed"
+    },
+    {
+      "actual": "4.7.2.stable",
+      "id": "android-project-template-version"
+    },
+    {
+      "actual": "{temp}\\template-repo\\android\\build",
+      "id": "android-project-template-is-reused"
+    },
+    {
+      "actual": true,
+      "id": "android-project-template-conflict-is-preserved"
+    },
+    {
       "actual": [
         "{temp}\\tool-cache\\godot\\4.7.2\\godot-test",
         "--headless",
@@ -119,6 +151,10 @@
         "--quit"
       ],
       "id": "godot-project-validation-command"
+    },
+    {
+      "actual": true,
+      "id": "godot-export-installs-android-template"
     },
     {
       "actual": "debug-apk",
@@ -138,12 +174,12 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T035055Z-6a7f8aaaee3c",
+  "runId": "20260927T042630Z-60ad7cb85543",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.064,
+  "seconds": 0.131,
   "source": {
-    "commit": "6a7f8aaaee3cb23492c4cb2769c96f493eae4b2e",
-    "digest": "840034ddc01aebc679e7fe2a2e32f1d0c208db8477cc8911ba72b62ca6e0eedc",
+    "commit": "60ad7cb855433ce5a1d2fced0a6e250742d5295c",
+    "digest": "6ca48ed37ad0b063224578ff3f37f407d689b0381450688ef8175e446258423e",
     "dirty": false,
     "exactTags": []
   },
