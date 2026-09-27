@@ -1,6 +1,6 @@
 {
   "artifact": null,
-  "assertions": 40,
+  "assertions": 42,
   "command": [
     "{python}",
     "scripts/run-tests.py",
@@ -14,13 +14,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T124126Z-a1c82c2cbc87/delivery-lifecycle/output.log"
+    "evidence/20260927T135740Z-50873b5fa662/delivery-lifecycle/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "b9c4148e95cf8c5689cca854cdd7ee66883459c6b1f04b2972a0799cac85e535",
-  "finishedAt": 1790512894.7436912,
+  "fingerprint": "ae6c9c7dd93c2462e872a3f020b0047f229a1467401d1de3e48b2e41349deb8c",
+  "finishedAt": 1790517468.1303382,
   "id": "delivery-lifecycle",
   "observations": [
     {
@@ -151,7 +151,7 @@
     },
     {
       "actual": [
-        "{temp}\\tool-cache\\godot\\4.7.2\\godot-test",
+        "{temp}\\Godot_test.exe",
         "--headless",
         "--editor",
         "--path",
@@ -167,6 +167,14 @@
     {
       "actual": "debug-apk",
       "id": "godot-export-produces-artifact"
+    },
+    {
+      "actual": "{temp}\\Godot_test.exe",
+      "id": "godot-export-uses-non-console-worker"
+    },
+    {
+      "actual": true,
+      "id": "godot-export-uses-file-backed-capture"
     },
     {
       "actual": true,
@@ -202,12 +210,12 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T124126Z-a1c82c2cbc87",
+  "runId": "20260927T135740Z-50873b5fa662",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.161,
+  "seconds": 0.135,
   "source": {
-    "commit": "a1c82c2cbc87c2fa337ac12dc3f89e180145db9e",
-    "digest": "a223f25e0d92d58d47b6183222eefb92c42e86b35416e25df6a778635f41935b",
+    "commit": "50873b5fa662bd515266b42b978bab09218adcdc",
+    "digest": "b7c053db1d4f5140664c5e404b690fcb6122bd44ef90adb014b9654f555ceabf",
     "dirty": false,
     "exactTags": []
   },
