@@ -26,11 +26,15 @@ Pause/Resume, then Close in sequence toggles it without performing those four
 actions. The slider controls both pull strength and range, with pull strength
 rising on a gentler curve; its value and on/off
 state are saved between runs. Captured names use the device's English
-text-to-speech voice at normal speed, one at a time with no intentional gap.
-Traxy flees the ship without camping in corners. Once caught, only his suit
-adopts the ship color while he floats with a shocked blink, rotates slowly
-clockwise, and bounces off planets and edges. Marking every planet makes the
-ship hook his suit and tow him offscreen before the planet-only meteor finale.
+text-to-speech voice at normal speed, one at a time. Traxy flees the ship without
+camping in corners. Catching him produces a white cloud and a short nonverbal
+poof before his name is spoken; his label and only his suit adopt the ship
+color. He then floats with a shocked blink, rotates slowly clockwise, and
+bounces off planets and edges. After every planet and Traxy are explicitly
+caught, the ship stages between him and the farthest corner, launches and
+latches a visible animated
+hook, then tows him at 70% speed toward the farthest corner and offscreen before
+the planet-only meteor finale.
 The countdown uses five short beeps followed by a sharper, louder final tone
 derived from the beep at one-quarter frequency and twice its duration. Audio
 generation, effects, and speech are owned by `scripts/audio_controller.gd`.

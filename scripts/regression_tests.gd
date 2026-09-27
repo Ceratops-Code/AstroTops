@@ -274,6 +274,7 @@ func _pcm_peak(stream: AudioStreamWAV) -> int:
 func _test_audio_speech() -> void:
 	var main: Variant = await _new_main(root)
 	var audio: AstroAudioController = main.audio_controller
+	main.target_speech_enqueued.connect(_on_target_speech_enqueued)
 	_assert_near("AUDIO-01/boop-frequency-ratio", audio.COUNTDOWN_BEEP_FREQUENCY / 4.0, 220.0, 0.001)
 	_assert_near("AUDIO-01/boop-2x-current-duration", audio.countdown_boop_stream.get_length(), audio.countdown_beep_stream.get_length() * 4.0, 0.002)
 	var beep_peak := _pcm_peak(audio.countdown_beep_stream)
@@ -286,9 +287,18 @@ func _test_audio_speech() -> void:
 	_assert_equal("AUDIO-04/explosion-resource", audio.SFX_STREAMS["explosion"].resource_path, "res://assets/sfx_explosion.ogg")
 	_assert_near("AUDIO-04/bubble-pop-duration", audio.SFX_STREAMS["explosion"].get_length(), 1.79, 0.04)
 	_assert_near("AUDIO-03/finale-shout-duration", audio.shout_stream.get_length(), audio.SHOUT_DURATION, 0.002)
+	_assert_near("TRAXY-02/poof-sound-duration", audio.capture_poof_stream.get_length(), audio.CAPTURE_POOF_DURATION, 0.002)
+	_assert_true("TRAXY-02/poof-sound-audible", _pcm_peak(audio.capture_poof_stream) > 5000, _pcm_peak(audio.capture_poof_stream), "> 5000 PCM peak")
 	audio.tts_voice = ""
+	audio.playback_enabled = true
+	audio.play_capture_poof_then_speak("Traxy")
+	_assert_equal("TRAXY-02/name-waits-for-poof", speech_events.size(), 0)
+	await create_timer(audio.CAPTURE_POOF_DURATION + 0.10).timeout
+	_assert_equal("TRAXY-02/poof-followed-by-name", speech_events.map(func(item: Dictionary) -> String: return String(item["text"])), ["Traxy"])
+	audio.playback_enabled = false
+	speech_events.clear()
+	audio.target_speech_utterance_id = 0
 	var refresh_attempts_before: int = int(audio.tts_voice_refresh_attempts)
-	main.target_speech_enqueued.connect(_on_target_speech_enqueued)
 	main._speak_target_name("Earth")
 	main._speak_target_name("Mars")
 	main._speak_target_name("Haumea")
@@ -513,6 +523,8 @@ func _test_targets() -> void:
 	_assert_true("TRAXY-01/remains-in-playfield", main.SHIP_BOUNDS.grow(-traxy.capture_radius()).has_point(traxy.position), traxy.position)
 	_assert_true("TRAXY-02/capture", traxy.capture(Color("ff4e9c")), traxy.motion_state)
 	_assert_equal("TRAXY-02/floating-state", traxy.motion_state, traxy.MotionState.FLOATING)
+	_assert_color_near("TRAXY-02/captured-name-uses-ship-color", traxy.name_label_color(), Color("ff4e9c"), 0.001)
+	_assert_near("TRAXY-02/capture-starts-white-poof", traxy.capture_poof_elapsed, 0.0, 0.001)
 	traxy.blink_elapsed = 0.0
 	_assert_equal("TRAXY-02/shocked-open-frame", traxy.current_frame_index(), 4)
 	traxy.blink_elapsed = 1.70
@@ -608,16 +620,32 @@ func _test_gameplay_flow() -> void:
 	_assert_equal("TRAXY-03/rescue-before-finale", main.state, main.GameState.RESCUE)
 	_assert_near("FLOW-01/final-time", main.final_time, 12.345, 0.001)
 	_assert_near("FLOW-01/best-time", main.best_time, 12.345, 0.001)
+	var rescue_wait_position: Vector2 = main.traxy.position
 	main._process(0.25)
 	_assert_near("TRAXY-03/timer-frozen-during-rescue", main.elapsed_time, 12.345, 0.001)
+	_assert_true("TRAXY-03/rescue-freezes-float-for-hook", main.traxy.position.distance_to(rescue_wait_position) < 0.001, main.traxy.position, rescue_wait_position)
 	var meteors: Array[Node] = []
 	for child in main.get_children():
 		if child.get_script() == MeteorScript:
 			meteors.append(child)
 	_assert_equal("TRAXY-03/no-meteors-before-tow", meteors.size(), 0)
-	main.ship.position = main.traxy.position + Vector2(10.0, 0.0)
+	var corner_probe := Vector2(120.0, 190.0)
+	var view_size: Vector2 = main.VIEW_SIZE
+	var expected_probe_direction := (view_size - corner_probe).normalized()
+	_assert_true("TRAXY-03/farthest-corner-selection", main._farthest_corner_exit_direction(corner_probe).distance_to(expected_probe_direction) < 0.001, main._farthest_corner_exit_direction(corner_probe), expected_probe_direction)
+	var probe_staging: Vector2 = main._rescue_hook_staging_position(corner_probe, expected_probe_direction)
+	_assert_true("TRAXY-03/stages-ahead-in-tow-direction", (probe_staging - corner_probe).dot(expected_probe_direction) > 0.0, probe_staging, "between Traxy and the tow corner")
+	_assert_near("TRAXY-03/tow-speed-factor", main.RESCUE_TOW_SPEED_FACTOR, 0.70, 0.001)
+	_assert_near("TRAXY-03/tow-speed", main._rescue_tow_speed(), main.ship.max_speed * 0.70, 0.001)
+	main.ship.position = main.rescue_staging_position
 	main._update_traxy_rescue(0.02)
+	_assert_true("TRAXY-03/hook-launch-started", main.rescue_hook_started and not main.rescue_hooked and main.traxy.motion_state == main.traxy.MotionState.HOOKING, main.traxy.motion_state)
+	main._update_traxy_rescue(main.traxy.HOOK_TRAVEL_DURATION * 0.5)
+	_assert_true("TRAXY-03/hook-travels-progressively", main.traxy.hook_progress() > 0.0 and main.traxy.hook_progress() < 1.0 and not main.rescue_hooked, main.traxy.hook_progress())
+	var expected_exit_direction: Vector2 = main._farthest_corner_exit_direction(main.traxy.position)
+	main._update_traxy_rescue(main.traxy.HOOK_TRAVEL_DURATION + main.traxy.HOOK_LATCH_DURATION)
 	_assert_true("TRAXY-03/harness-hooked", main.rescue_hooked and main.traxy.motion_state == main.traxy.MotionState.TOWED, main.rescue_hooked)
+	_assert_true("TRAXY-03/tow-uses-farthest-corner", main.rescue_exit_direction.distance_to(expected_exit_direction) < 0.001, main.rescue_exit_direction, expected_exit_direction)
 	main.ship.position = Vector2(-1000.0, -1000.0)
 	main.traxy.position = Vector2(-1100.0, -1100.0)
 	main._update_traxy_rescue(0.0)
@@ -1004,7 +1032,12 @@ func _test_rendered_ui() -> void:
 	shocked_traxy.configure(Rect2(0.0, 0.0, 520.0, 260.0), Vector2.ZERO, no_planets, 91)
 	shocked_traxy.position = Vector2(385.0, 120.0)
 	shocked_traxy.capture(Color("ff4e9c"))
+	var poof_image: Image = await _capture(traxy_viewport, "traxy-poof.png")
+	shocked_traxy.capture_poof_elapsed = shocked_traxy.CAPTURE_POOF_DURATION
+	shocked_traxy.queue_redraw()
 	var traxy_image: Image = await _capture(traxy_viewport, "traxy-states.png")
+	var poof_difference := _different_pixels(poof_image, traxy_image, Rect2i(295, 25, 180, 190), 0.025, 1)
+	_assert_true("TRAXY-02/rendered-white-poof", poof_difference > 220, poof_difference, "> 220 changed cloud pixels")
 	var traxy_green_pixels := [0, 0]
 	for y in range(45, 205, 2):
 		for x in range(50, 470, 2):
@@ -1066,6 +1099,27 @@ func _test_rendered_ui() -> void:
 	towed_traxy.configure(Rect2(0.0, 0.0, 560.0, 260.0), Vector2.ZERO, no_planets, 92)
 	towed_traxy.position = Vector2(250.0, 130.0)
 	towed_traxy.capture(Color("ff4e9c"))
+	towed_traxy.capture_poof_elapsed = towed_traxy.CAPTURE_POOF_DURATION
+	towed_traxy.begin_hook(rescue_ship)
+	towed_traxy.update_active(towed_traxy.HOOK_TRAVEL_DURATION * 0.55, rescue_ship.position, no_planets)
+	var hook_image: Image = await _capture(tow_viewport, "traxy-hook.png")
+	var hook_cable_pixels := 0
+	var gold_hook_pixels := 0
+	for y in range(108, 154):
+		for x in range(300, 411):
+			var hook_pixel := hook_image.get_pixel(x, y)
+			if hook_pixel.r > 0.70 and hook_pixel.b > 0.35 and hook_pixel.g < 0.68:
+				hook_cable_pixels += 1
+			if hook_pixel.r > 0.78 and hook_pixel.g > 0.48 and hook_pixel.b < 0.42:
+				gold_hook_pixels += 1
+	_assert_true("TRAXY-03/rendered-progressive-hook-cable", hook_cable_pixels > 18, hook_cable_pixels, "> 18 pink cable pixels")
+	_assert_true("TRAXY-03/rendered-rotating-hook", gold_hook_pixels > 5, gold_hook_pixels, "> 5 gold hook pixels")
+	towed_traxy.update_active(towed_traxy.HOOK_TRAVEL_DURATION * 0.45 + towed_traxy.HOOK_LATCH_DURATION * 0.45, rescue_ship.position, no_planets)
+	var latch_image: Image = await _capture(tow_viewport, "traxy-hook-latch.png")
+	var latch_difference := _different_pixels(hook_image, latch_image, Rect2i(215, 112, 82, 78), 0.06, 1)
+	_assert_true("TRAXY-03/rendered-latch-burst", latch_difference > 100, latch_difference, "> 100 changed latch pixels")
+	towed_traxy.update_active(towed_traxy.HOOK_LATCH_DURATION, rescue_ship.position, no_planets)
+	_assert_true("TRAXY-03/hook-animation-completes", towed_traxy.is_hook_animation_complete(), towed_traxy.hook_elapsed)
 	towed_traxy.begin_tow(rescue_ship, Vector2.RIGHT)
 	towed_traxy.update_active(0.2, rescue_ship.position, no_planets)
 	var tow_image: Image = await _capture(tow_viewport, "traxy-tow.png")

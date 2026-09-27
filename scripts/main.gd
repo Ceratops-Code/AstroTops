@@ -24,8 +24,9 @@ const TRACTOR_DEFAULT_STRENGTH := 0.45
 const TRACTOR_DEBUG_SEQUENCE := ["back", "reset", "pause", "close"]
 const TRACTOR_DEBUG_SEQUENCE_TIMEOUT_MS := 1100
 const RESCUE_APPROACH_SPEED := 260.0
-const RESCUE_EXIT_SPEED := 430.0
-const RESCUE_HOOK_DISTANCE := 82.0
+const RESCUE_TOW_SPEED_FACTOR := 0.70
+const RESCUE_HOOK_STANDOFF_DISTANCE := 150.0
+const RESCUE_STAGING_TOLERANCE := 7.0
 const RESCUE_OFFSCREEN_MARGIN := 150.0
 const MODE_NAMES := ["SPACE RUSH", "SOLAR TOUR"]
 const TOUR_ORDER := [
@@ -138,8 +139,10 @@ var tractor_debug_sequence_serial := 0
 var best_reset_confirmation_until := 0
 var settings_path := SAVE_PATH
 var audio_playback_enabled := true
+var rescue_hook_started := false
 var rescue_hooked := false
 var rescue_exit_direction := Vector2.RIGHT
+var rescue_staging_position := Vector2.ZERO
 
 var touch_id := -1
 var touch_origin := Vector2.ZERO
@@ -436,6 +439,7 @@ func _clear_targets() -> void:
 	if is_instance_valid(traxy):
 		traxy.queue_free()
 	traxy = null
+	rescue_hook_started = false
 	rescue_hooked = false
 	for child in get_children():
 		if child is TargetMeteor:
@@ -528,7 +532,7 @@ func _check_traxy_contact() -> void:
 func _capture_traxy() -> void:
 	if is_instance_valid(traxy) and traxy.capture(palette[selected_color_index]):
 		captured_count += 1
-		_speak_target_name(traxy.body_name)
+		audio_controller.play_capture_poof_then_speak(traxy.body_name)
 		if _all_planets_captured():
 			_begin_traxy_rescue()
 
@@ -546,8 +550,11 @@ func _begin_traxy_rescue() -> void:
 	ship.stop()
 	_save_best_time()
 	_clear_touch()
+	rescue_hook_started = false
 	rescue_hooked = false
-	rescue_exit_direction = _nearest_exit_direction(traxy.position)
+	rescue_exit_direction = _farthest_corner_exit_direction(traxy.position)
+	rescue_staging_position = _rescue_hook_staging_position(traxy.position, rescue_exit_direction)
+	traxy.prepare_for_rescue()
 
 
 func _update_traxy_rescue(delta: float) -> void:
@@ -556,15 +563,23 @@ func _update_traxy_rescue(delta: float) -> void:
 		return
 	if not rescue_hooked:
 		traxy.update_active(delta, ship.position, planets)
-		var to_traxy := traxy.position - ship.position
-		if to_traxy.length() <= RESCUE_HOOK_DISTANCE:
+		if not rescue_hook_started:
+			var to_staging := rescue_staging_position - ship.position
+			if to_staging.length() <= RESCUE_STAGING_TOLERANCE:
+				ship.position = rescue_staging_position
+				ship.stop()
+				rescue_hook_started = true
+				traxy.begin_hook(ship)
+			else:
+				ship.move_scripted(to_staging.normalized() * RESCUE_APPROACH_SPEED, delta)
+		elif traxy.is_hook_animation_complete():
 			rescue_hooked = true
-			rescue_exit_direction = _nearest_exit_direction(ship.position)
+			rescue_exit_direction = _farthest_corner_exit_direction(traxy.position)
 			traxy.begin_tow(ship, rescue_exit_direction)
 		else:
-			ship.move_scripted(to_traxy.normalized() * RESCUE_APPROACH_SPEED, delta)
+			ship.stop()
 		return
-	ship.move_scripted(rescue_exit_direction * RESCUE_EXIT_SPEED, delta)
+	ship.move_scripted(rescue_exit_direction * _rescue_tow_speed(), delta)
 	traxy.update_active(delta, ship.position, planets)
 	var visible_area := Rect2(Vector2.ONE * -RESCUE_OFFSCREEN_MARGIN, VIEW_SIZE + Vector2.ONE * RESCUE_OFFSCREEN_MARGIN * 2.0)
 	if not visible_area.has_point(ship.position) and not visible_area.has_point(traxy.position):
@@ -574,14 +589,30 @@ func _update_traxy_rescue(delta: float) -> void:
 		_start_meteor_finale()
 
 
-func _nearest_exit_direction(point: Vector2) -> Vector2:
-	var distances := [point.x, VIEW_SIZE.x - point.x, point.y, VIEW_SIZE.y - point.y]
-	var nearest: int = distances.find(distances.min())
-	match nearest:
-		0: return Vector2.LEFT
-		1: return Vector2.RIGHT
-		2: return Vector2.UP
-		_: return Vector2.DOWN
+func _farthest_corner_exit_direction(point: Vector2) -> Vector2:
+	var corners: Array[Vector2] = [Vector2.ZERO, Vector2(VIEW_SIZE.x, 0.0), Vector2(0.0, VIEW_SIZE.y), VIEW_SIZE]
+	var farthest: Vector2 = corners[0]
+	var farthest_distance := -1.0
+	for corner in corners:
+		var distance := point.distance_squared_to(corner)
+		if distance > farthest_distance:
+			farthest_distance = distance
+			farthest = corner
+	return (farthest - point).normalized()
+
+
+func _rescue_hook_staging_position(point: Vector2, exit_direction: Vector2) -> Vector2:
+	# Stage between Traxy and the selected corner so the hook fires backward and
+	# he trails naturally throughout the longest visible tow path.
+	var desired := point + exit_direction * RESCUE_HOOK_STANDOFF_DISTANCE
+	return Vector2(
+		clampf(desired.x, SHIP_BOUNDS.position.x, SHIP_BOUNDS.end.x),
+		clampf(desired.y, SHIP_BOUNDS.position.y, SHIP_BOUNDS.end.y)
+	)
+
+
+func _rescue_tow_speed() -> float:
+	return ship.max_speed * RESCUE_TOW_SPEED_FACTOR
 
 
 func _is_tour_mode() -> bool:

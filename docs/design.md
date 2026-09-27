@@ -9,7 +9,7 @@
     {"path": "project.godot", "role": "Godot runtime identity, entry scene, display, input, audio, and renderer configuration"},
     {"path": "main.tscn", "role": "Executable scene entry and script attachment"},
     {"path": "scripts/main.gd", "role": "Implemented game state machine, modes, controls, target orchestration, tractor beam, persistence, and UI"},
-    {"path": "scripts/audio_controller.gd", "role": "Implemented generated cues, sound-effect playback, and native text-to-speech requests"},
+    {"path": "scripts/audio_controller.gd", "role": "Implemented generated cues and capture poof, sound-effect playback, and native text-to-speech requests"},
     {"path": "scripts/player_ship.gd", "role": "Implemented ship movement, rendering, styles, and pilot presentation"},
     {"path": "scripts/planet.gd", "role": "Implemented celestial-body rendering, capture, collision extent, and explosion behavior"},
     {"path": "scripts/meteor.gd", "role": "Implemented meteor-flight and impact behavior"},
@@ -120,8 +120,8 @@ bounded evidence, artifact identity, and deterministic Android deployment.
   placement, target contact, mode progression, tractor selection, scores, and
   the rescue and meteor finale.
 - [`scripts/audio_controller.gd`](../scripts/audio_controller.gd) owns generated
-  interface tones, one-shot effects, delayed English voice discovery, and native
-  speech queue submission.
+  interface tones, the nonverbal capture poof, one-shot effects, delayed English
+  voice discovery, and native speech queue submission.
 - [`scripts/player_ship.gd`](../scripts/player_ship.gd) owns movement bounds,
   velocity, eight ship styles, cockpit placement, three pilots, and the bounded
   exception that lets the scripted rescue fly offscreen.
@@ -133,7 +133,8 @@ bounded evidence, artifact identity, and deterministic Android deployment.
   marker and timed arrow cue, and explosion animation.
 - [`scripts/traxy.gd`](../scripts/traxy.gd) owns Traxy's atlas frame selection,
   flee and corner-escape steering, planet avoidance, captured float and blink,
-  collision bounce, suit-accent recoloring, and tow cable rendering.
+  collision bounce, suit-accent recoloring, capture cloud, and progressive hook
+  and tow cable rendering.
 - [`scripts/meteor.gd`](../scripts/meteor.gd) owns one curved meteor flight and
   reports impact to the game shell.
 - [`scripts/regression_tests.gd`](../scripts/regression_tests.gd) is the Godot
@@ -161,9 +162,11 @@ be captured in any order. While uncaptured he steers away from the ship, skims
 edges instead of pressing into them, locks a safe corner escape when necessary,
 and avoids celestial bodies. Captured Traxy loses the chair, floats with the
 approved shocked blink, and reflects from bodies and playfield edges while
-rotating slowly clockwise. Only the suit fabric and suit panels adopt the ship
-color; Traxy, his helmet glass, tail, and gold hardware retain their source
-colors. Solar Tour is an additive menu choice: it keeps the fifteen-body roster,
+rotating slowly clockwise. Capture emits a white cloud and a generated nonverbal
+poof; the device speaks his name after that sound completes. His label, suit
+fabric, and suit panels adopt the exact ship color, while Traxy, his helmet
+glass, tail, and gold hardware retain their source colors. Solar Tour is an
+additive menu choice: it keeps the fifteen-body roster,
 accepts only the highlighted next body from the Sun outward, shows inward arrows
 for the first 2.5 seconds of every new target, and records a separate best time.
 Completing the ordered roster adds a Tour Medal to the results panel.
@@ -181,9 +184,11 @@ resolved to its normal menu action after the short window.
 Marking the last planet in Space Rush leaves the run active while Traxy remains
 uncaught. Traxy must be captured by normal ship contact; only after every planet
 and Traxy are marked does the game freeze the run time, update the best score,
-and enter Rescue. The ship approaches, attaches a visible cable to his suit,
-then accelerates through the nearest screen edge with Traxy trailing behind.
-Only after both are offscreen does the Finale create one meteor per planet;
+and enter Rescue. The ship stages between him and the farthest screen corner,
+launches a curved cable backward with a rotating hook, visibly latches his
+harness, then
+tows him toward and beyond that corner at 70% of its normal maximum speed. Only
+after both are offscreen does the Finale create one meteor per planet;
 Traxy is never a meteor target. Solar Tour proceeds directly from its final body
 to the planet-only finale. Each impact starts that body's explosion. After all
 impacts, the results view hides the ship and offers replay or menu recovery.
@@ -230,7 +235,9 @@ Godot Input and `InputEvent` are the player-control interface. `DisplayServer`
 owns the native text-to-speech queue. The audio controller retries English
 voice discovery at mission setup and again when a capture finds no cached voice,
 then submits the name, voice, volume, pitch, rate, utterance identifier, and
-`interrupt=false`. Missing voice support still degrades to silent names without
+`interrupt=false`. Ordinary target names enter the native queue immediately;
+Traxy's capture waits only for its generated poof to finish. Missing voice
+support still degrades to silent names without
 blocking capture. `ConfigFile` is the local persistence interface.
 
 The SDLC contract is [`sdlc/sdlc.yml`](../sdlc/sdlc.yml). Repository helpers
@@ -264,7 +271,8 @@ activity, installed hash, or launch confirmation differs.
    consistent scaling, and licensing clarity.
 3. **Accepted: native queued text-to-speech.** Pre-rendered names would sound
    consistent but add asset and localization lifecycle. The native queue keeps
-   names ordered and non-overlapping with no application delay.
+   names ordered and non-overlapping; only Traxy's name waits for his short
+   capture poof to complete.
 4. **Accepted: pull targets rather than steer the ship.** Course correction
    would weaken direct control; moving one eligible target provides assistance
    while preserving player heading.
@@ -314,7 +322,7 @@ tools, environment, and optional artifact identity recorded by that run.
 ## 12 Glossary and references
 
 - **Capture:** first ship contact that changes a target toward the selected ship
-  color and queues its spoken name.
+  color and queues its spoken name; Traxy's name follows his capture poof.
 - **Target:** a capturable celestial body or Traxy in Space Rush.
 - **Rescue:** the timed-score-frozen sequence that hooks captured Traxy, tows
   him offscreen, and hands off to the planet-only meteor finale.
@@ -340,8 +348,8 @@ groups. Headless Godot groups observe menu, controls, audio requests, tractor
 behavior, target models, ship and pilot models, gameplay flow, pause, results,
 and persistence. The rendered group captures actual Godot output for menu,
 play, pause, countdown, results, cockpit, targets, the hidden tractor field,
-Traxy's running, shocked, and cable-tow states, the standalone icon, and the
-layered adaptive icon under a circular mask.
+Traxy's running, capture-cloud, shocked, progressive-hook, and cable-tow states,
+the standalone icon, and the layered adaptive icon under a circular mask.
 Python tests cover result lifecycle, automatic Godot asset-import bootstrapping,
 and ADB behavior.
 

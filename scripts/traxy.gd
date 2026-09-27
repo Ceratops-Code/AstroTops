@@ -11,6 +11,11 @@ const FLEE_ACCELERATION := 560.0
 const FLOAT_SPEED := 48.0
 const FLOAT_MIN_SPEED := 36.0
 const FLOAT_ROTATION_SPEED := 0.22
+const CAPTURE_POOF_DURATION := 0.52
+const HOOK_TRAVEL_DURATION := 0.34
+const HOOK_LATCH_DURATION := 0.38
+const HOOK_HARNESS_OFFSET := Vector2(0.0, 18.0)
+const HOOK_CABLE_SEGMENTS := 18
 const EDGE_MARGIN := 92.0
 const CORNER_MARGIN := 118.0
 const PLANET_AVOIDANCE_MARGIN := 72.0
@@ -20,7 +25,7 @@ const ESCAPE_LOCK_DURATION := 0.9
 const TOW_DISTANCE := 132.0
 const LABEL_FONT_SIZE := 18
 
-enum MotionState { FLEEING, FLOATING, TOWED }
+enum MotionState { FLEEING, FLOATING, RESCUE_WAITING, HOOKING, TOWED }
 
 var motion_state := MotionState.FLEEING
 var movement_bounds := Rect2(35.0, 146.0, 1210.0, 536.0)
@@ -31,6 +36,9 @@ var escape_lock_remaining := 0.0
 var stuck_elapsed := 0.0
 var stuck_origin := Vector2.ZERO
 var blink_elapsed := 0.0
+var capture_poof_elapsed := CAPTURE_POOF_DURATION
+var capture_poof_world_position := Vector2.ZERO
+var hook_elapsed := 0.0
 var tow_elapsed := 0.0
 var tow_exit_direction := Vector2.RIGHT
 var tow_ship: PlayerShip
@@ -43,6 +51,9 @@ func _ready() -> void:
 	sprite.texture = ATLAS_TEXTURE
 	sprite.region_enabled = true
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	# Effects and the name are drawn by the parent and must remain visible over
+	# the character at the hook latch and at the center of the capture cloud.
+	sprite.show_behind_parent = true
 	add_child(sprite)
 	_sync_sprite()
 	queue_redraw()
@@ -58,15 +69,23 @@ func configure(bounds: Rect2, ship_position: Vector2, obstacles: Array[ColorPlan
 	stuck_origin = position
 	motion_state = MotionState.FLEEING
 	rotation = 0.0
+	capture_poof_elapsed = CAPTURE_POOF_DURATION
+	hook_elapsed = 0.0
+	tow_ship = null
 	_sync_sprite()
 
 
 func update_active(delta: float, ship_position: Vector2, obstacles: Array[ColorPlanet]) -> void:
+	capture_poof_elapsed = minf(CAPTURE_POOF_DURATION, capture_poof_elapsed + delta)
 	match motion_state:
 		MotionState.FLEEING:
 			_update_flee(delta, ship_position, obstacles)
 		MotionState.FLOATING:
 			_update_float(delta, obstacles)
+		MotionState.RESCUE_WAITING:
+			_update_rescue_waiting(delta)
+		MotionState.HOOKING:
+			_update_hook(delta)
 		MotionState.TOWED:
 			_update_tow(delta)
 	_sync_sprite()
@@ -80,6 +99,8 @@ func capture(color: Color) -> bool:
 	var float_direction := _safe_direction(velocity, Vector2.from_angle(random.randf_range(0.0, TAU)))
 	velocity = float_direction * FLOAT_SPEED
 	blink_elapsed = 0.0
+	capture_poof_world_position = global_position
+	capture_poof_elapsed = 0.0
 	_apply_captured_accent()
 	_sync_sprite()
 	return true
@@ -98,6 +119,34 @@ func apply_tractor_pull(destination: Vector2, pull_distance: float) -> void:
 		return
 	global_position = global_position.move_toward(destination, pull_distance)
 	velocity = velocity.lerp(_safe_direction(destination - global_position, last_direction) * FLEE_SPEED, 0.08)
+
+
+func prepare_for_rescue() -> void:
+	if motion_state == MotionState.FLOATING:
+		motion_state = MotionState.RESCUE_WAITING
+		velocity = Vector2.ZERO
+		_sync_sprite()
+		queue_redraw()
+
+
+func begin_hook(ship_node: PlayerShip) -> void:
+	tow_ship = ship_node
+	motion_state = MotionState.HOOKING
+	velocity = Vector2.ZERO
+	hook_elapsed = 0.0
+	_sync_sprite()
+
+
+func hook_progress() -> float:
+	return clampf(hook_elapsed / HOOK_TRAVEL_DURATION, 0.0, 1.0)
+
+
+func hook_latch_progress() -> float:
+	return clampf((hook_elapsed - HOOK_TRAVEL_DURATION) / HOOK_LATCH_DURATION, 0.0, 1.0)
+
+
+func is_hook_animation_complete() -> bool:
+	return motion_state == MotionState.HOOKING and hook_elapsed >= HOOK_TRAVEL_DURATION + HOOK_LATCH_DURATION
 
 
 func begin_tow(ship_node: PlayerShip, exit_direction: Vector2) -> void:
@@ -212,6 +261,17 @@ func _update_float(delta: float, obstacles: Array[ColorPlanet]) -> void:
 		velocity = _safe_direction(velocity, Vector2.from_angle(random.randf_range(0.0, TAU))) * FLOAT_MIN_SPEED
 
 
+func _update_hook(delta: float) -> void:
+	blink_elapsed += delta
+	rotation = fposmod(rotation + FLOAT_ROTATION_SPEED * delta, TAU)
+	hook_elapsed += delta
+
+
+func _update_rescue_waiting(delta: float) -> void:
+	blink_elapsed += delta
+	rotation = fposmod(rotation + FLOAT_ROTATION_SPEED * delta, TAU)
+
+
 func _update_tow(delta: float) -> void:
 	blink_elapsed += delta
 	tow_elapsed += delta
@@ -294,6 +354,12 @@ func _sync_sprite() -> void:
 	sprite.region_rect = Rect2(Vector2(frame % 3, frame / 3) * CELL_SIZE, CELL_SIZE)
 	var draw_size := CHAIR_DRAW_SIZE if motion_state == MotionState.FLEEING else FLOAT_DRAW_SIZE
 	sprite.scale = draw_size / CELL_SIZE
+	sprite.position = Vector2.ZERO
+	if motion_state == MotionState.HOOKING and is_instance_valid(tow_ship):
+		var latch := hook_latch_progress()
+		if latch > 0.0 and latch < 1.0:
+			var ship_local := to_local(tow_ship.global_position)
+			sprite.position = _safe_direction(ship_local, Vector2.RIGHT) * sin(latch * PI) * 7.0
 
 
 func _apply_captured_accent() -> void:
@@ -325,12 +391,91 @@ void fragment() {
 
 
 func _draw() -> void:
+	_draw_capture_poof()
+	if motion_state == MotionState.HOOKING and is_instance_valid(tow_ship):
+		_draw_hook_animation()
 	if motion_state == MotionState.TOWED and is_instance_valid(tow_ship):
 		var ship_local := to_local(tow_ship.global_position)
-		draw_line(Vector2.ZERO, ship_local, Color(captured_color, 0.90), 3.0, true)
-		draw_circle(Vector2.ZERO, 5.0, Color("ffc857"))
+		var harness := _harness_local_position()
+		var ship_anchor := _ship_cable_anchor(ship_local, harness)
+		var cable_sag := sin(tow_elapsed * 5.2) * 7.0
+		_draw_cable(ship_anchor, harness, cable_sag)
+		draw_circle(harness, 5.0, Color("ffc857"))
 	if motion_state != MotionState.TOWED:
 		var font := ThemeDB.fallback_font
-		var label_color := Color("fff2a8") if captured else Color("dffbff")
+		var label_color := name_label_color()
 		draw_string(font, Vector2(-50.0, 72.0), body_name, HORIZONTAL_ALIGNMENT_CENTER, 100.0, LABEL_FONT_SIZE, Color(0.0, 0.0, 0.04, 0.92))
 		draw_string(font, Vector2(-50.0, 70.5), body_name, HORIZONTAL_ALIGNMENT_CENTER, 100.0, LABEL_FONT_SIZE, label_color)
+
+
+func name_label_color() -> Color:
+	return captured_color if captured else Color("dffbff")
+
+
+func _harness_local_position() -> Vector2:
+	return HOOK_HARNESS_OFFSET + (sprite.position if is_instance_valid(sprite) else Vector2.ZERO)
+
+
+func _ship_cable_anchor(ship_local: Vector2, harness: Vector2) -> Vector2:
+	var hull_offset := tow_ship.hit_radius if is_instance_valid(tow_ship) else 29.0
+	return ship_local + _safe_direction(harness - ship_local, Vector2.LEFT) * hull_offset
+
+
+func _draw_hook_animation() -> void:
+	var ship_local := to_local(tow_ship.global_position)
+	var harness := _harness_local_position()
+	var ship_anchor := _ship_cable_anchor(ship_local, harness)
+	var travel := hook_progress()
+	var eased_travel := smoothstep(0.0, 1.0, travel)
+	var hook_position := ship_anchor.lerp(harness, eased_travel)
+	var latch := hook_latch_progress()
+	var cable_sag := lerpf(18.0, 4.0, eased_travel)
+	if latch > 0.0:
+		cable_sag = sin(latch * TAU) * (1.0 - latch) * 18.0
+	_draw_cable(ship_anchor, hook_position, cable_sag)
+	_draw_hook_head(hook_position, ship_anchor, harness, travel)
+	if latch > 0.0:
+		var flash_alpha := 1.0 - latch * 0.78
+		var burst_radius := 10.0 + latch * 24.0
+		draw_arc(harness, burst_radius, 0.0, TAU, 28, Color(1.0, 1.0, 1.0, flash_alpha), 4.0, true)
+		draw_circle(harness, 8.0 + latch * 7.0, Color(0.88, 0.96, 1.0, flash_alpha * 0.34))
+		for index in range(8):
+			var ray := Vector2.from_angle(TAU * float(index) / 8.0 + latch * 0.7)
+			draw_line(harness + ray * (burst_radius + 3.0), harness + ray * (burst_radius + 12.0), Color(1.0, 0.95, 0.72, flash_alpha), 3.0, true)
+
+
+func _draw_cable(from: Vector2, to: Vector2, sag: float) -> void:
+	var points := PackedVector2Array()
+	var perpendicular := _safe_direction((to - from).orthogonal(), Vector2.UP)
+	for index in range(HOOK_CABLE_SEGMENTS + 1):
+		var amount := float(index) / float(HOOK_CABLE_SEGMENTS)
+		points.append(from.lerp(to, amount) + perpendicular * sin(amount * PI) * sag)
+	draw_polyline(points, Color(0.02, 0.04, 0.10, 0.90), 6.0, true)
+	draw_polyline(points, Color(captured_color, 0.94), 3.0, true)
+
+
+func _draw_hook_head(hook_position: Vector2, ship_local: Vector2, harness: Vector2, travel: float) -> void:
+	var launch_direction := _safe_direction(harness - ship_local, Vector2.RIGHT)
+	var hook_rotation := launch_direction.angle() + PI * 0.5 + travel * TAU * 1.5
+	draw_set_transform(hook_position, hook_rotation, Vector2.ONE)
+	draw_line(Vector2(0.0, -11.0), Vector2(0.0, 5.0), Color("fff4c2"), 4.0, true)
+	draw_arc(Vector2(4.0, 5.0), 8.0, 0.15, PI * 1.55, 16, Color("ffc857"), 4.0, true)
+	draw_circle(Vector2(0.0, -11.0), 3.2, Color.WHITE)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_capture_poof() -> void:
+	if capture_poof_elapsed >= CAPTURE_POOF_DURATION:
+		return
+	var progress := clampf(capture_poof_elapsed / CAPTURE_POOF_DURATION, 0.0, 1.0)
+	var fade := pow(1.0 - progress, 1.45)
+	var origin := to_local(capture_poof_world_position)
+	draw_arc(origin, 18.0 + progress * 50.0, 0.0, TAU, 40, Color(1.0, 1.0, 1.0, fade * 0.78), 4.0, true)
+	for index in range(12):
+		var angle := TAU * float(index) / 12.0 + float(index % 3) * 0.12
+		var distance := (22.0 + progress * 48.0) * (0.88 + float(index % 4) * 0.06)
+		var world_center := capture_poof_world_position + Vector2.from_angle(angle) * distance
+		var center := to_local(world_center)
+		var radius := (10.0 + progress * 8.0) * (0.86 + float(index % 3) * 0.09)
+		var cloud_color := Color(0.96, 0.98, 1.0, fade * (0.58 + float(index % 2) * 0.12))
+		draw_circle(center, radius, cloud_color)

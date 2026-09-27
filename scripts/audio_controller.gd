@@ -19,6 +19,8 @@ const COUNTDOWN_BOOP_DURATION_MULTIPLIER := 4.0
 const COUNTDOWN_BOOP_AMPLITUDE := 0.68
 const COUNTDOWN_BOOP_BRIGHTNESS := 0.88
 const COUNTDOWN_BOOP_VOLUME_DB := 5.521825
+const CAPTURE_POOF_DURATION := 0.24
+const CAPTURE_POOF_VOLUME_DB := -3.0
 const TTS_RATE := 1.0
 
 var playback_enabled := true
@@ -26,6 +28,9 @@ var shout_stream: AudioStreamWAV
 var ui_click_stream: AudioStreamWAV
 var countdown_beep_stream: AudioStreamWAV
 var countdown_boop_stream: AudioStreamWAV
+var capture_poof_stream: AudioStreamWAV
+var capture_poof_player: AudioStreamPlayer
+var capture_poof_generation := 0
 var tts_voice := ""
 var tts_voice_refresh_attempts := 0
 var target_speech_utterance_id := 0
@@ -48,6 +53,7 @@ func _ready() -> void:
 		COUNTDOWN_BOOP_AMPLITUDE,
 		COUNTDOWN_BOOP_BRIGHTNESS
 	)
+	capture_poof_stream = _make_capture_poof_stream()
 	setup_tts()
 
 
@@ -111,6 +117,24 @@ func speak_target_name(target_name: String) -> void:
 	)
 
 
+func play_capture_poof_then_speak(target_name: String) -> void:
+	_cancel_capture_poof()
+	if not playback_enabled or capture_poof_stream == null:
+		speak_target_name(target_name)
+		return
+	capture_poof_player = AudioStreamPlayer.new()
+	capture_poof_player.stream = capture_poof_stream
+	capture_poof_player.volume_db = CAPTURE_POOF_VOLUME_DB
+	add_child(capture_poof_player)
+	capture_poof_generation += 1
+	var generation := capture_poof_generation
+	capture_poof_player.finished.connect(_finish_capture_poof.bind(generation, target_name))
+	# Dummy/headless audio drivers do not emit `finished`; the nominal stream
+	# duration is also an exact fallback for the speech handoff.
+	get_tree().create_timer(capture_poof_stream.get_length()).timeout.connect(_finish_capture_poof.bind(generation, target_name))
+	capture_poof_player.play()
+
+
 func target_speech_request(target_name: String, utterance_id: int) -> Dictionary:
 	return {
 		"text": "how MAY uh" if target_name == "Haumea" else target_name,
@@ -123,6 +147,7 @@ func target_speech_request(target_name: String, utterance_id: int) -> Dictionary
 
 
 func stop_target_speech() -> void:
+	_cancel_capture_poof()
 	if not tts_voice.is_empty():
 		DisplayServer.tts_stop()
 
@@ -199,6 +224,54 @@ func _make_tone_stream(
 		samples[index * 2 + 1] = (pcm >> 8) & 0xff
 	stream.data = samples
 	return stream
+
+
+func _make_capture_poof_stream() -> AudioStreamWAV:
+	# Filtered noise plus a low pressure pulse creates a short nonverbal air poof.
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = SAMPLE_RATE
+	stream.stereo = false
+	var sample_count := int(CAPTURE_POOF_DURATION * float(SAMPLE_RATE))
+	var samples := PackedByteArray()
+	samples.resize(sample_count * 2)
+	var random := RandomNumberGenerator.new()
+	random.seed = 0x5452415859
+	var filtered_noise := 0.0
+	for index in range(sample_count):
+		var time := float(index) / float(SAMPLE_RATE)
+		var progress := time / CAPTURE_POOF_DURATION
+		filtered_noise = lerpf(filtered_noise, random.randf_range(-1.0, 1.0), 0.16)
+		var attack := clampf(time / 0.012, 0.0, 1.0)
+		var release := pow(1.0 - progress, 2.1)
+		var air := filtered_noise * 0.78 + sin(time * TAU * lerpf(118.0, 72.0, progress)) * 0.22
+		var value := clampf(air * attack * release * 0.72, -1.0, 1.0)
+		var pcm := int(round(value * 32767.0))
+		samples[index * 2] = pcm & 0xff
+		samples[index * 2 + 1] = (pcm >> 8) & 0xff
+	stream.data = samples
+	return stream
+
+
+func _finish_capture_poof(generation: int, target_name: String) -> void:
+	if generation != capture_poof_generation:
+		return
+	capture_poof_generation += 1
+	var player := capture_poof_player
+	capture_poof_player = null
+	if is_instance_valid(player):
+		player.queue_free()
+	speak_target_name(target_name)
+
+
+func _cancel_capture_poof() -> void:
+	capture_poof_generation += 1
+	if not is_instance_valid(capture_poof_player):
+		capture_poof_player = null
+		return
+	capture_poof_player.stop()
+	capture_poof_player.queue_free()
+	capture_poof_player = null
 
 
 func _play_generated_stream(stream: AudioStreamWAV, volume_db: float) -> void:
