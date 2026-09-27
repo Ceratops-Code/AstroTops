@@ -1,5 +1,12 @@
 {
-  "artifact": null,
+  "artifact": {
+    "artifactLength": 83849869,
+    "artifactPath": ".build/artifacts/android/AstroTops.apk",
+    "artifactSha256": "bbb168dc9b15a49be4373bd3aee5ad78007fb506d81a2f7fcec842b419750c8c",
+    "schema": "astrotops-build-record.v1",
+    "sourceCommit": "4388ec63a4188bc56084862b4ed36b25ceff1564",
+    "version": "astrotops-local-20260927-4388ec6"
+  },
   "assertions": 24,
   "command": [
     "{godot}",
@@ -23,13 +30,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T025132Z-4388ec63a418/audio-speech/output.log"
+    "evidence/20260927T025359Z-4388ec63a418/audio-speech/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "5a388d195899030edf9fdd48844eb9e9b2496434b34db01f2f317502529777ff",
-  "finishedAt": 1790477498.8200934,
+  "fingerprint": "678c318af4dddf25cf4ed41359fb4d217dcdf4ebd87444a82d791649318c3366",
+  "finishedAt": 1790477645.877871,
   "id": "audio-speech",
   "observations": [
     {
@@ -38,14 +45,16 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T025132Z-4388ec63a418",
+  "runId": "20260927T025359Z-4388ec63a418",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.557,
+  "seconds": 0.561,
   "source": {
     "commit": "4388ec63a4188bc56084862b4ed36b25ceff1564",
     "digest": "08fac6afc6d7a471c72e5d9d6b424e90acead338b7ed3dc044ce320d21452954",
     "dirty": false,
-    "exactTags": []
+    "exactTags": [
+      "astrotops-local-20260927-4388ec6"
+    ]
   },
   "status": "passed"
 }

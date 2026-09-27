@@ -1,5 +1,12 @@
 {
-  "artifact": null,
+  "artifact": {
+    "artifactLength": 83849869,
+    "artifactPath": ".build/artifacts/android/AstroTops.apk",
+    "artifactSha256": "bbb168dc9b15a49be4373bd3aee5ad78007fb506d81a2f7fcec842b419750c8c",
+    "schema": "astrotops-build-record.v1",
+    "sourceCommit": "4388ec63a4188bc56084862b4ed36b25ceff1564",
+    "version": "astrotops-local-20260927-4388ec6"
+  },
   "assertions": 59,
   "command": [
     "{godot}",
@@ -26,32 +33,32 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/app-icon-adaptive.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/app-icon.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/cockpit.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/countdown.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/menu.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/output.log",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/paused.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/planet-pilot.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/playing.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/results.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/targets.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/tour-results.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/tour.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/tractor-debug.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/traxy-hook-latch.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/traxy-hook.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/traxy-poof.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/traxy-states.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/traxy-suit-color.png",
-    "evidence/20260927T025132Z-4388ec63a418/rendered-ui/traxy-tow.png"
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/app-icon-adaptive.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/app-icon.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/cockpit.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/countdown.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/menu.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/output.log",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/paused.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/planet-pilot.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/playing.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/results.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/targets.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/tour-results.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/tour.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/tractor-debug.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/traxy-hook-latch.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/traxy-hook.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/traxy-poof.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/traxy-states.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/traxy-suit-color.png",
+    "evidence/20260927T025359Z-4388ec63a418/rendered-ui/traxy-tow.png"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "486c38b2fe0efda1b68a887c606ac84fbfe90ced0ccca3aa8138e43d614fb178",
-  "finishedAt": 1790477506.9293854,
+  "fingerprint": "e688b1c7bce55fda3b7069ee814788d8c19694c72e1a6b25c6214b607a5996a8",
+  "finishedAt": 1790477654.9210036,
   "id": "rendered-ui",
   "observations": [
     {
@@ -64,14 +71,16 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T025132Z-4388ec63a418",
+  "runId": "20260927T025359Z-4388ec63a418",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 6.013,
+  "seconds": 6.817,
   "source": {
     "commit": "4388ec63a4188bc56084862b4ed36b25ceff1564",
     "digest": "08fac6afc6d7a471c72e5d9d6b424e90acead338b7ed3dc044ce320d21452954",
     "dirty": false,
-    "exactTags": []
+    "exactTags": [
+      "astrotops-local-20260927-4388ec6"
+    ]
   },
   "status": "passed"
 }
