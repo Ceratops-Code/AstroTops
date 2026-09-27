@@ -125,7 +125,7 @@ bounded evidence, artifact identity, and deterministic Android deployment.
   interface tones, the nonverbal capture poof, one-shot effects, delayed English
   voice discovery, and native speech queue submission.
 - [`scripts/player_ship.gd`](../scripts/player_ship.gd) owns movement bounds,
-  velocity, eight ship styles, cockpit placement, three pilots, and the bounded
+  velocity, eight ship styles, cockpit placement, four pilots, and the bounded
   exception that lets the scripted rescue fly offscreen.
 - [`scripts/space_target.gd`](../scripts/space_target.gd) defines the common
   capture, extent, and tractor-pull contract shared by stationary and moving
@@ -395,8 +395,9 @@ groups. Headless Godot groups observe menu, controls, audio requests, tractor
 behavior, target models, ship and pilot models, gameplay flow, pause, results,
 and persistence. The rendered group captures actual Godot output for menu,
 play, pause, countdown, results, cockpit, targets, the hidden tractor field,
-Traxy's smoothly turned overhead chair, independent thrusters, capture-cloud,
-shocked, progressive-hook, and cable-tow states, the standalone icon, and the
+the golden star pilot, Traxy's smoothly turned overhead chair, independent
+thrusters, capture-cloud, shocked, progressive-hook, and cable-tow states, the
+standalone icon, and the
 layered adaptive icon under a circular mask.
 Python tests cover result lifecycle, automatic editor and Android-template
 provisioning, tamper repair, bounded cache retention, safe project-template

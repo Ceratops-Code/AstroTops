@@ -106,7 +106,7 @@ var ship_names := [
 	"Arrow Scout", "Dart Runner", "Nova Wing", "Orbit Saucer",
 	"Comet Spear", "Twin Comet", "Star Skimmer", "Rocket Pod",
 ]
-var pilot_names := ["Trixie", "Astronaut", "Planet"]
+var pilot_names := ["Trixie", "Astronaut", "Planet", "Star"]
 var selected_color_index := 0
 var selected_ship_index := 0
 var selected_pilot_index := 0

@@ -10,10 +10,13 @@ const SHIP_TEXTURES := [
 	preload("res://assets/ship_saucer.png"),
 ]
 const SHIP_STYLE_COUNT := 8
+const PILOT_STYLE_COUNT := 4
 const COCKPIT_COLOR := Color("010205")
 const TRIXIE_PILOT_SCALE := 2.04
 const ASTRONAUT_OUTER_SCALE := 0.90
 const PLANET_PILOT_SCALE := 0.74
+const STAR_PILOT_SCALE := 0.84
+const STAR_PILOT_INNER_RATIO := 0.46
 const PLANET_PILOT_RING_ROTATION := -0.28
 const PLANET_PILOT_RING_X_SCALE := 1.42
 const PLANET_PILOT_RING_Y_SCALE := 0.42
@@ -43,7 +46,7 @@ func configure(color: Color, bounds: Rect2, style_index := 0, pilot_index := 0) 
 	ship_color = color
 	movement_bounds = bounds
 	ship_style = clampi(style_index, 0, SHIP_STYLE_COUNT - 1)
-	pilot_style = clampi(pilot_index, 0, 2)
+	pilot_style = clampi(pilot_index, 0, PILOT_STYLE_COUNT - 1)
 	queue_redraw()
 
 
@@ -112,6 +115,8 @@ func _draw_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
 			_draw_astronaut_pilot(cockpit, cockpit_radius)
 		2:
 			_draw_planet_pilot(cockpit, cockpit_radius)
+		3:
+			_draw_star_pilot(cockpit, cockpit_radius)
 
 
 func _draw_astronaut_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
@@ -153,6 +158,29 @@ func _planet_pilot_ring_point(cockpit: Vector2, planet_radius: float, angle: flo
 		cos(angle) * planet_radius * PLANET_PILOT_RING_X_SCALE,
 		sin(angle) * planet_radius * PLANET_PILOT_RING_Y_SCALE
 	).rotated(PLANET_PILOT_RING_ROTATION)
+
+
+func _draw_star_pilot(cockpit: Vector2, cockpit_radius: float) -> void:
+	var star_radius := cockpit_radius * STAR_PILOT_SCALE
+	draw_colored_polygon(_star_pilot_points(cockpit + Vector2(0.8, 1.0), star_radius), Color("7d4a12"))
+	var points := _star_pilot_points(cockpit, star_radius)
+	draw_colored_polygon(points, Color("ffd84f"))
+	var outline: PackedVector2Array = points.duplicate()
+	outline.append(points[0])
+	draw_polyline(outline, Color("fff3ad"), 1.25, true)
+	draw_circle(cockpit + Vector2(-2.5, 0.0), 1.05, Color("20162b"))
+	draw_circle(cockpit + Vector2(2.5, 0.0), 1.05, Color("20162b"))
+	draw_arc(cockpit + Vector2(0.0, 0.6), cockpit_radius * 0.27, 0.18, PI - 0.18, 10, Color("9f5617"), 1.25, true)
+	draw_circle(cockpit + Vector2(-3.1, -3.3), 0.9, Color(1.0, 1.0, 1.0, 0.72))
+
+
+func _star_pilot_points(cockpit: Vector2, outer_radius: float) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	for index in range(10):
+		var radius := outer_radius if index % 2 == 0 else outer_radius * STAR_PILOT_INNER_RATIO
+		var angle := -PI * 0.5 + float(index) * PI / 5.0
+		points.append(cockpit + Vector2.from_angle(angle) * radius)
+	return points
 
 
 func _ship_target_size() -> Vector2:
