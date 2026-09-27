@@ -9,7 +9,7 @@
     {"path": "project.godot", "role": "Godot runtime identity, entry scene, display, input, audio, and renderer configuration"},
     {"path": "main.tscn", "role": "Executable scene entry and script attachment"},
     {"path": "scripts/main.gd", "role": "Implemented game state machine, modes, controls, target orchestration, tractor beam, persistence, and UI"},
-    {"path": "scripts/audio_controller.gd", "role": "Implemented generated cues, sound-effect playback, and native text-to-speech requests"},
+    {"path": "scripts/audio_controller.gd", "role": "Implemented generated cues and capture poof, sound-effect playback, and native text-to-speech requests"},
     {"path": "scripts/player_ship.gd", "role": "Implemented ship movement, rendering, styles, and pilot presentation"},
     {"path": "scripts/planet.gd", "role": "Implemented celestial-body rendering, capture, collision extent, and explosion behavior"},
     {"path": "scripts/meteor.gd", "role": "Implemented meteor-flight and impact behavior"},
@@ -102,9 +102,10 @@ prose than in C4 diagrams, so no C4 view is maintained.
 
 One Godot scene hosts a small explicit state machine and composes specialized
 Node2D scripts for the ship, celestial bodies, and meteors. Most visual content
-is drawn procedurally, while four ship sprites, Trixie, the dimmed Milky Way,
-and a few effects are repository assets. This keeps iteration fast and avoids
-a large scene hierarchy, at the cost of a sizeable central game script.
+is drawn procedurally, while four ship sprites, Trixie, Traxy's six-frame atlas,
+the dimmed Milky Way, and a few effects are repository assets. This keeps
+iteration fast and avoids a large scene hierarchy, at the cost of a sizeable
+central game script.
 
 Gameplay settings use Godot `ConfigFile`; no database or service is necessary.
 Automated tests instantiate the real scene, drive controls and state, and use
@@ -117,15 +118,24 @@ bounded evidence, artifact identity, and deterministic Android deployment.
   [`scripts/main.gd`](../scripts/main.gd) form the application shell. They own
   menu and HUD drawing, the game-state machine, input routing, randomized target
   placement, target contact, mode progression, tractor selection, scores, and
-  the finale.
+  the rescue and meteor finale.
 - [`scripts/audio_controller.gd`](../scripts/audio_controller.gd) owns generated
-  interface tones, one-shot effects, delayed English voice discovery, and native
-  speech queue submission.
+  interface tones, the nonverbal capture poof, one-shot effects, delayed English
+  voice discovery, and native speech queue submission.
 - [`scripts/player_ship.gd`](../scripts/player_ship.gd) owns movement bounds,
-  velocity, eight ship styles, cockpit placement, and three pilots.
+  velocity, eight ship styles, cockpit placement, three pilots, and the bounded
+  exception that lets the scripted rescue fly offscreen.
+- [`scripts/space_target.gd`](../scripts/space_target.gd) defines the common
+  capture, extent, and tractor-pull contract shared by stationary and moving
+  targets.
 - [`scripts/planet.gd`](../scripts/planet.gd) owns each target's recognizable
   rendering, capture radius, paint transition, black-hole treatment, Solar Tour
   marker and timed arrow cue, and explosion animation.
+- [`scripts/traxy.gd`](../scripts/traxy.gd) owns Traxy's single-frame overhead
+  chair rotation, independent steering-thruster rendering, flee and
+  corner-escape steering, planet avoidance, captured float and blink, collision
+  bounce, suit-accent recoloring, capture cloud, and progressive hook and tow
+  cable rendering.
 - [`scripts/meteor.gd`](../scripts/meteor.gd) owns one curved meteor flight and
   reports impact to the game shell.
 - [`scripts/regression_tests.gd`](../scripts/regression_tests.gd) is the Godot
@@ -141,21 +151,30 @@ bounded evidence, artifact identity, and deterministic Android deployment.
 
 ## 6 Runtime behavior
 
-The normal state order is Menu, Ready, Countdown, Playing, Finale, and Results.
-Pause temporarily replaces Playing and resumes the prior state. Any supported
-input starts a five-step countdown. During play, the ship moves within bounds,
-the game checks contact with uncaptured targets, and native speech requests are
-submitted in capture order without an application-side delay.
+The normal state order is Menu, Ready, Countdown, Playing, optional Rescue,
+Finale, and Results. Pause temporarily replaces Playing and resumes the prior
+state. Any supported input starts a five-step countdown. During play, the ship
+moves within bounds, the game checks contact with uncaptured targets, and native
+speech requests are submitted in capture order without an application-side
+delay.
 
-Space Rush remains the default mode and accepts targets in any order. Solar Tour
-is an additive menu choice: it preserves the same roster and finale, accepts only
-the highlighted next body from the Sun outward, shows inward arrows for the first
-2.5 seconds of every new target, and records a separate best time.
+Space Rush remains the default mode and adds Traxy as a sixteenth target that can
+be captured in any order. While uncaptured he steers away from the ship, skims
+edges instead of pressing into them, locks a safe corner escape when necessary,
+and avoids celestial bodies. Captured Traxy loses the chair, floats with the
+approved shocked blink, and reflects from bodies and playfield edges while
+rotating slowly clockwise. Capture emits a white cloud and a generated nonverbal
+poof; the device speaks his name after that sound completes. His label, suit
+fabric, and suit panels adopt the exact ship color, while Traxy, his helmet
+glass, tail, and gold hardware retain their source colors. Solar Tour is an
+additive menu choice: it keeps the fifteen-body roster,
+accepts only the highlighted next body from the Sun outward, shows inward arrows
+for the first 2.5 seconds of every new target, and records a separate best time.
 Completing the ordered roster adds a Tour Medal to the results panel.
 Both modes derive their result layout from the fallback font's actual bounds;
 the Solar Tour medal occupies its own row above the elapsed and best times.
 
-The tractor beam selects at most one visible, uncaptured body whose bearing is
+The tractor beam selects at most one visible, uncaptured target whose bearing is
 eligible for its course-aligned pear-shaped field. It moves that body toward
 the ship; it never changes ship heading. The persisted Power setting controls
 both range and pull, with diminishing strength growth. Its diagnostic outline
@@ -163,10 +182,18 @@ is hidden. Back, Reset, Pause/Resume, and Close in that order within the unlock
 window toggles the outline and consumes the sequence; an unmatched Back is
 resolved to its normal menu action after the short window.
 
-Capturing the final target freezes the run time, updates the best score when
-appropriate, and creates one meteor per target. Each impact starts that target's
-explosion. After all impacts, the results view hides the ship and offers replay
-or menu recovery. Reset returns the current run to Ready; Back returns to Menu.
+Marking the last planet in Space Rush leaves the run active while Traxy remains
+uncaught. Traxy must be captured by normal ship contact; only after every planet
+and Traxy are marked does the game freeze the run time, update the best score,
+and enter Rescue. The ship stages between him and the farthest screen corner,
+launches a curved cable backward with a rotating hook, visibly latches his
+harness, then
+tows him toward and beyond that corner at 70% of its normal maximum speed. Only
+after both are offscreen does the Finale create one meteor per planet;
+Traxy is never a meteor target. Solar Tour proceeds directly from its final body
+to the planet-only finale. Each impact starts that body's explosion. After all
+impacts, the results view hides the ship and offers replay or menu recovery.
+Reset returns the current run to Ready; Back returns to Menu.
 The planet pilot draws its far ring arc before the planet body and its near arc
 after the face, so the ring visibly wraps around rather than sitting behind it.
 
@@ -209,7 +236,9 @@ Godot Input and `InputEvent` are the player-control interface. `DisplayServer`
 owns the native text-to-speech queue. The audio controller retries English
 voice discovery at mission setup and again when a capture finds no cached voice,
 then submits the name, voice, volume, pitch, rate, utterance identifier, and
-`interrupt=false`. Missing voice support still degrades to silent names without
+`interrupt=false`. Ordinary target names enter the native queue immediately;
+Traxy's capture waits only for its generated poof to finish. Missing voice
+support still degrades to silent names without
 blocking capture. `ConfigFile` is the local persistence interface.
 
 The SDLC contract is [`sdlc/sdlc.yml`](../sdlc/sdlc.yml). Repository helpers
@@ -243,13 +272,23 @@ activity, installed hash, or launch confirmation differs.
    consistent scaling, and licensing clarity.
 3. **Accepted: native queued text-to-speech.** Pre-rendered names would sound
    consistent but add asset and localization lifecycle. The native queue keeps
-   names ordered and non-overlapping with no application delay.
+   names ordered and non-overlapping; only Traxy's name waits for his short
+   capture poof to complete.
 4. **Accepted: pull targets rather than steer the ship.** Course correction
    would weaken direct control; moving one eligible target provides assistance
    while preserving player heading.
 5. **Accepted: evidence reuse bound to source and artifact identity.** Rerunning
    tests during delivery is slower and can test different bytes. Saved results
    are reusable only while their bindings remain applicable.
+6. **Accepted: local steering with locked escape directions for Traxy.** A pure
+   away vector predictably pins a fleeing target against edges; a navigation
+   grid or pathfinder would add world data and replanning for a small open arena.
+   Direct flee, obstacle repulsion, edge tangents, short corner locks, and a
+   displacement watchdog keep motion responsive without that lifecycle cost.
+7. **Accepted: one smoothly rotated overhead Traxy chair.** Larger directional
+   atlases retain switching thresholds, while two mirrored frames fail for
+   vertical escape. Angular interpolation turns one approved overhead frame
+   continuously; code-rendered rear thrusters rotate with it and bias on turns.
 
 ## 10 Quality scenarios
 
@@ -257,6 +296,7 @@ activity, installed hash, or launch confirmation differs.
 | --- | --- | --- | --- |
 | Input parity | A player uses keyboard, gamepad, or touch from Ready and Playing | Each starts or controls the same state transition without an input-specific gameplay advantage | `controls-countdown`, `gameplay-flow` |
 | Responsiveness | A visible eligible target enters the tractor field during play | At most one target moves closer in the same update; the ship course is unchanged | `tractor-beam` |
+| Escape reliability | Traxy reaches an edge, corner, or nearby planet while fleeing | He chooses a traversable direction, remains in bounds, and continues moving rather than settling in place | `targets` |
 | Readability | The game renders at the 1280 by 720 logical viewport | Menu selectors, HUD, labels, pause, results, and countdown remain legible and non-overlapping | `rendered-ui` |
 | Icon survival | Android composes adaptive icon layers under a circular launcher mask | Dark space, the diagonal rocket, and the gold ringed planet remain visible; clipped corners are transparent | `rendered-ui` adaptive-icon capture |
 | Determinism | Delivery receives a qualified tagged APK | Saved results and the installed APK must match the exact source and SHA-256, or delivery fails | `delivery-lifecycle` |
@@ -269,6 +309,8 @@ tools, environment, and optional artifact identity recorded by that run.
 
 - The central game script is still sizeable; new unrelated responsibilities
   should move to focused nodes rather than rebuilding audio or mode logic there.
+- Traxy's steering is tuned for the fixed open playfield and stationary bodies;
+  moving obstacles or a camera-driven world would require a navigation review.
 - Native text-to-speech voice, pronunciation, and latency vary by device. Tests
   verify requests and ordering, not speaker acoustics.
 - The fixed logical viewport and all-visible target roster have not yet proven
@@ -285,9 +327,10 @@ tools, environment, and optional artifact identity recorded by that run.
 ## 12 Glossary and references
 
 - **Capture:** first ship contact that changes a target toward the selected ship
-  color and queues its spoken name.
-- **Target:** a capturable planet, Moon, Sun, Pluto, Haumea, asteroid, or black
-  hole.
+  color and queues its spoken name; Traxy's name follows his capture poof.
+- **Target:** a capturable celestial body or Traxy in Space Rush.
+- **Rescue:** the timed-score-frozen sequence that hooks captured Traxy, tows
+  him offscreen, and hands off to the planet-only meteor finale.
 - **Tractor field:** the course-aligned pear-shaped eligibility region that can
   pull one visible uncaptured target toward the ship.
 - **Qualification:** binding passing validation and grouped tests to exact
@@ -310,7 +353,9 @@ groups. Headless Godot groups observe menu, controls, audio requests, tractor
 behavior, target models, ship and pilot models, gameplay flow, pause, results,
 and persistence. The rendered group captures actual Godot output for menu,
 play, pause, countdown, results, cockpit, targets, the hidden tractor field,
-the standalone icon, and the layered adaptive icon under a circular mask.
+Traxy's smoothly turned overhead chair, independent thrusters, capture-cloud,
+shocked, progressive-hook, and cable-tow states, the standalone icon, and the
+layered adaptive icon under a circular mask.
 Python tests cover result lifecycle, automatic Godot asset-import bootstrapping,
 and ADB behavior.
 

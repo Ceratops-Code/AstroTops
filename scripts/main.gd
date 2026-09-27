@@ -2,6 +2,7 @@ extends Node2D
 
 
 const PlanetScene := preload("res://scripts/planet.gd")
+const TraxyScene := preload("res://scripts/traxy.gd")
 const ShipScene := preload("res://scripts/player_ship.gd")
 const MeteorScene := preload("res://scripts/meteor.gd")
 const AudioControllerScene := preload("res://scripts/audio_controller.gd")
@@ -22,6 +23,11 @@ const TRACTOR_PULL_TAPER := 0.15
 const TRACTOR_DEFAULT_STRENGTH := 0.45
 const TRACTOR_DEBUG_SEQUENCE := ["back", "reset", "pause", "close"]
 const TRACTOR_DEBUG_SEQUENCE_TIMEOUT_MS := 1100
+const RESCUE_APPROACH_SPEED := 260.0
+const RESCUE_TOW_SPEED_FACTOR := 0.70
+const RESCUE_HOOK_STANDOFF_DISTANCE := 150.0
+const RESCUE_STAGING_TOLERANCE := 7.0
+const RESCUE_OFFSCREEN_MARGIN := 150.0
 const MODE_NAMES := ["SPACE RUSH", "SOLAR TOUR"]
 const TOUR_ORDER := [
 	"sun", "mercury", "venus", "earth", "moon", "mars", "asteroid_a",
@@ -79,7 +85,7 @@ const RESET_BEST_BUTTON := Rect2(540.0, 646.0, 200.0, 32.0)
 const AGAIN_BUTTON := Rect2(400.0, 545.0, 230.0, 72.0)
 const MENU_BUTTON := Rect2(650.0, 545.0, 230.0, 72.0)
 
-enum GameState { MENU, READY, COUNTDOWN, PLAYING, PAUSED, FINALE, RESULTS }
+enum GameState { MENU, READY, COUNTDOWN, PLAYING, PAUSED, RESCUE, FINALE, RESULTS }
 enum GameMode { SPACE_RUSH, SOLAR_TOUR }
 
 signal ui_click_requested
@@ -108,6 +114,7 @@ var selected_game_mode := GameMode.SPACE_RUSH
 
 var ship: PlayerShip
 var planets: Array[ColorPlanet] = []
+var traxy: Traxy
 var stars: Array[Dictionary] = []
 var elapsed_time := 0.0
 var final_time := 0.0
@@ -123,7 +130,7 @@ var run_serial := 0
 var tour_progress_index := 0
 var tractor_beam_enabled := true
 var tractor_beam_strength := TRACTOR_DEFAULT_STRENGTH
-var tractor_target: ColorPlanet
+var tractor_target: SpaceTarget
 var tractor_course_direction := Vector2.UP
 var tractor_debug_field_visible := false
 var tractor_debug_sequence_index := 0
@@ -132,6 +139,10 @@ var tractor_debug_sequence_serial := 0
 var best_reset_confirmation_until := 0
 var settings_path := SAVE_PATH
 var audio_playback_enabled := true
+var rescue_hook_started := false
+var rescue_hooked := false
+var rescue_exit_direction := Vector2.RIGHT
+var rescue_staging_position := Vector2.ZERO
 
 var touch_id := -1
 var touch_origin := Vector2.ZERO
@@ -190,8 +201,14 @@ func _process(delta: float) -> void:
 			elapsed_time += delta
 			var movement := _movement_input()
 			ship.move_ship(movement, delta)
+			if is_instance_valid(traxy):
+				traxy.update_active(delta, ship.position, planets)
 			_update_tractor_beam(delta, movement)
 			_check_planet_contacts()
+			if state == GameState.PLAYING:
+				_check_traxy_contact()
+		GameState.RESCUE:
+			_update_traxy_rescue(delta)
 		GameState.MENU:
 			ship.rotation = lerp_angle(ship.rotation, sin(input_hint_time * 0.6) * 0.08, delta * 2.0)
 	_update_overlay()
@@ -338,7 +355,7 @@ func _body_specs() -> Array[Dictionary]:
 
 
 func _spawn_planets() -> void:
-	_clear_planets()
+	_clear_targets()
 	run_serial += 1
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
@@ -353,6 +370,12 @@ func _spawn_planets() -> void:
 		add_child(planet)
 		planets.append(planet)
 	total_targets = planets.size()
+	if not _is_tour_mode():
+		traxy = TraxyScene.new()
+		traxy.z_index = 3
+		add_child(traxy)
+		traxy.configure(SHIP_BOUNDS, SHIP_START, planets, 7000 + run_serial * 149)
+		total_targets += 1
 
 
 func _random_target_positions(specs: Array[Dictionary], rng: RandomNumberGenerator) -> Array[Vector2]:
@@ -407,12 +430,17 @@ func _layout_extent(spec: Dictionary) -> float:
 		_: return radius
 
 
-func _clear_planets() -> void:
+func _clear_targets() -> void:
 	tractor_target = null
 	for planet in planets:
 		if is_instance_valid(planet):
 			planet.queue_free()
 	planets.clear()
+	if is_instance_valid(traxy):
+		traxy.queue_free()
+	traxy = null
+	rescue_hook_started = false
+	rescue_hooked = false
 	for child in get_children():
 		if child is TargetMeteor:
 			child.queue_free()
@@ -487,8 +515,112 @@ func _check_planet_contacts() -> void:
 				if _is_tour_mode():
 					tour_progress_index += 1
 					_refresh_tour_highlights()
-				if captured_count >= total_targets:
-					_finish_run()
+	if _all_planets_captured():
+		if _is_tour_mode():
+			_finish_run()
+		elif is_instance_valid(traxy) and traxy.captured:
+			_begin_traxy_rescue()
+
+
+func _check_traxy_contact() -> void:
+	if not is_instance_valid(traxy) or traxy.captured:
+		return
+	if ship.position.distance_to(traxy.position) <= traxy.capture_radius() + ship.hit_radius * 0.72:
+		_capture_traxy()
+
+
+func _capture_traxy() -> void:
+	if is_instance_valid(traxy) and traxy.capture(palette[selected_color_index]):
+		captured_count += 1
+		audio_controller.play_capture_poof_then_speak(traxy.body_name)
+		if _all_planets_captured():
+			_begin_traxy_rescue()
+
+
+func _all_planets_captured() -> bool:
+	return not planets.is_empty() and planets.all(func(planet: ColorPlanet) -> bool: return planet.captured)
+
+
+func _begin_traxy_rescue() -> void:
+	if state != GameState.PLAYING or not is_instance_valid(traxy) or not traxy.captured or not _all_planets_captured():
+		return
+	state = GameState.RESCUE
+	tractor_target = null
+	final_time = elapsed_time
+	ship.stop()
+	_save_best_time()
+	_clear_touch()
+	rescue_hook_started = false
+	rescue_hooked = false
+	rescue_exit_direction = _farthest_corner_exit_direction(traxy.position)
+	rescue_staging_position = _rescue_hook_staging_position(traxy.position, rescue_exit_direction)
+	traxy.prepare_for_rescue()
+
+
+func _update_traxy_rescue(delta: float) -> void:
+	if not is_instance_valid(traxy):
+		_start_meteor_finale()
+		return
+	if not rescue_hooked:
+		traxy.update_active(delta, ship.position, planets)
+		if not rescue_hook_started:
+			var to_staging := rescue_staging_position - ship.position
+			if to_staging.length() <= RESCUE_STAGING_TOLERANCE:
+				_start_rescue_hook()
+			else:
+				var approach_speed := minf(RESCUE_APPROACH_SPEED, to_staging.length() / maxf(delta, 0.001))
+				ship.move_scripted(to_staging.normalized() * approach_speed, delta)
+				var remaining := rescue_staging_position - ship.position
+				if remaining.length() <= RESCUE_STAGING_TOLERANCE or to_staging.dot(remaining) <= 0.0:
+					_start_rescue_hook()
+		elif traxy.is_hook_animation_complete():
+			rescue_hooked = true
+			rescue_exit_direction = _farthest_corner_exit_direction(traxy.position)
+			traxy.begin_tow(ship, rescue_exit_direction)
+		else:
+			ship.stop()
+		return
+	ship.move_scripted(rescue_exit_direction * _rescue_tow_speed(), delta)
+	traxy.update_active(delta, ship.position, planets)
+	var visible_area := Rect2(Vector2.ONE * -RESCUE_OFFSCREEN_MARGIN, VIEW_SIZE + Vector2.ONE * RESCUE_OFFSCREEN_MARGIN * 2.0)
+	if not visible_area.has_point(ship.position) and not visible_area.has_point(traxy.position):
+		ship.stop()
+		ship.visible = false
+		traxy.visible = false
+		_start_meteor_finale()
+
+
+func _start_rescue_hook() -> void:
+	ship.position = rescue_staging_position
+	ship.stop()
+	rescue_hook_started = true
+	traxy.begin_hook(ship)
+
+
+func _farthest_corner_exit_direction(point: Vector2) -> Vector2:
+	var corners: Array[Vector2] = [Vector2.ZERO, Vector2(VIEW_SIZE.x, 0.0), Vector2(0.0, VIEW_SIZE.y), VIEW_SIZE]
+	var farthest: Vector2 = corners[0]
+	var farthest_distance := -1.0
+	for corner in corners:
+		var distance := point.distance_squared_to(corner)
+		if distance > farthest_distance:
+			farthest_distance = distance
+			farthest = corner
+	return (farthest - point).normalized()
+
+
+func _rescue_hook_staging_position(point: Vector2, exit_direction: Vector2) -> Vector2:
+	# Stage between Traxy and the selected corner so the hook fires backward and
+	# he trails naturally throughout the longest visible tow path.
+	var desired := point + exit_direction * RESCUE_HOOK_STANDOFF_DISTANCE
+	return Vector2(
+		clampf(desired.x, SHIP_BOUNDS.position.x, SHIP_BOUNDS.end.x),
+		clampf(desired.y, SHIP_BOUNDS.position.y, SHIP_BOUNDS.end.y)
+	)
+
+
+func _rescue_tow_speed() -> float:
+	return ship.max_speed * RESCUE_TOW_SPEED_FACTOR
 
 
 func _is_tour_mode() -> bool:
@@ -517,12 +649,17 @@ func _refresh_tour_highlights() -> void:
 
 
 func _finish_run() -> void:
-	state = GameState.FINALE
-	tractor_target = null
 	final_time = elapsed_time
 	ship.stop()
 	_save_best_time()
 	_clear_touch()
+	_start_meteor_finale()
+
+
+func _start_meteor_finale() -> void:
+	state = GameState.FINALE
+	tractor_target = null
+	finale_impacts = 0
 	_play_sfx("meteor", 1.0, -5.0)
 	for index in range(planets.size()):
 		var planet := planets[index]
@@ -544,7 +681,7 @@ func _on_meteor_impact(planet: Node) -> void:
 		planet.explode()
 	finale_impacts += 1
 	_play_sfx("explosion", 0.88 + float(finale_impacts % 5) * 0.055, -4.0)
-	if finale_impacts >= total_targets:
+	if finale_impacts >= planets.size():
 		get_tree().create_timer(1.05).timeout.connect(_show_results)
 
 
@@ -558,7 +695,7 @@ func _return_to_menu(play_click := true) -> void:
 	_stop_target_speech()
 	if play_click:
 		_play_ui_click()
-	_clear_planets()
+	_clear_targets()
 	state = GameState.MENU
 	ship.visible = true
 	ship.position = MENU_SHIP_POSITION
@@ -611,7 +748,7 @@ func _update_tractor_beam(delta: float, movement: Vector2) -> void:
 	var candidate := _best_tractor_candidate(course_direction)
 	if candidate.is_empty():
 		return
-	tractor_target = candidate["planet"]
+	tractor_target = candidate["target"]
 	# A target near the pear boundary still receives a gentle pull instead of dropping to zero.
 	var alignment := lerpf(1.0, 0.25, float(candidate["field_normalized"]))
 	var distance_factor := lerpf(1.0, 0.38, float(candidate["distance_normalized"]))
@@ -621,7 +758,7 @@ func _update_tractor_beam(delta: float, movement: Vector2) -> void:
 		0.0,
 		ship.max_speed * TRACTOR_MAX_PULL_RATIO
 	)
-	tractor_target.global_position = tractor_target.global_position.move_toward(ship.global_position, pull_speed * delta)
+	tractor_target.apply_tractor_pull(ship.global_position, pull_speed * delta)
 
 
 func _tractor_pull_power() -> float:
@@ -655,15 +792,20 @@ func _best_tractor_candidate(course_direction: Vector2) -> Dictionary:
 	var max_distance := _tractor_max_distance(viewport_rect.size)
 	var best_score := INF
 	var best_candidate := {}
+	var targets: Array[SpaceTarget] = []
 	for planet in planets:
-		if not is_instance_valid(planet) or planet.captured or not planet.is_visible_in_tree():
+		targets.append(planet)
+	if is_instance_valid(traxy):
+		targets.append(traxy)
+	for target in targets:
+		if not is_instance_valid(target) or target.captured or not target.is_visible_in_tree():
 			continue
-		if _is_tour_mode() and planet.body_style != _tour_target_style():
+		if _is_tour_mode() and target is ColorPlanet and target.body_style != _tour_target_style():
 			continue
-		var target_screen := canvas_transform * planet.global_position
-		var visual_extent := planet.visual_extent()
-		var extent_x_screen := canvas_transform * planet.to_global(Vector2(visual_extent, 0.0))
-		var extent_y_screen := canvas_transform * planet.to_global(Vector2(0.0, visual_extent))
+		var target_screen := canvas_transform * target.global_position
+		var visual_extent := target.visual_extent()
+		var extent_x_screen := canvas_transform * target.to_global(Vector2(visual_extent, 0.0))
+		var extent_y_screen := canvas_transform * target.to_global(Vector2(0.0, visual_extent))
 		var visibility_margin := maxf(target_screen.distance_to(extent_x_screen), target_screen.distance_to(extent_y_screen))
 		if not viewport_rect.grow(visibility_margin).has_point(target_screen):
 			continue
@@ -686,7 +828,7 @@ func _best_tractor_candidate(course_direction: Vector2) -> Dictionary:
 		if score < best_score:
 			best_score = score
 			best_candidate = {
-				"planet": planet,
+				"target": target,
 				"field_normalized": field_normalized,
 				"distance_normalized": distance_normalized,
 			}
@@ -1328,7 +1470,7 @@ func _draw() -> void:
 	match state:
 		GameState.MENU:
 			_draw_menu()
-		GameState.READY, GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED:
+		GameState.READY, GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED, GameState.RESCUE:
 			_draw_game_hud()
 			if state == GameState.PLAYING:
 				_draw_touch_stick()
@@ -1381,7 +1523,7 @@ func _draw_game_hud() -> void:
 	draw_string(font, Vector2(20.0, 51.0), BRAND_NAME, HORIZONTAL_ALIGNMENT_LEFT, 190.0, 23, Color(0.0, 0.0, 0.04, 0.90))
 	draw_string(font, Vector2(18.0, 49.0), BRAND_NAME, HORIZONTAL_ALIGNMENT_LEFT, 190.0, 23, palette[selected_color_index].lightened(0.18))
 	draw_arc(Vector2(123.0, 39.0), 15.0, -0.30, PI + 0.35, 22, Color(palette[selected_color_index], 0.55), 2.0, true)
-	var shown_time := final_time if state in [GameState.FINALE, GameState.RESULTS] else elapsed_time
+	var shown_time := final_time if state in [GameState.RESCUE, GameState.FINALE, GameState.RESULTS] else elapsed_time
 	draw_string(font, Vector2(210.0, 49.0), _format_time(shown_time), HORIZONTAL_ALIGNMENT_CENTER, 180.0, 27, Color.WHITE)
 	draw_string(font, Vector2(410.0, 48.0), "%d / %d TARGETS" % [captured_count, total_targets], HORIZONTAL_ALIGNMENT_CENTER, 275.0, 19, Color("dbe5ff"))
 	if _is_tour_mode():

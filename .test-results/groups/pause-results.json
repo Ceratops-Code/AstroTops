@@ -1,12 +1,5 @@
 {
-  "artifact": {
-    "artifactLength": 83484861,
-    "artifactPath": ".build/artifacts/android/AstroTops.apk",
-    "artifactSha256": "41bca25fbb98a3c5acb0047c4f71b2b50883b029bd7823483246136f1a86e9c5",
-    "schema": "astrotops-build-record.v1",
-    "sourceCommit": "1081dbea3c016b400a84c6a94ac49f68dfadf5b3",
-    "version": "astrotops-local-20260926-1081dbe"
-  },
+  "artifact": null,
   "assertions": 34,
   "command": [
     "{godot}",
@@ -30,13 +23,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260926T193832Z-1081dbea3c01/pause-results/output.log"
+    "evidence/20260927T032011Z-930dcbb152ec/pause-results/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "a4d08ec36f585294470fdadec5f40396f84300694865e9bb69e89762c2b33367",
-  "finishedAt": 1790451519.9964778,
+  "fingerprint": "96bec67e43016828f2011feac0fbf5bfa9802b9d3d3131e1eeaf14e0e703f775",
+  "finishedAt": 1790479219.6363375,
   "id": "pause-results",
   "observations": [
     {
@@ -45,16 +38,14 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260926T193832Z-1081dbea3c01",
+  "runId": "20260927T032011Z-930dcbb152ec",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.375,
+  "seconds": 0.473,
   "source": {
-    "commit": "1081dbea3c016b400a84c6a94ac49f68dfadf5b3",
-    "digest": "c1e2042202fac05b9d4cc1c6b16fc2df065c3e1fa7167b2be9552fe39ff14307",
+    "commit": "930dcbb152ec5503eb17b27f7d8a0d57e39dc618",
+    "digest": "b6e41901b88cfae940fdeb51fbcce1166a04f2fb7d304927eccf0f1275d7aa61",
     "dirty": false,
-    "exactTags": [
-      "astrotops-local-20260926-1081dbe"
-    ]
+    "exactTags": []
   },
   "status": "passed"
 }
