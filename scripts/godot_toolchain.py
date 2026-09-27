@@ -215,7 +215,9 @@ def _require_godot_version(
     """Reject a runtime that is present but not the repository's pinned version."""
 
     version = version_probe(executable)
-    if not version.startswith(GODOT_VERSION + "."):
+    if version != GODOT_TEMPLATE_IDENTIFIER and not version.startswith(
+        GODOT_TEMPLATE_IDENTIFIER + "."
+    ):
         raise RuntimeError(
             f"Godot {GODOT_VERSION} is required; {executable} reports {version!r}."
         )

@@ -445,6 +445,26 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         str(repaired),
         str(resolved_from_mismatch),
     )
+    prerelease = temporary_root / "godot-4.7.2-rc1"
+    prerelease.write_bytes(b"prerelease-godot-runtime")
+
+    def prerelease_version(executable: pathlib.Path) -> str:
+        if executable == prerelease:
+            return GODOT_VERSION + ".rc1.official"
+        return fake_version(executable)
+
+    resolved_from_prerelease = resolve_godot(
+        None,
+        environ={},
+        which=lambda name: str(prerelease) if name == "godot" else None,
+        provision=lambda: repaired,
+        version_probe=prerelease_version,
+    )
+    check(
+        "godot-prerelease-path-self-provisions",
+        str(repaired),
+        str(resolved_from_prerelease),
+    )
 
     fake_android_archive = temporary_root / "android-source.zip"
     with zipfile.ZipFile(

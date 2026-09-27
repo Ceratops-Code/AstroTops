@@ -72,6 +72,8 @@ deliverables:
         build:
           requires:
             capabilities:
+              - android-sdk
+              - jdk
               - uv
           result-schema: ceratops-build-result.v1
           steps:
