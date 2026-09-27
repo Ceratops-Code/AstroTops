@@ -21,7 +21,6 @@ import platform
 import shutil
 import stat
 import subprocess
-import tempfile
 import time
 import urllib.request
 import zipfile
@@ -161,6 +160,20 @@ def _cleanup_cache_orphans(root: pathlib.Path) -> None:
             shutil.rmtree(child)
         else:
             child.unlink()
+
+
+def _create_cache_staging(root: pathlib.Path) -> pathlib.Path:
+    """Create private staging without publishing a restrictive Windows ACL."""
+
+    staging = root / f".extract-{os.getpid()}-{time.time_ns()}"
+    if os.name == "nt":
+        # tempfile.mkdtemp(mode=0o700) can replace inherited ACLs on modern
+        # Windows Python, making the atomically published cache undeletable by
+        # the same non-elevated user when the parent is administrator-owned.
+        staging.mkdir()
+    else:
+        staging.mkdir(mode=0o700)
+    return staging
 
 
 def _prune_version_cache(root: pathlib.Path, current_version: str) -> None:
@@ -333,7 +346,7 @@ def provision_godot(
                 raise RuntimeError(f"Godot cache entry has an invalid type: {version_root}")
             shutil.rmtree(version_root)
         archive_path = root / f".download-{os.getpid()}-{time.time_ns()}.zip"
-        extraction_root = pathlib.Path(tempfile.mkdtemp(prefix=".extract-", dir=root))
+        extraction_root = _create_cache_staging(root)
         try:
             url = selected.get("url")
             expected_hash = selected.get("sha256")
@@ -550,7 +563,7 @@ def provision_android_source_template(
                 )
             candidates.insert(0, explicit_path)
 
-        extraction_root = pathlib.Path(tempfile.mkdtemp(prefix=".extract-", dir=root))
+        extraction_root = _create_cache_staging(root)
         download_path = root / f".download-{os.getpid()}-{time.time_ns()}.zip"
         try:
             filename = selected.get("filename")

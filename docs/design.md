@@ -246,9 +246,12 @@ The external editor and Android-template caches are owned by
 `scripts/godot_toolchain.py`, separated by artifact purpose, grouped by version,
 cleaned at every provision attempt, and each bounded to the current version plus
 two predecessors. Interrupted downloads and extractions are helper-owned
-orphans and are removed while holding the applicable cache lock. The ignored
-project `android` directory is created only when absent; valid matching content
-is reused, while unexpected existing content is preserved and blocks export.
+orphans and are removed while holding the applicable cache lock. On Windows,
+cache staging inherits the cache root's ACL so atomic publication cannot leave
+an administrator-owned entry that the invoking user cannot later rotate or
+remove. The ignored project `android` directory is created only when absent;
+valid matching content is reused, while unexpected existing content is
+preserved and blocks export.
 The same helper owns the fixed validation-only APK under
 `.build/artifacts/android/.validation`; it replaces that file at validation
 start and deletes it at the end, including failure paths. The package build owns

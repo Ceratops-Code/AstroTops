@@ -33,6 +33,7 @@ if str(_SCRIPT_DIRECTORY) not in sys.path:
 from godot_toolchain import (  # noqa: E402
     GODOT_TEMPLATE_IDENTIFIER,
     GODOT_VERSION,
+    _create_cache_staging,
     _prune_version_cache,
     _sha256,
     android_build_template_ready,
@@ -324,6 +325,11 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         return GODOT_VERSION + ".stable.test"
 
     fake_cache = temporary_root / "tool-cache" / "godot"
+    fake_cache.mkdir(parents=True)
+    removable_staging = _create_cache_staging(fake_cache)
+    (removable_staging / "probe").write_bytes(b"probe")
+    shutil.rmtree(removable_staging)
+    check("godot-cache-staging-is-removable", False, removable_staging.exists())
     provisioned = provision_godot(
         cache_root=fake_cache,
         spec=fake_spec,
