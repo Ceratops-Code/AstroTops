@@ -1,5 +1,12 @@
 {
-  "artifact": null,
+  "artifact": {
+    "artifactLength": 83835521,
+    "artifactPath": ".build/artifacts/android/AstroTops.apk",
+    "artifactSha256": "eed9eadfefd6300318c45097d3179ddda8055c755ce78b8313519420e75e0860",
+    "schema": "astrotops-build-record.v1",
+    "sourceCommit": "75788403c39566fb4d32599ee50b975b16f31d8f",
+    "version": "astrotops-local-20260927-7578840"
+  },
   "assertions": 31,
   "command": [
     "{godot}",
@@ -23,13 +30,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T013717Z-75788403c395/tractor-beam/output.log"
+    "evidence/20260927T014210Z-75788403c395/tractor-beam/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "6bd978db9d42fa490619f72768223eac446175c43538307a29edce8ced99f804",
-  "finishedAt": 1790473041.659,
+  "fingerprint": "d555a103e63bed424b9232e6ed3002574e68be1e83fc349dccc90468a966054a",
+  "finishedAt": 1790473337.1547792,
   "id": "tractor-beam",
   "observations": [
     {
@@ -38,9 +45,9 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T013717Z-75788403c395",
+  "runId": "20260927T014210Z-75788403c395",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.476,
+  "seconds": 0.465,
   "source": {
     "commit": "75788403c39566fb4d32599ee50b975b16f31d8f",
     "digest": "d7f264923a83517455f10d45aeeb3979e0af6e5ae897dcfee092b48628d1f67a",

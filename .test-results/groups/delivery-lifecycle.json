@@ -1,5 +1,12 @@
 {
-  "artifact": null,
+  "artifact": {
+    "artifactLength": 83835521,
+    "artifactPath": ".build/artifacts/android/AstroTops.apk",
+    "artifactSha256": "eed9eadfefd6300318c45097d3179ddda8055c755ce78b8313519420e75e0860",
+    "schema": "astrotops-build-record.v1",
+    "sourceCommit": "75788403c39566fb4d32599ee50b975b16f31d8f",
+    "version": "astrotops-local-20260927-7578840"
+  },
   "assertions": 12,
   "command": [
     "{python}",
@@ -14,13 +21,13 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T013717Z-75788403c395/delivery-lifecycle/output.log"
+    "evidence/20260927T014210Z-75788403c395/delivery-lifecycle/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "45324aac7aa0cd8561506d9a19db7a2803ebc8452229360ce0b314044700e458",
-  "finishedAt": 1790473043.4744554,
+  "fingerprint": "bda8ad3180dcc2f461ad8e67e32ec18d92e4e4db09a51dbfdaa311d3d395858a",
+  "finishedAt": 1790473338.9847429,
   "id": "delivery-lifecycle",
   "observations": [
     {
@@ -53,16 +60,16 @@
     },
     {
       "actual": [
-        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-lrfpxq9h\\godot",
+        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-8dsnpvtd\\godot",
         "--headless",
         "--path",
-        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-lrfpxq9h\\repo",
+        "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-8dsnpvtd\\repo",
         "--import"
       ],
       "id": "runner-import-command"
     },
     {
-      "actual": "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-lrfpxq9h\\repo",
+      "actual": "C:\\Users\\roman\\AppData\\Local\\Temp\\astrotops-delivery-lifecycle-8dsnpvtd\\repo",
       "id": "runner-import-working-directory"
     },
     {
@@ -79,9 +86,9 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T013717Z-75788403c395",
+  "runId": "20260927T014210Z-75788403c395",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.005,
+  "seconds": 0.004,
   "source": {
     "commit": "75788403c39566fb4d32599ee50b975b16f31d8f",
     "digest": "d7f264923a83517455f10d45aeeb3979e0af6e5ae897dcfee092b48628d1f67a",
