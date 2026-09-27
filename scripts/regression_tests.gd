@@ -707,13 +707,27 @@ func _test_gameplay_flow() -> void:
 	var tour_main: Variant = await _new_main(root, "tour-flow-settings.cfg")
 	tour_main.selected_game_mode = tour_main.GameMode.SOLAR_TOUR
 	tour_main._prepare_run()
-	tour_main.state = tour_main.GameState.PLAYING
 	_assert_true("TRAXY-01/absent-from-solar-tour", not is_instance_valid(tour_main.traxy), tour_main.traxy, "no Traxy")
 	_assert_equal("TOUR-01/order-covers-roster", tour_main.TOUR_ORDER.size(), tour_main.total_targets)
-	_assert_equal("TOUR-01/first-target", tour_main._tour_target_style(), "sun")
+	_assert_equal("TOUR-01/first-target", tour_main._tour_target_style(), "asteroid_b")
+	var tour_radii: Array[float] = []
+	for tour_style: String in tour_main.TOUR_ORDER:
+		tour_radii.append(_planet_by_style(tour_main, tour_style).radius)
+	var sorted_tour_radii := tour_radii.duplicate()
+	sorted_tour_radii.sort()
+	_assert_equal("TOUR-01/smallest-to-largest", tour_radii, sorted_tour_radii)
 	_assert_equal("TOUR-01/one-highlight", tour_main.planets.filter(func(planet: ColorPlanet) -> bool: return planet.tour_highlighted).size(), 1)
-	var out_of_order: ColorPlanet = _planet_by_style(tour_main, "mercury")
-	var first_target: ColorPlanet = _planet_by_style(tour_main, "sun")
+	var out_of_order: ColorPlanet = _planet_by_style(tour_main, "haumea")
+	var first_target: ColorPlanet = _planet_by_style(tour_main, "asteroid_b")
+	_assert_true("TOUR-01/no-arrow-cue-before-countdown", not first_target.is_tour_guide_visible(), first_target.tour_guide_time_remaining, "0 seconds")
+	tour_main._begin_countdown()
+	tour_main._process(4.9)
+	_assert_true("TOUR-01/no-arrow-cue-during-countdown", not first_target.is_tour_guide_visible(), first_target.tour_guide_time_remaining, "0 seconds")
+	tour_main._process(0.11)
+	_assert_equal("TOUR-01/countdown-completes", tour_main.state, tour_main.GameState.PLAYING)
+	tour_main._process(0.99)
+	_assert_true("TOUR-01/no-early-arrow-cue-after-countdown", not first_target.is_tour_guide_visible(), first_target.tour_guide_time_remaining, "0 seconds")
+	tour_main._process(0.02)
 	_assert_true("TOUR-01/initial-arrow-cue", first_target.is_tour_guide_visible(), first_target.tour_guide_time_remaining, "> 0 seconds")
 	first_target._process(first_target.TOUR_GUIDE_DURATION)
 	_assert_true("TOUR-01/arrow-cue-times-out", not first_target.is_tour_guide_visible() and first_target.tour_highlighted, {"guide": first_target.tour_guide_time_remaining, "highlighted": first_target.tour_highlighted}, "arrows hidden; marker remains")
@@ -733,7 +747,7 @@ func _test_gameplay_flow() -> void:
 	_assert_equal("TOUR-01/out-of-order-blocked", tour_main.captured_count, 0)
 	tour_main.ship.position = first_target.position
 	tour_main._check_planet_contacts()
-	_assert_equal("TOUR-01/order-advances", [tour_main.captured_count, tour_main._tour_target_style()], [1, "mercury"])
+	_assert_equal("TOUR-01/order-advances", [tour_main.captured_count, tour_main._tour_target_style()], [1, "haumea"])
 	_assert_true("TOUR-01/next-target-highlighted", out_of_order.tour_highlighted, out_of_order.body_style)
 	_assert_true("TOUR-01/next-target-arrow-cue-reset", out_of_order.is_tour_guide_visible(), out_of_order.tour_guide_time_remaining, "> 0 seconds")
 	tour_main.elapsed_time = 19.5
@@ -958,13 +972,14 @@ func _test_rendered_ui() -> void:
 
 	main.selected_game_mode = main.GameMode.SOLAR_TOUR
 	main._prepare_run()
-	main.state = main.GameState.PLAYING
+	main._launch_run()
+	main._process(main.TOUR_FIRST_GUIDE_DELAY)
 	for planet in main.planets:
 		planet.set_process(false)
 	main._update_overlay()
 	main.queue_redraw()
 	var tour_image: Image = await _capture(viewport, "tour.png")
-	var highlighted_target: ColorPlanet = _planet_by_style(main, "sun")
+	var highlighted_target: ColorPlanet = _planet_by_style(main, main._tour_target_style())
 	highlighted_target.set_tour_highlighted(false)
 	RenderingServer.force_draw()
 	await _wait_frames(3)

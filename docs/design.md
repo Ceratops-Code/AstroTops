@@ -174,8 +174,10 @@ poof; the device speaks his name after that sound completes. His label, suit
 fabric, and suit panels adopt the exact ship color, while Traxy, his helmet
 glass, tail, and gold hardware retain their source colors. Solar Tour is an
 additive menu choice: it keeps the fifteen-body roster,
-accepts only the highlighted next body from the Sun outward, shows inward arrows
-for the first 2.5 seconds of every new target, and records a separate best time.
+accepts only the highlighted next body from smallest body radius to largest,
+starts the first inward-arrow cue one second after the countdown ends, shows the
+arrows for 2.5 seconds, cues later targets immediately, and records a separate
+best time.
 Completing the ordered roster adds a Tour Medal to the results panel.
 Both modes derive their result layout from the fallback font's actual bounds;
 the Solar Tour medal occupies its own row above the elapsed and best times.

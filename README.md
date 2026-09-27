@@ -6,7 +6,8 @@ fly through the Sun, eight planets, Moon, Pluto, Haumea, a black hole, and two
 asteroids before the meteor finale. Space Rush adds Traxy, a mischievous
 spacesuited T-rex in a thruster chair, as a sixteenth moving target. Solar Tour
 keeps the fifteen-body roster and highlights and enforces the next target from
-the Sun outward, then awards a Tour Medal.
+the smallest body to the largest, then awards a Tour Medal. Its first guidance
+arrows appear one second after the launch countdown ends.
 
 ## Controls
 
