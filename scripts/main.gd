@@ -566,12 +566,13 @@ func _update_traxy_rescue(delta: float) -> void:
 		if not rescue_hook_started:
 			var to_staging := rescue_staging_position - ship.position
 			if to_staging.length() <= RESCUE_STAGING_TOLERANCE:
-				ship.position = rescue_staging_position
-				ship.stop()
-				rescue_hook_started = true
-				traxy.begin_hook(ship)
+				_start_rescue_hook()
 			else:
-				ship.move_scripted(to_staging.normalized() * RESCUE_APPROACH_SPEED, delta)
+				var approach_speed := minf(RESCUE_APPROACH_SPEED, to_staging.length() / maxf(delta, 0.001))
+				ship.move_scripted(to_staging.normalized() * approach_speed, delta)
+				var remaining := rescue_staging_position - ship.position
+				if remaining.length() <= RESCUE_STAGING_TOLERANCE or to_staging.dot(remaining) <= 0.0:
+					_start_rescue_hook()
 		elif traxy.is_hook_animation_complete():
 			rescue_hooked = true
 			rescue_exit_direction = _farthest_corner_exit_direction(traxy.position)
@@ -587,6 +588,13 @@ func _update_traxy_rescue(delta: float) -> void:
 		ship.visible = false
 		traxy.visible = false
 		_start_meteor_finale()
+
+
+func _start_rescue_hook() -> void:
+	ship.position = rescue_staging_position
+	ship.stop()
+	rescue_hook_started = true
+	traxy.begin_hook(ship)
 
 
 func _farthest_corner_exit_direction(point: Vector2) -> Vector2:

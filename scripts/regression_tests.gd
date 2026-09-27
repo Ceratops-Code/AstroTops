@@ -292,9 +292,12 @@ func _test_audio_speech() -> void:
 	audio.tts_voice = ""
 	audio.playback_enabled = true
 	audio.play_capture_poof_then_speak("Traxy")
+	audio.speak_target_name("Earth")
 	_assert_equal("TRAXY-02/name-waits-for-poof", speech_events.size(), 0)
 	await create_timer(audio.CAPTURE_POOF_DURATION + 0.10).timeout
-	_assert_equal("TRAXY-02/poof-followed-by-name", speech_events.map(func(item: Dictionary) -> String: return String(item["text"])), ["Traxy"])
+	_assert_equal("TRAXY-02/poof-followed-by-name", String(speech_events.front()["text"]) if not speech_events.is_empty() else "", "Traxy")
+	_assert_equal("TRAXY-02/poof-preserves-capture-order", speech_events.map(func(item: Dictionary) -> String: return String(item["text"])), ["Traxy", "Earth"])
+	_assert_equal("TRAXY-02/poof-reserves-utterance-id", speech_events.map(func(item: Dictionary) -> int: return int(item["utterance_id"])), [1, 2])
 	audio.playback_enabled = false
 	speech_events.clear()
 	audio.target_speech_utterance_id = 0
@@ -654,9 +657,11 @@ func _test_gameplay_flow() -> void:
 	_assert_true("TRAXY-03/stages-ahead-in-tow-direction", (probe_staging - corner_probe).dot(expected_probe_direction) > 0.0, probe_staging, "between Traxy and the tow corner")
 	_assert_near("TRAXY-03/tow-speed-factor", main.RESCUE_TOW_SPEED_FACTOR, 0.70, 0.001)
 	_assert_near("TRAXY-03/tow-speed", main._rescue_tow_speed(), main.ship.max_speed * 0.70, 0.001)
-	main.ship.position = main.rescue_staging_position
-	main._update_traxy_rescue(0.02)
+	main.ship.position = main.rescue_staging_position - Vector2.RIGHT * (main.RESCUE_STAGING_TOLERANCE + 3.0)
+	main.ship.stop()
+	main._update_traxy_rescue(0.5)
 	_assert_true("TRAXY-03/hook-launch-started", main.rescue_hook_started and not main.rescue_hooked and main.traxy.motion_state == main.traxy.MotionState.HOOKING, main.traxy.motion_state)
+	_assert_true("TRAXY-03/low-fps-approach-snaps-to-staging", main.ship.position.distance_to(main.rescue_staging_position) < 0.001, main.ship.position, main.rescue_staging_position)
 	main._update_traxy_rescue(main.traxy.HOOK_TRAVEL_DURATION * 0.5)
 	_assert_true("TRAXY-03/hook-travels-progressively", main.traxy.hook_progress() > 0.0 and main.traxy.hook_progress() < 1.0 and not main.rescue_hooked, main.traxy.hook_progress())
 	var expected_exit_direction: Vector2 = main._farthest_corner_exit_direction(main.traxy.position)

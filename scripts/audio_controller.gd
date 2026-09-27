@@ -31,6 +31,8 @@ var countdown_boop_stream: AudioStreamWAV
 var capture_poof_stream: AudioStreamWAV
 var capture_poof_player: AudioStreamPlayer
 var capture_poof_generation := 0
+var capture_poof_speech_request: Dictionary = {}
+var deferred_target_speech_requests: Array[Dictionary] = []
 var tts_voice := ""
 var tts_voice_refresh_attempts := 0
 var target_speech_utterance_id := 0
@@ -98,14 +100,25 @@ func setup_tts() -> void:
 
 
 func speak_target_name(target_name: String) -> void:
+	var request := _next_target_speech_request(target_name)
+	if not capture_poof_speech_request.is_empty():
+		deferred_target_speech_requests.append(request)
+		return
+	_submit_target_speech(request)
+
+
+func _next_target_speech_request(target_name: String) -> Dictionary:
 	target_speech_utterance_id += 1
-	var request := target_speech_request(target_name, target_speech_utterance_id)
+	return target_speech_request(target_name, target_speech_utterance_id)
+
+
+func _submit_target_speech(request: Dictionary) -> void:
 	target_speech_enqueued.emit(request)
 	if tts_voice.is_empty():
 		setup_tts()
 		if tts_voice.is_empty():
 			return
-	# The native queue preserves capture order without adding an application delay.
+	# The native queue preserves order once requests clear Traxy's reserved poof slot.
 	DisplayServer.tts_speak(
 		String(request["text"]),
 		tts_voice,
@@ -119,19 +132,21 @@ func speak_target_name(target_name: String) -> void:
 
 func play_capture_poof_then_speak(target_name: String) -> void:
 	_cancel_capture_poof()
+	var request := _next_target_speech_request(target_name)
 	if not playback_enabled or capture_poof_stream == null:
-		speak_target_name(target_name)
+		_submit_target_speech(request)
 		return
+	capture_poof_speech_request = request
 	capture_poof_player = AudioStreamPlayer.new()
 	capture_poof_player.stream = capture_poof_stream
 	capture_poof_player.volume_db = CAPTURE_POOF_VOLUME_DB
 	add_child(capture_poof_player)
 	capture_poof_generation += 1
 	var generation := capture_poof_generation
-	capture_poof_player.finished.connect(_finish_capture_poof.bind(generation, target_name))
+	capture_poof_player.finished.connect(_finish_capture_poof.bind(generation))
 	# Dummy/headless audio drivers do not emit `finished`; the nominal stream
 	# duration is also an exact fallback for the speech handoff.
-	get_tree().create_timer(capture_poof_stream.get_length()).timeout.connect(_finish_capture_poof.bind(generation, target_name))
+	get_tree().create_timer(capture_poof_stream.get_length()).timeout.connect(_finish_capture_poof.bind(generation))
 	capture_poof_player.play()
 
 
@@ -253,7 +268,7 @@ func _make_capture_poof_stream() -> AudioStreamWAV:
 	return stream
 
 
-func _finish_capture_poof(generation: int, target_name: String) -> void:
+func _finish_capture_poof(generation: int) -> void:
 	if generation != capture_poof_generation:
 		return
 	capture_poof_generation += 1
@@ -261,11 +276,18 @@ func _finish_capture_poof(generation: int, target_name: String) -> void:
 	capture_poof_player = null
 	if is_instance_valid(player):
 		player.queue_free()
-	speak_target_name(target_name)
+	var ready_requests: Array[Dictionary] = [capture_poof_speech_request]
+	ready_requests.append_array(deferred_target_speech_requests)
+	capture_poof_speech_request = {}
+	deferred_target_speech_requests.clear()
+	for request in ready_requests:
+		_submit_target_speech(request)
 
 
 func _cancel_capture_poof() -> void:
 	capture_poof_generation += 1
+	capture_poof_speech_request = {}
+	deferred_target_speech_requests.clear()
 	if not is_instance_valid(capture_poof_player):
 		capture_poof_player = null
 		return
