@@ -53,9 +53,9 @@ Trixie's source artwork is stored in `assets/trixie.png`; Traxy's six-frame
 source atlas is `assets/traxy.png`, with one overhead chair frame and two shocked
 frames selected at runtime. Chair exhaust is drawn separately in code. Ship
 sprites and sound effects are CC0 assets from Kenney; planets, the black hole,
-meteors, and visual effects are drawn procedurally at runtime. The generated Milky Way image is
-stored in `assets/milky_way_background.png` and is rotated, cropped, and dimmed
-by the game at runtime.
+meteors, and visual effects are drawn procedurally at runtime. The generated
+Milky Way image is stored in `assets/milky_way_background.png` and is rotated,
+cropped, and dimmed by the game at runtime.
 
 ## Prototype builds
 
