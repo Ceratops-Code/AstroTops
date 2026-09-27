@@ -1,6 +1,6 @@
 {
   "artifact": null,
-  "assertions": 59,
+  "assertions": 63,
   "command": [
     "{godot}",
     "--rendering-method",
@@ -26,32 +26,33 @@
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/app-icon-adaptive.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/app-icon.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/cockpit.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/countdown.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/menu.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/output.log",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/paused.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/planet-pilot.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/playing.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/results.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/targets.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/tour-results.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/tour.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/tractor-debug.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/traxy-hook-latch.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/traxy-hook.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/traxy-poof.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/traxy-states.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/traxy-suit-color.png",
-    "evidence/20260927T053300Z-76801f36520f/rendered-ui/traxy-tow.png"
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/app-icon-adaptive.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/app-icon.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/cockpit.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/countdown.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/menu.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/output.log",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/paused.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/planet-pilot.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/playing.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/results.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/star-pilot.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/targets.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/tour-results.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/tour.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/tractor-debug.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/traxy-hook-latch.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/traxy-hook.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/traxy-poof.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/traxy-states.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/traxy-suit-color.png",
+    "evidence/20260927T124126Z-a1c82c2cbc87/rendered-ui/traxy-tow.png"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "b649d67d1e740a204d89a7f5e12db857caf1afce7022867b2da46290601d1ce8",
-  "finishedAt": 1790487194.4762838,
+  "fingerprint": "71c8fac9beade997c27ced67a105497afd57a0a364cfb35015a4db0461a1e0fc",
+  "finishedAt": 1790512901.553039,
   "id": "rendered-ui",
   "observations": [
     {
@@ -60,16 +61,16 @@
     },
     {
       "id": "RENDER/evidence",
-      "value": "[\"menu.png\", \"playing.png\", \"tractor-debug.png\", \"paused.png\", \"countdown.png\", \"results.png\", \"tour.png\", \"tour-results.png\", \"cockpit.png\", \"planet-pilot.png\", \"targets.png\", \"traxy-poof.png\", \"traxy-states.png\", \"traxy-suit-color.png\", \"traxy-hook.png\", \"traxy-hook-latch.png\", \"traxy-tow.png\", \"app-icon.png\", \"app-icon-adaptive.png\"]"
+      "value": "[\"menu.png\", \"playing.png\", \"tractor-debug.png\", \"paused.png\", \"countdown.png\", \"results.png\", \"tour.png\", \"tour-results.png\", \"cockpit.png\", \"planet-pilot.png\", \"star-pilot.png\", \"targets.png\", \"traxy-poof.png\", \"traxy-states.png\", \"traxy-suit-color.png\", \"traxy-hook.png\", \"traxy-hook-latch.png\", \"traxy-tow.png\", \"app-icon.png\", \"app-icon-adaptive.png\"]"
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T053300Z-76801f36520f",
+  "runId": "20260927T124126Z-a1c82c2cbc87",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 5.994,
+  "seconds": 6.803,
   "source": {
-    "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-    "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+    "commit": "a1c82c2cbc87c2fa337ac12dc3f89e180145db9e",
+    "digest": "a223f25e0d92d58d47b6183222eefb92c42e86b35416e25df6a778635f41935b",
     "dirty": false,
     "exactTags": []
   },
