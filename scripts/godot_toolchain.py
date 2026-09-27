@@ -251,7 +251,9 @@ def godot_archive_spec(
 def _download_godot_archive(url: str, destination: pathlib.Path) -> None:
     """Download one official editor archive without global installer state."""
 
-    request = urllib.request.Request(url, headers={"User-Agent": "AstroTops-tool-bootstrap/1"})
+    request = urllib.request.Request(
+        url, headers={"User-Agent": "AstroTops-tool-bootstrap/1"}
+    )
     with urllib.request.urlopen(request, timeout=120) as response:
         with destination.open("wb") as output:
             shutil.copyfileobj(response, output, length=1024 * 1024)
@@ -343,7 +345,9 @@ def provision_godot(
             return cached
         if version_root.exists():
             if version_root.is_symlink() or not version_root.is_dir():
-                raise RuntimeError(f"Godot cache entry has an invalid type: {version_root}")
+                raise RuntimeError(
+                    f"Godot cache entry has an invalid type: {version_root}"
+                )
             shutil.rmtree(version_root)
         archive_path = root / f".download-{os.getpid()}-{time.time_ns()}.zip"
         extraction_root = _create_cache_staging(root)
@@ -371,7 +375,9 @@ def provision_godot(
                     "Godot archive integrity check failed: "
                     f"size={actual_size}/{expected_size}, sha256={actual_hash}/{expected_hash}."
                 )
-            member_hashes = _extract_godot_archive(archive_path, extraction_root, members)
+            member_hashes = _extract_godot_archive(
+                archive_path, extraction_root, members
+            )
             executable = extraction_root / executable_name
             if platform.system().lower() != "windows":
                 executable.chmod(
@@ -406,7 +412,9 @@ def provision_godot(
                 shutil.rmtree(extraction_root)
         cached = _cached_godot(version_root, selected, version_probe=version_probe)
         if cached is None:
-            raise RuntimeError("Provisioned Godot cache entry failed final verification.")
+            raise RuntimeError(
+                "Provisioned Godot cache entry failed final verification."
+            )
         _prune_version_cache(root, GODOT_VERSION)
         return cached
 
@@ -474,9 +482,12 @@ def _installed_android_source_candidates(
 ) -> list[pathlib.Path]:
     system = (system_name or platform.system()).lower()
     if system == "windows":
-        base = pathlib.Path(
-            environ.get("APPDATA", pathlib.Path.home() / "AppData" / "Roaming")
-        ) / "Godot"
+        base = (
+            pathlib.Path(
+                environ.get("APPDATA", pathlib.Path.home() / "AppData" / "Roaming")
+            )
+            / "Godot"
+        )
     elif system == "darwin":
         base = pathlib.Path.home() / "Library" / "Application Support" / "Godot"
     else:
@@ -485,10 +496,7 @@ def _installed_android_source_candidates(
         )
         base = data_home / "godot"
     return [
-        base
-        / "export_templates"
-        / GODOT_TEMPLATE_IDENTIFIER
-        / "android_source.zip"
+        base / "export_templates" / GODOT_TEMPLATE_IDENTIFIER / "android_source.zip"
     ]
 
 
@@ -573,7 +581,11 @@ def provision_android_source_template(
                 raise RuntimeError("Pinned Android source metadata is invalid.")
             destination = extraction_root / str(filename)
             local_source = next(
-                (candidate for candidate in candidates if _matches_pinned_file(candidate, selected)),
+                (
+                    candidate
+                    for candidate in candidates
+                    if _matches_pinned_file(candidate, selected)
+                ),
                 None,
             )
             if local_source is not None:
@@ -625,9 +637,10 @@ def android_build_template_ready(repo_root: pathlib.Path) -> bool:
         version = version_path.read_text(encoding="utf-8").strip()
     except OSError:
         return False
-    return version == GODOT_TEMPLATE_IDENTIFIER and (
-        android_root / "build" / "build.gradle"
-    ).is_file()
+    return (
+        version == GODOT_TEMPLATE_IDENTIFIER
+        and (android_root / "build" / "build.gradle").is_file()
+    )
 
 
 def _safe_extract_android_source(
@@ -700,8 +713,7 @@ def install_android_build_template(
                 f"for Godot {GODOT_TEMPLATE_IDENTIFIER}: {android_root}. It was preserved."
             )
         staging = (
-            root
-            / f".astrotops-android-template-{os.getpid()}-{time.time_ns()}.tmp"
+            root / f".astrotops-android-template-{os.getpid()}-{time.time_ns()}.tmp"
         )
         try:
             build_root = staging / "build"
@@ -724,9 +736,7 @@ def install_android_build_template(
                 encoding="utf-8",
                 newline="\n",
             )
-            (build_root / ".gdignore").write_text(
-                "\n", encoding="utf-8", newline="\n"
-            )
+            (build_root / ".gdignore").write_text("\n", encoding="utf-8", newline="\n")
             if not (build_root / "build.gradle").is_file():
                 raise RuntimeError("Android source template has no build.gradle.")
             os.replace(staging, android_root)
@@ -841,7 +851,9 @@ def export_debug_project(
     try:
         resolved.relative_to(repo_root)
     except ValueError as error:
-        raise RuntimeError(f"Godot export must stay inside {repo_root}: {resolved}") from error
+        raise RuntimeError(
+            f"Godot export must stay inside {repo_root}: {resolved}"
+        ) from error
     ensure_android_build_template(repo_root, template_provider=template_provider)
     resolved.parent.mkdir(parents=True, exist_ok=True)
     resolved.unlink(missing_ok=True)
@@ -860,7 +872,9 @@ def export_debug_project(
         run=run,
     )
     if not resolved.is_file() or resolved.stat().st_size <= 0:
-        raise RuntimeError(f"Godot export did not produce a nonempty artifact: {resolved}")
+        raise RuntimeError(
+            f"Godot export did not produce a nonempty artifact: {resolved}"
+        )
     return resolved
 
 
@@ -874,18 +888,19 @@ def _android_build_environment(
     java_home = pathlib.Path(java_home_value).expanduser() if java_home_value else None
     java_names = ("java.exe", "java") if os.name == "nt" else ("java", "java.exe")
     java_from_home = bool(
-        java_home
-        and any((java_home / "bin" / name).is_file() for name in java_names)
+        java_home and any((java_home / "bin" / name).is_file() for name in java_names)
     )
-    if not java_from_home and shutil.which("java", path=environment.get("PATH")) is None:
+    if (
+        not java_from_home
+        and shutil.which("java", path=environment.get("PATH")) is None
+    ):
         raise RuntimeError(
             "Android validation requires a JDK: set JAVA_HOME to a JDK or add java to PATH."
         )
 
-    sdk_value = (
-        environment.get("ANDROID_HOME", "").strip().strip('"')
-        or environment.get("ANDROID_SDK_ROOT", "").strip().strip('"')
-    )
+    sdk_value = environment.get("ANDROID_HOME", "").strip().strip(
+        '"'
+    ) or environment.get("ANDROID_SDK_ROOT", "").strip().strip('"')
     sdk_root = pathlib.Path(sdk_value).expanduser() if sdk_value else None
     if not sdk_root or not sdk_root.is_dir():
         raise RuntimeError(
@@ -927,7 +942,9 @@ def validate_android_build(
         wrapper_name = "gradlew.bat" if os.name == "nt" else "gradlew"
         wrapper = root / "android" / "build" / wrapper_name
         if not wrapper.is_file():
-            raise RuntimeError(f"Android source template has no Gradle wrapper: {wrapper}")
+            raise RuntimeError(
+                f"Android source template has no Gradle wrapper: {wrapper}"
+            )
         if os.name == "nt":
             command = [
                 environment.get("COMSPEC") or "cmd.exe",

@@ -64,14 +64,18 @@ INVENTORY_SCHEMA = "astrotops-test-inventory.v1"
 GODOT_RESULT_PREFIX = "ASTROTOPS_TEST_RESULT="
 
 
-def load_inventory(repo_root: pathlib.Path) -> tuple[dict[str, object], list[dict[str, object]]]:
+def load_inventory(
+    repo_root: pathlib.Path,
+) -> tuple[dict[str, object], list[dict[str, object]]]:
     """Load the feature map and reject missing groups or unowned test inputs."""
 
     path = repo_root / "docs" / "feature-acceptance.json"
     document = json.loads(path.read_text(encoding="utf-8"))
     inventory = document.get("testInventory")
     if not isinstance(inventory, dict) or inventory.get("schema") != INVENTORY_SCHEMA:
-        raise ValueError("docs/feature-acceptance.json has no supported test inventory.")
+        raise ValueError(
+            "docs/feature-acceptance.json has no supported test inventory."
+        )
     groups = inventory.get("groups")
     owners = inventory.get("fileOwners")
     requirements = document.get("requirements")
@@ -97,18 +101,30 @@ def load_inventory(repo_root: pathlib.Path) -> tuple[dict[str, object], list[dic
     for relative, selected in owners.items():
         if not isinstance(relative, str) or not (repo_root / relative).is_file():
             raise ValueError(f"Inventoried source file is missing: {relative}")
-        if not isinstance(selected, list) or not selected or not set(selected) <= declared:
-            raise ValueError(f"Inventoried source file has invalid group owners: {relative}")
+        if (
+            not isinstance(selected, list)
+            or not selected
+            or not set(selected) <= declared
+        ):
+            raise ValueError(
+                f"Inventoried source file has invalid group owners: {relative}"
+            )
     covered: set[str] = set()
     for requirement in requirements:
         if not isinstance(requirement, dict) or not requirement.get("id"):
             raise ValueError("Every feature requirement needs an id.")
         selected = requirement.get("groups")
         observations = requirement.get("observations")
-        if not isinstance(selected, list) or not selected or not set(selected) <= declared:
+        if (
+            not isinstance(selected, list)
+            or not selected
+            or not set(selected) <= declared
+        ):
             raise ValueError(f"Requirement {requirement.get('id')} has invalid groups.")
         if not isinstance(observations, list) or not observations:
-            raise ValueError(f"Requirement {requirement.get('id')} has no observable tests.")
+            raise ValueError(
+                f"Requirement {requirement.get('id')} has no observable tests."
+            )
         covered.update(selected)
     if covered != declared:
         raise ValueError(f"Feature coverage omits groups: {sorted(declared - covered)}")
@@ -212,7 +228,9 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
 
         def __call__(self, arguments: list[str]) -> subprocess.CompletedProcess[str]:
             if arguments[1:2] == ["connect"]:
-                return subprocess.CompletedProcess(arguments, 0, self.connect_output + "\n", "")
+                return subprocess.CompletedProcess(
+                    arguments, 0, self.connect_output + "\n", ""
+                )
             if arguments[-3:] == ["pm", "path", package]:
                 output = f"package:{remote_path}\n" if self.installed_hash else ""
                 return subprocess.CompletedProcess(arguments, 0, output, "")
@@ -226,7 +244,9 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
             if arguments[-5:-2] == ["am", "start", "-W"]:
                 self.launches += 1
                 return subprocess.CompletedProcess(arguments, 0, "Status: ok\n", "")
-            return subprocess.CompletedProcess(arguments, 97, "", "unexpected fake ADB command")
+            return subprocess.CompletedProcess(
+                arguments, 97, "", "unexpected fake ADB command"
+            )
 
     exact = FakeAdb(expected_hash, f"connected to {device}")
     exact_receipt = android_deploy_result(
@@ -241,7 +261,11 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     )
     check("exact-apk-skips-install", 0, exact.installs)
     check("exact-apk-launches", 1, exact.launches)
-    check("deployment-receipt-schema", "ceratops-deployment-result.v1", exact_receipt.get("schema"))
+    check(
+        "deployment-receipt-schema",
+        "ceratops-deployment-result.v1",
+        exact_receipt.get("schema"),
+    )
     descriptor = exact_receipt.get("artifact")
     check(
         "deployment-receipt-hash",
@@ -304,7 +328,9 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
 
     fake_archive = temporary_root / "godot-runtime.zip"
     fake_members = ["godot-test", "godot-test-helper"]
-    with zipfile.ZipFile(fake_archive, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+    with zipfile.ZipFile(
+        fake_archive, "w", compression=zipfile.ZIP_DEFLATED
+    ) as archive:
         archive.writestr(fake_members[0], b"pinned-godot-runtime")
         archive.writestr(fake_members[1], b"pinned-godot-helper")
     fake_spec: dict[str, object] = {
@@ -381,9 +407,15 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         os.utime(predecessor, (float(index), float(index)))
     _prune_version_cache(fake_cache, GODOT_VERSION)
     retained_versions = sorted(
-        path.name for path in fake_cache.iterdir() if path.is_dir() and not path.name.startswith(".")
+        path.name
+        for path in fake_cache.iterdir()
+        if path.is_dir() and not path.name.startswith(".")
     )
-    check("godot-cache-retention-is-bounded", ["4.6.2", "4.6.3", GODOT_VERSION], retained_versions)
+    check(
+        "godot-cache-retention-is-bounded",
+        ["4.6.2", "4.6.3", GODOT_VERSION],
+        retained_versions,
+    )
 
     resolved = resolve_godot(
         None,
@@ -478,9 +510,9 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     check(
         "android-project-template-version",
         GODOT_TEMPLATE_IDENTIFIER,
-        (template_repo / "android" / ".build_version").read_text(
-            encoding="utf-8"
-        ).strip(),
+        (template_repo / "android" / ".build_version")
+        .read_text(encoding="utf-8")
+        .strip(),
     )
     check(
         "android-project-template-is-reused",
@@ -718,9 +750,7 @@ def run_python_group(
         "assertions": payload["assertions"],
         "failures": failures,
         "observations": payload["observations"],
-        "evidence": [
-            log_path.relative_to(group_evidence.parents[2]).as_posix()
-        ],
+        "evidence": [log_path.relative_to(group_evidence.parents[2]).as_posix()],
         "finishedAt": time.time(),
     }
 
@@ -772,7 +802,13 @@ def run_group(
                     "environment": environment,
                     "artifact": artifact,
                     "runId": run_id,
-                    "failures": [{"id": "runner/xvfb", "expected": "xvfb-run on PATH", "actual": "missing"}],
+                    "failures": [
+                        {
+                            "id": "runner/xvfb",
+                            "expected": "xvfb-run on PATH",
+                            "actual": "missing",
+                        }
+                    ],
                     "observations": [],
                     "evidence": [],
                 }
@@ -781,7 +817,9 @@ def run_group(
         if mode == "headless":
             command.append("--headless")
         else:
-            command.extend(["--rendering-method", "gl_compatibility", "--audio-driver", "Dummy"])
+            command.extend(
+                ["--rendering-method", "gl_compatibility", "--audio-driver", "Dummy"]
+            )
         command.extend(
             [
                 "--path",
@@ -831,9 +869,13 @@ def run_group(
         raw_observations = payload.get("observations", [])
         raw_assertions = payload.get("assertions", 0)
         raw_evidence = payload.get("evidence", [])
-        if not isinstance(raw_failures, list) or not all(isinstance(item, dict) for item in raw_failures):
+        if not isinstance(raw_failures, list) or not all(
+            isinstance(item, dict) for item in raw_failures
+        ):
             raise TypeError("failures must be a list of objects")
-        if not isinstance(raw_observations, list) or not all(isinstance(item, dict) for item in raw_observations):
+        if not isinstance(raw_observations, list) or not all(
+            isinstance(item, dict) for item in raw_observations
+        ):
             raise TypeError("observations must be a list of objects")
         if not isinstance(raw_assertions, int):
             raise TypeError("assertions must be an integer")
@@ -844,7 +886,13 @@ def run_group(
         assertions = raw_assertions
         generated_evidence = [str(item) for item in raw_evidence]
         if payload.get("group") != group_id:
-            failures.append({"id": "runner/group-result", "expected": group_id, "actual": payload.get("group")})
+            failures.append(
+                {
+                    "id": "runner/group-result",
+                    "expected": group_id,
+                    "actual": payload.get("group"),
+                }
+            )
         if payload.get("status") != "passed":
             failures.append(
                 {
@@ -854,7 +902,13 @@ def run_group(
                 }
             )
     except (ValueError, TypeError, json.JSONDecodeError) as error:
-        failures = [{"id": "runner/structured-result", "expected": "valid Godot result", "actual": str(error)}]
+        failures = [
+            {
+                "id": "runner/structured-result",
+                "expected": "valid Godot result",
+                "actual": str(error),
+            }
+        ]
         observations = []
     runtime_errors = [
         line.strip()
@@ -894,7 +948,9 @@ def run_group(
         "source": source,
         "environment": environment,
         "artifact": artifact,
-        "command": portable_command(command, godot, repo_root, temporary, group_evidence),
+        "command": portable_command(
+            command, godot, repo_root, temporary, group_evidence
+        ),
         "assertions": assertions,
         "failures": failures,
         "observations": observations,
@@ -917,7 +973,11 @@ def load_group_result(path: pathlib.Path) -> dict[str, object] | None:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    return value if isinstance(value, dict) and value.get("schema") == GROUP_SCHEMA else None
+    return (
+        value
+        if isinstance(value, dict) and value.get("schema") == GROUP_SCHEMA
+        else None
+    )
 
 
 def qualification_source_matches(
@@ -976,7 +1036,9 @@ def applicable_qualified_artifact(
     return resolved
 
 
-def reused_result(previous: dict[str, object], source: dict[str, object]) -> dict[str, object]:
+def reused_result(
+    previous: dict[str, object], source: dict[str, object]
+) -> dict[str, object]:
     result = dict(previous)
     result.update(
         status="reused",
@@ -1010,7 +1072,10 @@ def verify_delivery(
         return 1
     file_owners = inventory.get("fileOwners")
     if not isinstance(file_owners, dict):
-        print("delivery/inventory expected=file ownership map actual=missing", file=sys.stderr)
+        print(
+            "delivery/inventory expected=file ownership map actual=missing",
+            file=sys.stderr,
+        )
         return 1
     artifact = artifact_identity.portable()
     failures: list[str] = []
@@ -1020,8 +1085,13 @@ def verify_delivery(
         )
     except (OSError, json.JSONDecodeError):
         validation = None
-    if not isinstance(validation, dict) or validation.get("schema") != VALIDATION_SCHEMA:
-        failures.append("delivery/validation expected=valid repository result actual=missing or invalid")
+    if (
+        not isinstance(validation, dict)
+        or validation.get("schema") != VALIDATION_SCHEMA
+    ):
+        failures.append(
+            "delivery/validation expected=valid repository result actual=missing or invalid"
+        )
     else:
         validation_source = validation.get("source")
         validation_results = validation.get("results")
@@ -1033,7 +1103,9 @@ def verify_delivery(
         if not qualification_source_matches(
             validation_source, source_identity, artifact_identity
         ):
-            failures.append("delivery/validation expected=applicable result actual=stale")
+            failures.append(
+                "delivery/validation expected=applicable result actual=stale"
+            )
         if (
             not isinstance(required_validation, list)
             or not required_validation
@@ -1046,18 +1118,24 @@ def verify_delivery(
                 if isinstance(item, dict)
             )
         ):
-            failures.append("delivery/validation expected=complete passing checks actual=incomplete")
+            failures.append(
+                "delivery/validation expected=complete passing checks actual=incomplete"
+            )
     group_ids: list[str] = []
     for definition in groups:
         group_id = str(definition["id"])
         group_ids.append(group_id)
         previous = load_group_result(store.group_root / f"{group_id}.json")
         if previous is None:
-            failures.append(f"delivery/{group_id} expected=recorded pass actual=missing")
+            failures.append(
+                f"delivery/{group_id} expected=recorded pass actual=missing"
+            )
             continue
         environment = previous.get("environment")
         if not isinstance(environment, dict):
-            failures.append(f"delivery/{group_id} expected=recorded environment actual=missing")
+            failures.append(
+                f"delivery/{group_id} expected=recorded environment actual=missing"
+            )
             continue
         owned_paths = [
             str(relative)
@@ -1072,16 +1150,27 @@ def verify_delivery(
                 f"delivery/{group_id} expected=passed actual={previous.get('outcome')}"
             )
         elif previous.get("fingerprint") != fingerprint:
-            failures.append(f"delivery/{group_id} expected=applicable result actual=stale")
+            failures.append(
+                f"delivery/{group_id} expected=applicable result actual=stale"
+            )
         elif previous.get("artifact") != artifact:
-            failures.append(f"delivery/{group_id} expected=exact artifact actual=different")
+            failures.append(
+                f"delivery/{group_id} expected=exact artifact actual=different"
+            )
 
     try:
-        loaded_report = json.loads((store.result_root / "tests.json").read_text(encoding="utf-8"))
+        loaded_report = json.loads(
+            (store.result_root / "tests.json").read_text(encoding="utf-8")
+        )
     except (OSError, json.JSONDecodeError):
         loaded_report = None
-    if not isinstance(loaded_report, dict) or loaded_report.get("schema") != RESULT_SCHEMA:
-        failures.append("delivery/report expected=valid repository result actual=missing or invalid")
+    if (
+        not isinstance(loaded_report, dict)
+        or loaded_report.get("schema") != RESULT_SCHEMA
+    ):
+        failures.append(
+            "delivery/report expected=valid repository result actual=missing or invalid"
+        )
     else:
         if loaded_report.get("outcome") != "passed":
             failures.append(
@@ -1090,14 +1179,20 @@ def verify_delivery(
         if loaded_report.get("artifact") != artifact:
             failures.append("delivery/report expected=exact artifact actual=different")
         if loaded_report.get("requiredChecks") != group_ids:
-            failures.append("delivery/report expected=complete group coverage actual=incomplete")
+            failures.append(
+                "delivery/report expected=complete group coverage actual=incomplete"
+            )
 
     try:
-        build = json.loads(store.build_path(artifact_identity).read_text(encoding="utf-8"))
+        build = json.loads(
+            store.build_path(artifact_identity).read_text(encoding="utf-8")
+        )
     except (OSError, json.JSONDecodeError):
         build = None
     if not isinstance(build, dict):
-        failures.append("delivery/build expected=tracked build metadata actual=missing or invalid")
+        failures.append(
+            "delivery/build expected=tracked build metadata actual=missing or invalid"
+        )
     else:
         for key, value in {
             **artifact,
@@ -1118,7 +1213,9 @@ def verify_delivery(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo-root", type=pathlib.Path, default=_SCRIPT_DIRECTORY.parent)
+    parser.add_argument(
+        "--repo-root", type=pathlib.Path, default=_SCRIPT_DIRECTORY.parent
+    )
     parser.add_argument("--scope", choices=("repository",), default="repository")
     parser.add_argument("--group", action="append", default=[])
     parser.add_argument("--fresh", action="store_true")
@@ -1162,7 +1259,13 @@ def main() -> int:
         or args.export_debug is not None
     )
     if lifecycle_mode:
-        if args.group or args.fresh or args.no_record or args.source_tag or args.artifact:
+        if (
+            args.group
+            or args.fresh
+            or args.no_record
+            or args.source_tag
+            or args.artifact
+        ):
             parser.error(
                 "Godot lifecycle modes cannot be combined with test or delivery options."
             )
@@ -1201,9 +1304,13 @@ def main() -> int:
         )
         if args.verify_delivery:
             if args.fresh or args.group or args.no_record:
-                raise ValueError("--verify-delivery cannot be combined with execution options.")
+                raise ValueError(
+                    "--verify-delivery cannot be combined with execution options."
+                )
             if artifact_identity is None:
-                raise ValueError("--verify-delivery requires --source-tag and --artifact.")
+                raise ValueError(
+                    "--verify-delivery requires --source-tag and --artifact."
+                )
             return verify_delivery(
                 repo_root,
                 inventory,
@@ -1294,7 +1401,13 @@ def main() -> int:
                 "environment": environment,
                 "artifact": artifact,
                 "runId": run_id,
-                "failures": [{"id": "runner/applicability", "expected": "applicable passing result", "actual": "missing or stale"}],
+                "failures": [
+                    {
+                        "id": "runner/applicability",
+                        "expected": "applicable passing result",
+                        "actual": "missing or stale",
+                    }
+                ],
                 "observations": [],
                 "evidence": [],
             }
@@ -1308,7 +1421,9 @@ def main() -> int:
         "coverageStatus": "complete-repository" if passed else "failed",
         "status": "passed" if passed else "failed",
         "outcome": "passed" if passed else "failed",
-        "execution": "reused" if results and all(result.get("execution") == "reused" for result in results) else "executed",
+        "execution": "reused"
+        if results and all(result.get("execution") == "reused" for result in results)
+        else "executed",
         "runId": run_id,
         "source": source,
         "artifact": artifact,
@@ -1327,7 +1442,9 @@ def main() -> int:
     if passed:
         print("OK")
         return 0
-    failed = [str(result["id"]) for result in results if result.get("outcome") != "passed"]
+    failed = [
+        str(result["id"]) for result in results if result.get("outcome") != "passed"
+    ]
     print(json.dumps({"status": "failed", "groups": failed, "runId": run_id}))
     return 1
 
