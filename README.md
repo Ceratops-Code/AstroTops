@@ -62,7 +62,10 @@ cropped, and dimmed by the game at runtime.
 - Windows: `.build/artifacts/windows/AstroTops.exe`
 - Android: `.build/artifacts/android/AstroTops.apk`
 
-Install Godot's Android build template from
+The repository provisions its pinned Godot 4.7.2 editor automatically for
+validation, tests, and export when no matching `GODOT_EXECUTABLE` or `godot` on
+`PATH` is available. Android export still requires Godot's Android build
+template from
 **Project > Install Android Build Template** before exporting Android. AstroTops
 uses the Gradle exporter so Android's themed launcher icon is packaged correctly.
 
@@ -82,11 +85,20 @@ countdown, speech and tones, tractor-beam behavior, targets, ships and pilots,
 pause/results, Android delivery, and rendered UI. The acceptance map is
 `docs/feature-acceptance.json`.
 
-Run the whole suite with Godot 4.7.2 on `PATH`:
+Run the whole suite; the helper resolves or provisions Godot 4.7.2 first:
 
 ```powershell
 uv run --locked scripts/run-tests.py --fresh
 ```
+
+`scripts/run-tests.py --prepare-godot` performs only the runtime preflight.
+Downloads use pinned official archive sizes and SHA-256 hashes, publish to the
+cache atomically, remove interrupted helper-owned files, and retain the current
+version plus at most two predecessors. The default cache is the operating
+system's user cache under `Ceratops/AstroTops/tools/godot`; set
+`ASTROTOPS_TOOL_CACHE` to relocate it. `--godot` remains the explicit per-run
+override, followed by `GODOT_EXECUTABLE` and a matching executable on `PATH`.
+No system-wide installer or persistent `PATH` change is made.
 
 The runner first asks Godot to import project assets, so a fresh checkout does
 not require opening the editor before tests.
