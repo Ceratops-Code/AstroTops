@@ -198,7 +198,8 @@ func _test_menu_ui() -> void:
 	_assert_true("MENU-03/reset-below-best", main.RESET_BEST_BUTTON.position.y > 618.0, main.RESET_BEST_BUTTON.position.y, "> 618")
 	_assert_true("MENU-04/color-choice-count", main.palette.size() >= 10, main.palette.size(), ">= 10")
 	_assert_equal("MENU-04/ship-choice-count", main.ship_names.size(), 8)
-	_assert_equal("MENU-04/pilot-choices", main.pilot_names, ["Trixie", "Astronaut", "Planet"])
+	_assert_equal("MENU-04/pilot-choices", main.pilot_names, ["Trixie", "Astronaut", "Planet", "Star"])
+	_assert_equal("MENU-04/pilot-model-count", main.ship.PILOT_STYLE_COUNT, main.pilot_names.size())
 	_assert_equal("TOUR-01/mode-choices", main.MODE_NAMES, ["SPACE RUSH", "SOLAR TOUR"])
 	_assert_equal("TOUR-01/default-keeps-space-rush", main.selected_game_mode, main.GameMode.SPACE_RUSH)
 	var left_arrow: PackedVector2Array = main._arrow_shape_points(main.SHIP_LEFT_BUTTON, -1.0)
@@ -216,6 +217,11 @@ func _test_menu_ui() -> void:
 	main._change_mode(1)
 	_assert_equal("MENU-04/common-selector-click", click_events, 4)
 	_assert_equal("MENU-04/selector-updates", [main.selected_ship_index, main.selected_color_index, main.selected_pilot_index], [1, 1, 1])
+	main.selected_pilot_index = 2
+	main._change_pilot(1)
+	_assert_equal("MENU-04/star-selector-reachable", main.selected_pilot_index, 3)
+	main._change_pilot(1)
+	_assert_equal("MENU-04/pilot-selector-wraps", main.selected_pilot_index, 0)
 	_assert_equal("TOUR-01/additive-mode-selection", main.selected_game_mode, main.GameMode.SOLAR_TOUR)
 	main._update_overlay()
 	_assert_true("MENU-05/no-menu-overlay-hint", not main.message_label.visible, main.message_label.text, "hidden")
@@ -585,6 +591,8 @@ func _test_ships_pilots() -> void:
 	_assert_true("PILOT-01/trixie-enlarged", ship.TRIXIE_PILOT_SCALE >= 2.0, ship.TRIXIE_PILOT_SCALE, ">= 2")
 	_assert_true("PILOT-01/astronaut-enlarged", ship.ASTRONAUT_OUTER_SCALE >= 0.9, ship.ASTRONAUT_OUTER_SCALE, ">= 0.9")
 	_assert_true("PILOT-01/planet-enlarged", ship.PLANET_PILOT_SCALE >= 0.74, ship.PLANET_PILOT_SCALE, ">= 0.74")
+	_assert_true("PILOT-03/star-enlarged", ship.STAR_PILOT_SCALE >= 0.8, ship.STAR_PILOT_SCALE, ">= 0.8")
+	_assert_equal("PILOT-03/star-point-count", ship._star_pilot_points(Vector2.ZERO, 10.0).size(), 10)
 	ship.configure(Color("41f4c6"), Rect2(35.0, 146.0, 1210.0, 536.0), 0, 0)
 	_assert_equal("PILOT-01/default-trixie", ship.pilot_style, 0)
 	for style_index in range(ship.SHIP_TEXTURES.size()):
@@ -605,7 +613,9 @@ func _test_ships_pilots() -> void:
 	ship.move_scripted(Vector2.LEFT * 300.0, 1.0)
 	_assert_true("TRAXY-03/scripted-rescue-bypasses-bounds", ship.position.x < 0.0, ship.position.x, "< 0")
 	_assert_equal("PILOT-02/planet-selection", ship.pilot_style, 2)
-	_observe("SHIP/assets", "four raster ships retain high-resolution transparent sources; four procedural ships and three pilots remain selectable")
+	ship.configure(Color.WHITE, Rect2(0.0, 100.0, 200.0, 200.0), 4, 3)
+	_assert_equal("PILOT-03/star-selection", ship.pilot_style, 3)
+	_observe("SHIP/assets", "four raster ships retain high-resolution transparent sources; four procedural ships and four pilots remain selectable")
 
 
 func _test_gameplay_flow() -> void:
@@ -697,13 +707,27 @@ func _test_gameplay_flow() -> void:
 	var tour_main: Variant = await _new_main(root, "tour-flow-settings.cfg")
 	tour_main.selected_game_mode = tour_main.GameMode.SOLAR_TOUR
 	tour_main._prepare_run()
-	tour_main.state = tour_main.GameState.PLAYING
 	_assert_true("TRAXY-01/absent-from-solar-tour", not is_instance_valid(tour_main.traxy), tour_main.traxy, "no Traxy")
 	_assert_equal("TOUR-01/order-covers-roster", tour_main.TOUR_ORDER.size(), tour_main.total_targets)
-	_assert_equal("TOUR-01/first-target", tour_main._tour_target_style(), "sun")
+	_assert_equal("TOUR-01/first-target", tour_main._tour_target_style(), "asteroid_b")
+	var tour_radii: Array[float] = []
+	for tour_style: String in tour_main.TOUR_ORDER:
+		tour_radii.append(_planet_by_style(tour_main, tour_style).radius)
+	var sorted_tour_radii := tour_radii.duplicate()
+	sorted_tour_radii.sort()
+	_assert_equal("TOUR-01/smallest-to-largest", tour_radii, sorted_tour_radii)
 	_assert_equal("TOUR-01/one-highlight", tour_main.planets.filter(func(planet: ColorPlanet) -> bool: return planet.tour_highlighted).size(), 1)
-	var out_of_order: ColorPlanet = _planet_by_style(tour_main, "mercury")
-	var first_target: ColorPlanet = _planet_by_style(tour_main, "sun")
+	var out_of_order: ColorPlanet = _planet_by_style(tour_main, "haumea")
+	var first_target: ColorPlanet = _planet_by_style(tour_main, "asteroid_b")
+	_assert_true("TOUR-01/no-arrow-cue-before-countdown", not first_target.is_tour_guide_visible(), first_target.tour_guide_time_remaining, "0 seconds")
+	tour_main._begin_countdown()
+	tour_main._process(4.9)
+	_assert_true("TOUR-01/no-arrow-cue-during-countdown", not first_target.is_tour_guide_visible(), first_target.tour_guide_time_remaining, "0 seconds")
+	tour_main._process(0.11)
+	_assert_equal("TOUR-01/countdown-completes", tour_main.state, tour_main.GameState.PLAYING)
+	tour_main._process(0.99)
+	_assert_true("TOUR-01/no-early-arrow-cue-after-countdown", not first_target.is_tour_guide_visible(), first_target.tour_guide_time_remaining, "0 seconds")
+	tour_main._process(0.02)
 	_assert_true("TOUR-01/initial-arrow-cue", first_target.is_tour_guide_visible(), first_target.tour_guide_time_remaining, "> 0 seconds")
 	first_target._process(first_target.TOUR_GUIDE_DURATION)
 	_assert_true("TOUR-01/arrow-cue-times-out", not first_target.is_tour_guide_visible() and first_target.tour_highlighted, {"guide": first_target.tour_guide_time_remaining, "highlighted": first_target.tour_highlighted}, "arrows hidden; marker remains")
@@ -723,7 +747,7 @@ func _test_gameplay_flow() -> void:
 	_assert_equal("TOUR-01/out-of-order-blocked", tour_main.captured_count, 0)
 	tour_main.ship.position = first_target.position
 	tour_main._check_planet_contacts()
-	_assert_equal("TOUR-01/order-advances", [tour_main.captured_count, tour_main._tour_target_style()], [1, "mercury"])
+	_assert_equal("TOUR-01/order-advances", [tour_main.captured_count, tour_main._tour_target_style()], [1, "haumea"])
 	_assert_true("TOUR-01/next-target-highlighted", out_of_order.tour_highlighted, out_of_order.body_style)
 	_assert_true("TOUR-01/next-target-arrow-cue-reset", out_of_order.is_tour_guide_visible(), out_of_order.tour_guide_time_remaining, "> 0 seconds")
 	tour_main.elapsed_time = 19.5
@@ -948,13 +972,14 @@ func _test_rendered_ui() -> void:
 
 	main.selected_game_mode = main.GameMode.SOLAR_TOUR
 	main._prepare_run()
-	main.state = main.GameState.PLAYING
+	main._launch_run()
+	main._process(main.TOUR_FIRST_GUIDE_DELAY)
 	for planet in main.planets:
 		planet.set_process(false)
 	main._update_overlay()
 	main.queue_redraw()
 	var tour_image: Image = await _capture(viewport, "tour.png")
-	var highlighted_target: ColorPlanet = _planet_by_style(main, "sun")
+	var highlighted_target: ColorPlanet = _planet_by_style(main, main._tour_target_style())
 	highlighted_target.set_tour_highlighted(false)
 	RenderingServer.force_draw()
 	await _wait_frames(3)
@@ -1004,6 +1029,20 @@ func _test_rendered_ui() -> void:
 	var back_ring_sample := planet_pilot_image.get_pixelv(back_ring_point)
 	_assert_true("PILOT-02/ring-front-visible", front_ring_sample.r > 0.72 and front_ring_sample.g > 0.55 and front_ring_sample.b < 0.72, front_ring_sample, "gold foreground arc")
 	_assert_true("PILOT-02/ring-back-occluded", not (back_ring_sample.r > 0.72 and back_ring_sample.g > 0.55 and back_ring_sample.b < 0.72), back_ring_sample, "planet body covers rear arc")
+	isolated_ship.configure(Color("41f4c6"), Rect2(0.0, 0.0, 220.0, 220.0), 4, 3)
+	var star_pilot_image: Image = await _capture(ship_viewport, "star-pilot.png")
+	var star_radius: float = isolated_ship.COCKPIT_RADII[4] * isolated_ship.STAR_PILOT_SCALE
+	var star_tip_point := Vector2i((isolated_ship.position + (planet_cockpit + Vector2.from_angle(-PI * 0.5) * star_radius * 0.72) * isolated_ship.scale).round())
+	var star_valley_point := Vector2i((isolated_ship.position + (planet_cockpit + Vector2.from_angle(-PI * 0.3) * star_radius * 0.70) * isolated_ship.scale).round())
+	var star_left_eye_point := Vector2i((isolated_ship.position + (planet_cockpit + Vector2(-2.5, 0.0)) * isolated_ship.scale).round())
+	var star_right_eye_point := Vector2i((isolated_ship.position + (planet_cockpit + Vector2(2.5, 0.0)) * isolated_ship.scale).round())
+	var star_tip_sample := star_pilot_image.get_pixelv(star_tip_point)
+	var star_valley_sample := star_pilot_image.get_pixelv(star_valley_point)
+	var star_left_eye_sample := star_pilot_image.get_pixelv(star_left_eye_point)
+	var star_right_eye_sample := star_pilot_image.get_pixelv(star_right_eye_point)
+	_assert_true("PILOT-03/star-tip-visible", star_tip_sample.r > 0.80 and star_tip_sample.g > 0.55 and star_tip_sample.b < 0.55, star_tip_sample, "gold star arm")
+	_assert_true("PILOT-03/star-valley-open", maxf(star_valley_sample.r, maxf(star_valley_sample.g, star_valley_sample.b)) < 0.12, star_valley_sample, "black cockpit between star arms")
+	_assert_true("PILOT-03/star-face-visible", maxf(star_left_eye_sample.r, maxf(star_left_eye_sample.g, star_left_eye_sample.b)) < 0.18 and maxf(star_right_eye_sample.r, maxf(star_right_eye_sample.g, star_right_eye_sample.b)) < 0.18, [star_left_eye_sample, star_right_eye_sample], "two dark eyes on the gold star")
 
 	var target_viewport := SubViewport.new()
 	target_viewport.size = Vector2i(500, 260)

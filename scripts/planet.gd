@@ -123,12 +123,21 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 
-func set_tour_highlighted(value: bool) -> void:
+func set_tour_highlighted(value: bool, start_guide := true) -> void:
 	if tour_highlighted == value:
+		if value and start_guide and tour_guide_time_remaining <= 0.0:
+			start_tour_guide()
 		return
 	tour_highlighted = value
+	tour_guide_time_remaining = TOUR_GUIDE_DURATION if value and start_guide else 0.0
+	queue_redraw()
+
+
+func start_tour_guide() -> void:
+	if not tour_highlighted:
+		return
 	# Each new target gets one short guidance window; the stronger ring persists afterward.
-	tour_guide_time_remaining = TOUR_GUIDE_DURATION if value else 0.0
+	tour_guide_time_remaining = TOUR_GUIDE_DURATION
 	queue_redraw()
 
 

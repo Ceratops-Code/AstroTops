@@ -438,6 +438,73 @@ def _installed_apk_hash(
     return fields[0]
 
 
+def _adb_device_states(
+    adb_executable: str,
+    run: CommandRunner,
+) -> dict[str, str]:
+    """Return exact ADB serial states without assuming a transport type."""
+
+    result = run([adb_executable, "devices"])
+    output = _require_command(result, "list Android devices")
+    states: dict[str, str] = {}
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) >= 2 and fields[0] != "List":
+            states[fields[0]] = fields[1]
+    return states
+
+
+def _mdns_endpoint(
+    adb_executable: str,
+    device: str,
+    run: CommandRunner,
+) -> str | None:
+    """Resolve an ADB secure-mDNS serial to its advertised network endpoint."""
+
+    if "._adb-tls-connect._tcp" not in device:
+        return None
+    result = run([adb_executable, "mdns", "services"])
+    output = _require_command(result, "discover Android mDNS services")
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) >= 3 and f"{fields[0]}.{fields[1]}" == device:
+            return fields[2]
+    return None
+
+
+def _ready_adb_target(
+    adb_executable: str,
+    device: str,
+    run: CommandRunner,
+) -> str:
+    """Reuse a connected serial or connect a missing network endpoint."""
+
+    states = _adb_device_states(adb_executable, run)
+    if device in states:
+        if states[device] != "device":
+            raise ValueError(f"ADB target is not ready: {device} ({states[device]})")
+        return device
+
+    endpoint = _mdns_endpoint(adb_executable, device, run)
+    if endpoint is None and (":" in device or "." in device):
+        endpoint = device
+    if endpoint is None:
+        raise ValueError(f"ADB serial is not connected: {device}")
+
+    connect = run([adb_executable, "connect", endpoint])
+    connect_output = _require_command(connect, "connect Android device")
+    if not any(
+        marker in connect_output.lower()
+        for marker in ("connected to", "already connected to")
+    ):
+        raise ValueError(f"ADB did not establish the requested connection: {connect_output[:512]}")
+    states = _adb_device_states(adb_executable, run)
+    active_target = endpoint if endpoint in states else device
+    if states.get(active_target) != "device":
+        raise ValueError(f"ADB target did not become ready: {active_target}")
+    return active_target
+
+
 def android_deploy_result(
     repo_root: pathlib.Path,
     *,
@@ -468,24 +535,18 @@ def android_deploy_result(
     if not isinstance(descriptor, dict):
         raise ValueError("artifact descriptor is unavailable")
 
-    connect = run([adb_executable, "connect", device])
-    connect_output = _require_command(connect, "connect Android device")
-    if not any(
-        marker in connect_output.lower()
-        for marker in ("connected to", "already connected to")
-    ):
-        raise ValueError(f"ADB did not establish the requested connection: {connect_output[:512]}")
+    active_target = _ready_adb_target(adb_executable, device, run)
 
     expected_hash = str(descriptor["sha256"])
     installed_hash = _installed_apk_hash(
-        adb_executable, device, package, run
+        adb_executable, active_target, package, run
     )
     if installed_hash != expected_hash:
         install = run(
             [
                 adb_executable,
                 "-s",
-                device,
+                active_target,
                 "install",
                 "-r",
                 str(artifact.expanduser().resolve(strict=True)),
@@ -495,7 +556,7 @@ def android_deploy_result(
         if not any(line.strip() == "Success" for line in install_output.splitlines()):
             raise ValueError(f"ADB did not confirm installation: {install_output[:512]}")
         installed_hash = _installed_apk_hash(
-            adb_executable, device, package, run
+            adb_executable, active_target, package, run
         )
     if installed_hash != expected_hash:
         raise ValueError(
@@ -506,7 +567,7 @@ def android_deploy_result(
         [
             adb_executable,
             "-s",
-            device,
+            active_target,
             "shell",
             "am",
             "start",
@@ -521,7 +582,7 @@ def android_deploy_result(
     return {
         "schema": "ceratops-deployment-result.v1",
         "status": "passed",
-        "target": device,
+        "target": active_target,
         "artifact": descriptor,
     }
 

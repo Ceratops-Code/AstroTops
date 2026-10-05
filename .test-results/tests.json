@@ -2,7 +2,7 @@
   "artifact": null,
   "coverageStatus": "complete-repository",
   "execution": "executed",
-  "finishedAt": 1790487194.4767923,
+  "finishedAt": 1791192354.168454,
   "outcome": "passed",
   "requestedScope": "repository",
   "requiredChecks": [
@@ -20,7 +20,7 @@
   "results": [
     {
       "artifact": null,
-      "assertions": 52,
+      "assertions": 55,
       "command": [
         "{godot}",
         "--headless",
@@ -39,17 +39,17 @@
       "environment": {
         "godot": "4.7.2.stable.official.ed1daf0bf",
         "platform": "windows",
-        "python": "3.12.14",
+        "python": "3.12.15",
         "renderer": "gl_compatibility"
       },
       "evidence": [
-        "evidence/20260927T053300Z-76801f36520f/menu-ui/output.log"
+        "evidence/20261005T092539Z-08d7e3527962/menu-ui/output.log"
       ],
       "execution": "executed",
       "exitCode": 0,
       "failures": [],
-      "fingerprint": "27c52172ee4ff61be17027a5184c1a29a553e0b5124de7cb8b15f47cb59edb35",
-      "finishedAt": 1790487185.291048,
+      "fingerprint": "b8bc80aeef570e0859e5fa9a811c23937233b9c3a26c26ac59b1e61e87e2e5a2",
+      "finishedAt": 1791192345.0447383,
       "id": "menu-ui",
       "observations": [
         {
@@ -62,12 +62,12 @@
         }
       ],
       "outcome": "passed",
-      "runId": "20260927T053300Z-76801f36520f",
+      "runId": "20261005T092539Z-08d7e3527962",
       "schema": "astrotops-test-group-result.v1",
-      "seconds": 0.398,
+      "seconds": 0.47,
       "source": {
-        "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-        "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+        "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+        "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
         "dirty": false,
         "exactTags": []
       },
@@ -94,17 +94,17 @@
       "environment": {
         "godot": "4.7.2.stable.official.ed1daf0bf",
         "platform": "windows",
-        "python": "3.12.14",
+        "python": "3.12.15",
         "renderer": "gl_compatibility"
       },
       "evidence": [
-        "evidence/20260927T053300Z-76801f36520f/controls-countdown/output.log"
+        "evidence/20261005T092539Z-08d7e3527962/controls-countdown/output.log"
       ],
       "execution": "executed",
       "exitCode": 0,
       "failures": [],
-      "fingerprint": "4a11c2d4e1ac05801a13687daecabb74d72e880f82d223fe6cd0436100955ef1",
-      "finishedAt": 1790487185.660369,
+      "fingerprint": "c17b5aa09c09089578b1587accb674f928c52e4a86cd3d4ef0bee1055a37793a",
+      "finishedAt": 1791192345.5168858,
       "id": "controls-countdown",
       "observations": [
         {
@@ -113,12 +113,12 @@
         }
       ],
       "outcome": "passed",
-      "runId": "20260927T053300Z-76801f36520f",
+      "runId": "20261005T092539Z-08d7e3527962",
       "schema": "astrotops-test-group-result.v1",
-      "seconds": 0.367,
+      "seconds": 0.466,
       "source": {
-        "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-        "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+        "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+        "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
         "dirty": false,
         "exactTags": []
       },
@@ -145,17 +145,17 @@
       "environment": {
         "godot": "4.7.2.stable.official.ed1daf0bf",
         "platform": "windows",
-        "python": "3.12.14",
+        "python": "3.12.15",
         "renderer": "gl_compatibility"
       },
       "evidence": [
-        "evidence/20260927T053300Z-76801f36520f/audio-speech/output.log"
+        "evidence/20261005T092539Z-08d7e3527962/audio-speech/output.log"
       ],
       "execution": "executed",
       "exitCode": 0,
       "failures": [],
-      "fingerprint": "8da05bf014423fd1cd5e275b200007ad94ff3b21eacdb513a0c408c4abe3adf2",
-      "finishedAt": 1790487186.2233477,
+      "fingerprint": "6389fae3a29df56af799a3953ae907961bd371f06aecc4aa658915f7f2c9f825",
+      "finishedAt": 1791192346.0847452,
       "id": "audio-speech",
       "observations": [
         {
@@ -164,12 +164,12 @@
         }
       ],
       "outcome": "passed",
-      "runId": "20260927T053300Z-76801f36520f",
+      "runId": "20261005T092539Z-08d7e3527962",
       "schema": "astrotops-test-group-result.v1",
-      "seconds": 0.559,
+      "seconds": 0.555,
       "source": {
-        "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-        "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+        "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+        "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
         "dirty": false,
         "exactTags": []
       },
@@ -196,17 +196,17 @@
       "environment": {
         "godot": "4.7.2.stable.official.ed1daf0bf",
         "platform": "windows",
-        "python": "3.12.14",
+        "python": "3.12.15",
         "renderer": "gl_compatibility"
       },
       "evidence": [
-        "evidence/20260927T053300Z-76801f36520f/tractor-beam/output.log"
+        "evidence/20261005T092539Z-08d7e3527962/tractor-beam/output.log"
       ],
       "execution": "executed",
       "exitCode": 0,
       "failures": [],
-      "fingerprint": "c9a82bb08bf37aca35b6bf5d6861d3d8a8e32ef7f928b35f569ca52c2e432908",
-      "finishedAt": 1790487186.6087663,
+      "fingerprint": "de2e82354f87e3faad33f3eede9d67f925e0d93d9c3de11b30fffe7cef0d4543",
+      "finishedAt": 1791192346.5813055,
       "id": "tractor-beam",
       "observations": [
         {
@@ -215,12 +215,12 @@
         }
       ],
       "outcome": "passed",
-      "runId": "20260927T053300Z-76801f36520f",
+      "runId": "20261005T092539Z-08d7e3527962",
       "schema": "astrotops-test-group-result.v1",
-      "seconds": 0.379,
+      "seconds": 0.476,
       "source": {
-        "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-        "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+        "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+        "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
         "dirty": false,
         "exactTags": []
       },
@@ -247,17 +247,17 @@
       "environment": {
         "godot": "4.7.2.stable.official.ed1daf0bf",
         "platform": "windows",
-        "python": "3.12.14",
+        "python": "3.12.15",
         "renderer": "gl_compatibility"
       },
       "evidence": [
-        "evidence/20260927T053300Z-76801f36520f/targets/output.log"
+        "evidence/20261005T092539Z-08d7e3527962/targets/output.log"
       ],
       "execution": "executed",
       "exitCode": 0,
       "failures": [],
-      "fingerprint": "61128176bbc9f3757542fbd9d8421ba349a8e6d3badec270892041590a14f92b",
-      "finishedAt": 1790487187.0079434,
+      "fingerprint": "02dbc9c08e0d47681a8a6c9e9cc17de761259f082137584de9326b7f14177e3d",
+      "finishedAt": 1791192347.0542395,
       "id": "targets",
       "observations": [
         {
@@ -266,12 +266,12 @@
         }
       ],
       "outcome": "passed",
-      "runId": "20260927T053300Z-76801f36520f",
+      "runId": "20261005T092539Z-08d7e3527962",
       "schema": "astrotops-test-group-result.v1",
-      "seconds": 0.396,
+      "seconds": 0.467,
       "source": {
-        "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-        "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+        "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+        "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
         "dirty": false,
         "exactTags": []
       },
@@ -279,7 +279,7 @@
     },
     {
       "artifact": null,
-      "assertions": 26,
+      "assertions": 29,
       "command": [
         "{godot}",
         "--headless",
@@ -298,31 +298,31 @@
       "environment": {
         "godot": "4.7.2.stable.official.ed1daf0bf",
         "platform": "windows",
-        "python": "3.12.14",
+        "python": "3.12.15",
         "renderer": "gl_compatibility"
       },
       "evidence": [
-        "evidence/20260927T053300Z-76801f36520f/ships-pilots/output.log"
+        "evidence/20261005T092539Z-08d7e3527962/ships-pilots/output.log"
       ],
       "execution": "executed",
       "exitCode": 0,
       "failures": [],
-      "fingerprint": "cada3f8979aee592552cf1d3dd1097723435abc323a2f426426412c6167f2337",
-      "finishedAt": 1790487187.386955,
+      "fingerprint": "15a43e56e6acb54e713c25af955e63662be6d5c6bbc44aecbd2db9b2427be009",
+      "finishedAt": 1791192347.446226,
       "id": "ships-pilots",
       "observations": [
         {
           "id": "SHIP/assets",
-          "value": "four raster ships retain high-resolution transparent sources; four procedural ships and three pilots remain selectable"
+          "value": "four raster ships retain high-resolution transparent sources; four procedural ships and four pilots remain selectable"
         }
       ],
       "outcome": "passed",
-      "runId": "20260927T053300Z-76801f36520f",
+      "runId": "20261005T092539Z-08d7e3527962",
       "schema": "astrotops-test-group-result.v1",
-      "seconds": 0.376,
+      "seconds": 0.375,
       "source": {
-        "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-        "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+        "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+        "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
         "dirty": false,
         "exactTags": []
       },
@@ -330,7 +330,7 @@
     },
     {
       "artifact": null,
-      "assertions": 55,
+      "assertions": 60,
       "command": [
         "{godot}",
         "--headless",
@@ -349,17 +349,17 @@
       "environment": {
         "godot": "4.7.2.stable.official.ed1daf0bf",
         "platform": "windows",
-        "python": "3.12.14",
+        "python": "3.12.15",
         "renderer": "gl_compatibility"
       },
       "evidence": [
-        "evidence/20260927T053300Z-76801f36520f/gameplay-flow/output.log"
+        "evidence/20261005T092539Z-08d7e3527962/gameplay-flow/output.log"
       ],
       "execution": "executed",
       "exitCode": 0,
       "failures": [],
-      "fingerprint": "fe86c9ee177a785ff9df19ed3d53ef87da6cc9f9a76374beae1cd5338ebc2f68",
-      "finishedAt": 1790487187.8519552,
+      "fingerprint": "6b270f70cbc942268be4f75298d406c56fc80852a801ee59d7540a592a17ad48",
+      "finishedAt": 1791192347.9242573,
       "id": "gameplay-flow",
       "observations": [
         {
@@ -372,12 +372,12 @@
         }
       ],
       "outcome": "passed",
-      "runId": "20260927T053300Z-76801f36520f",
+      "runId": "20261005T092539Z-08d7e3527962",
       "schema": "astrotops-test-group-result.v1",
-      "seconds": 0.461,
+      "seconds": 0.468,
       "source": {
-        "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-        "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+        "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+        "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
         "dirty": false,
         "exactTags": []
       },
@@ -385,7 +385,7 @@
     },
     {
       "artifact": null,
-      "assertions": 34,
+      "assertions": 39,
       "command": [
         "{godot}",
         "--headless",
@@ -404,17 +404,17 @@
       "environment": {
         "godot": "4.7.2.stable.official.ed1daf0bf",
         "platform": "windows",
-        "python": "3.12.14",
+        "python": "3.12.15",
         "renderer": "gl_compatibility"
       },
       "evidence": [
-        "evidence/20260927T053300Z-76801f36520f/pause-results/output.log"
+        "evidence/20261005T092539Z-08d7e3527962/pause-results/output.log"
       ],
       "execution": "executed",
       "exitCode": 0,
       "failures": [],
-      "fingerprint": "238b329b244cd780d0020de1d8bf3d247efd51dd687ae69c1c68cb1a93e3efab",
-      "finishedAt": 1790487188.3255925,
+      "fingerprint": "a8e8869f1df7701d298c987728b986b282bba17a07b71c05c095c4128eef444b",
+      "finishedAt": 1791192348.400761,
       "id": "pause-results",
       "observations": [
         {
@@ -423,12 +423,12 @@
         }
       ],
       "outcome": "passed",
-      "runId": "20260927T053300Z-76801f36520f",
+      "runId": "20261005T092539Z-08d7e3527962",
       "schema": "astrotops-test-group-result.v1",
-      "seconds": 0.47,
+      "seconds": 0.468,
       "source": {
-        "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-        "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+        "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+        "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
         "dirty": false,
         "exactTags": []
       },
@@ -436,7 +436,7 @@
     },
     {
       "artifact": null,
-      "assertions": 40,
+      "assertions": 48,
       "command": [
         "{python}",
         "scripts/run-tests.py",
@@ -446,19 +446,23 @@
       "environment": {
         "godot": "4.7.2.stable.official.ed1daf0bf",
         "platform": "windows",
-        "python": "3.12.14",
+        "python": "3.12.15",
         "renderer": "gl_compatibility"
       },
       "evidence": [
-        "evidence/20260927T053300Z-76801f36520f/delivery-lifecycle/output.log"
+        "evidence/20261005T092539Z-08d7e3527962/delivery-lifecycle/output.log"
       ],
       "execution": "executed",
       "exitCode": 0,
       "failures": [],
-      "fingerprint": "3f5aadba0ca3588eb8fd18cd15d8bc8f5492b63c3b568869f72eca30a84847e2",
-      "finishedAt": 1790487188.4750729,
+      "fingerprint": "5edc7f745b59372843a18b60de63e16e953dc2e32297b021532f89841413fe4a",
+      "finishedAt": 1791192348.5884626,
       "id": "delivery-lifecycle",
       "observations": [
+        {
+          "actual": 0,
+          "id": "connected-serial-skips-connect"
+        },
         {
           "actual": 0,
           "id": "exact-apk-skips-install"
@@ -482,6 +486,26 @@
         {
           "actual": "ece6cd63b2d04954431213a82441e997c6858b4615ded82fb22f38c1e910c95d",
           "id": "installed-apk-is-verified"
+        },
+        {
+          "actual": 0,
+          "id": "usb-serial-skips-connect"
+        },
+        {
+          "actual": "R9ZY508NZWM",
+          "id": "usb-serial-remains-target"
+        },
+        {
+          "actual": 0,
+          "id": "mdns-serial-skips-connect"
+        },
+        {
+          "actual": "adb-R9ZY508NZWM-probe._adb-tls-connect._tcp",
+          "id": "mdns-serial-remains-target"
+        },
+        {
+          "actual": 1,
+          "id": "network-endpoint-connects"
         },
         {
           "actual": true,
@@ -587,7 +611,7 @@
         },
         {
           "actual": [
-            "{temp}\\tool-cache\\godot\\4.7.2\\godot-test",
+            "{temp}\\Godot_test.exe",
             "--headless",
             "--editor",
             "--path",
@@ -603,6 +627,14 @@
         {
           "actual": "debug-apk",
           "id": "godot-export-produces-artifact"
+        },
+        {
+          "actual": "{temp}\\Godot_test.exe",
+          "id": "godot-export-uses-non-console-worker"
+        },
+        {
+          "actual": true,
+          "id": "godot-export-uses-file-backed-capture"
         },
         {
           "actual": true,
@@ -638,12 +670,12 @@
         }
       ],
       "outcome": "passed",
-      "runId": "20260927T053300Z-76801f36520f",
+      "runId": "20261005T092539Z-08d7e3527962",
       "schema": "astrotops-test-group-result.v1",
-      "seconds": 0.146,
+      "seconds": 0.181,
       "source": {
-        "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-        "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+        "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+        "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
         "dirty": false,
         "exactTags": []
       },
@@ -651,7 +683,7 @@
     },
     {
       "artifact": null,
-      "assertions": 59,
+      "assertions": 63,
       "command": [
         "{godot}",
         "--rendering-method",
@@ -673,36 +705,37 @@
       "environment": {
         "godot": "4.7.2.stable.official.ed1daf0bf",
         "platform": "windows",
-        "python": "3.12.14",
+        "python": "3.12.15",
         "renderer": "gl_compatibility"
       },
       "evidence": [
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/app-icon-adaptive.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/app-icon.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/cockpit.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/countdown.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/menu.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/output.log",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/paused.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/planet-pilot.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/playing.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/results.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/targets.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/tour-results.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/tour.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/tractor-debug.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/traxy-hook-latch.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/traxy-hook.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/traxy-poof.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/traxy-states.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/traxy-suit-color.png",
-        "evidence/20260927T053300Z-76801f36520f/rendered-ui/traxy-tow.png"
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/app-icon-adaptive.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/app-icon.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/cockpit.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/countdown.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/menu.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/output.log",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/paused.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/planet-pilot.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/playing.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/results.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/star-pilot.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/targets.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/tour-results.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/tour.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/tractor-debug.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/traxy-hook-latch.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/traxy-hook.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/traxy-poof.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/traxy-states.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/traxy-suit-color.png",
+        "evidence/20261005T092539Z-08d7e3527962/rendered-ui/traxy-tow.png"
       ],
       "execution": "executed",
       "exitCode": 0,
       "failures": [],
-      "fingerprint": "b649d67d1e740a204d89a7f5e12db857caf1afce7022867b2da46290601d1ce8",
-      "finishedAt": 1790487194.4762838,
+      "fingerprint": "bd3e424fe6c512978b889974229b49c0983b72eda5d5dad404db93cb7521f8b2",
+      "finishedAt": 1791192354.1663756,
       "id": "rendered-ui",
       "observations": [
         {
@@ -711,23 +744,23 @@
         },
         {
           "id": "RENDER/evidence",
-          "value": "[\"menu.png\", \"playing.png\", \"tractor-debug.png\", \"paused.png\", \"countdown.png\", \"results.png\", \"tour.png\", \"tour-results.png\", \"cockpit.png\", \"planet-pilot.png\", \"targets.png\", \"traxy-poof.png\", \"traxy-states.png\", \"traxy-suit-color.png\", \"traxy-hook.png\", \"traxy-hook-latch.png\", \"traxy-tow.png\", \"app-icon.png\", \"app-icon-adaptive.png\"]"
+          "value": "[\"menu.png\", \"playing.png\", \"tractor-debug.png\", \"paused.png\", \"countdown.png\", \"results.png\", \"tour.png\", \"tour-results.png\", \"cockpit.png\", \"planet-pilot.png\", \"star-pilot.png\", \"targets.png\", \"traxy-poof.png\", \"traxy-states.png\", \"traxy-suit-color.png\", \"traxy-hook.png\", \"traxy-hook-latch.png\", \"traxy-tow.png\", \"app-icon.png\", \"app-icon-adaptive.png\"]"
         }
       ],
       "outcome": "passed",
-      "runId": "20260927T053300Z-76801f36520f",
+      "runId": "20261005T092539Z-08d7e3527962",
       "schema": "astrotops-test-group-result.v1",
-      "seconds": 5.994,
+      "seconds": 5.564,
       "source": {
-        "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-        "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+        "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+        "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
         "dirty": false,
         "exactTags": []
       },
       "status": "passed"
     }
   ],
-  "runId": "20260927T053300Z-76801f36520f",
+  "runId": "20261005T092539Z-08d7e3527962",
   "schema": "astrotops-repository-tests.v1",
   "selectedChecks": [
     "audio-speech",
@@ -742,12 +775,12 @@
     "tractor-beam"
   ],
   "source": {
-    "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-    "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+    "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+    "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
     "dirty": false,
     "exactTags": []
   },
   "stage": "tests",
-  "startedAt": 1790487180.4081264,
+  "startedAt": 1791192339.7097793,
   "status": "passed"
 }

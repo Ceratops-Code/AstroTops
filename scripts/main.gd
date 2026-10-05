@@ -29,10 +29,11 @@ const RESCUE_HOOK_STANDOFF_DISTANCE := 150.0
 const RESCUE_STAGING_TOLERANCE := 7.0
 const RESCUE_OFFSCREEN_MARGIN := 150.0
 const MODE_NAMES := ["SPACE RUSH", "SOLAR TOUR"]
+const TOUR_FIRST_GUIDE_DELAY := 1.0
 const TOUR_ORDER := [
-	"sun", "mercury", "venus", "earth", "moon", "mars", "asteroid_a",
-	"asteroid_b", "jupiter", "saturn", "uranus", "neptune", "pluto",
-	"haumea", "black_hole",
+	"asteroid_b", "haumea", "asteroid_a", "pluto", "moon", "mercury",
+	"mars", "venus", "black_hole", "earth", "neptune", "uranus",
+	"saturn", "jupiter", "sun",
 ]
 
 const BRAND_NAME := "ASTROTOPS"
@@ -106,7 +107,7 @@ var ship_names := [
 	"Arrow Scout", "Dart Runner", "Nova Wing", "Orbit Saucer",
 	"Comet Spear", "Twin Comet", "Star Skimmer", "Rocket Pod",
 ]
-var pilot_names := ["Trixie", "Astronaut", "Planet"]
+var pilot_names := ["Trixie", "Astronaut", "Planet", "Star"]
 var selected_color_index := 0
 var selected_ship_index := 0
 var selected_pilot_index := 0
@@ -128,6 +129,8 @@ var finale_impacts := 0
 var input_hint_time := 0.0
 var run_serial := 0
 var tour_progress_index := 0
+var tour_first_guide_delay_remaining := 0.0
+var tour_first_guide_started := false
 var tractor_beam_enabled := true
 var tractor_beam_strength := TRACTOR_DEFAULT_STRENGTH
 var tractor_target: SpaceTarget
@@ -198,6 +201,7 @@ func _process(delta: float) -> void:
 				else:
 					_play_countdown_tone(false)
 		GameState.PLAYING:
+			_update_tour_first_guide(delta)
 			elapsed_time += delta
 			var movement := _movement_input()
 			ship.move_ship(movement, delta)
@@ -450,8 +454,10 @@ func _prepare_run() -> void:
 	_stop_target_speech()
 	_setup_tts()
 	tour_progress_index = 0
+	tour_first_guide_delay_remaining = TOUR_FIRST_GUIDE_DELAY
+	tour_first_guide_started = false
 	_spawn_planets()
-	_refresh_tour_highlights()
+	_refresh_tour_highlights(false)
 	captured_count = 0
 	elapsed_time = 0.0
 	final_time = 0.0
@@ -481,6 +487,8 @@ func _begin_countdown() -> void:
 func _launch_run() -> void:
 	state = GameState.PLAYING
 	countdown_phase = 0.0
+	tour_first_guide_delay_remaining = TOUR_FIRST_GUIDE_DELAY
+	tour_first_guide_started = false
 	_play_countdown_tone(true)
 
 
@@ -514,7 +522,7 @@ func _check_planet_contacts() -> void:
 				_speak_target_name(planet.body_name)
 				if _is_tour_mode():
 					tour_progress_index += 1
-					_refresh_tour_highlights()
+					_refresh_tour_highlights(tour_first_guide_started)
 	if _all_planets_captured():
 		if _is_tour_mode():
 			_finish_run()
@@ -641,11 +649,23 @@ func _tour_target_name() -> String:
 	return ""
 
 
-func _refresh_tour_highlights() -> void:
+func _update_tour_first_guide(delta: float) -> void:
+	if not _is_tour_mode() or tour_first_guide_started:
+		return
+	tour_first_guide_delay_remaining = maxf(0.0, tour_first_guide_delay_remaining - delta)
+	if tour_first_guide_delay_remaining <= 0.0:
+		tour_first_guide_started = true
+		_refresh_tour_highlights(true)
+
+
+func _refresh_tour_highlights(start_guide := true) -> void:
 	var target_style := _tour_target_style()
 	for planet in planets:
 		if is_instance_valid(planet):
-			planet.set_tour_highlighted(_is_tour_mode() and not planet.captured and planet.body_style == target_style)
+			planet.set_tour_highlighted(
+				_is_tour_mode() and not planet.captured and planet.body_style == target_style,
+				start_guide
+			)
 
 
 func _finish_run() -> void:

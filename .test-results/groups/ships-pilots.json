@@ -1,6 +1,6 @@
 {
   "artifact": null,
-  "assertions": 26,
+  "assertions": 29,
   "command": [
     "{godot}",
     "--headless",
@@ -19,31 +19,31 @@
   "environment": {
     "godot": "4.7.2.stable.official.ed1daf0bf",
     "platform": "windows",
-    "python": "3.12.14",
+    "python": "3.12.15",
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T053300Z-76801f36520f/ships-pilots/output.log"
+    "evidence/20261005T092539Z-08d7e3527962/ships-pilots/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "cada3f8979aee592552cf1d3dd1097723435abc323a2f426426412c6167f2337",
-  "finishedAt": 1790487187.386955,
+  "fingerprint": "15a43e56e6acb54e713c25af955e63662be6d5c6bbc44aecbd2db9b2427be009",
+  "finishedAt": 1791192347.446226,
   "id": "ships-pilots",
   "observations": [
     {
       "id": "SHIP/assets",
-      "value": "four raster ships retain high-resolution transparent sources; four procedural ships and three pilots remain selectable"
+      "value": "four raster ships retain high-resolution transparent sources; four procedural ships and four pilots remain selectable"
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T053300Z-76801f36520f",
+  "runId": "20261005T092539Z-08d7e3527962",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.376,
+  "seconds": 0.375,
   "source": {
-    "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-    "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+    "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+    "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
     "dirty": false,
     "exactTags": []
   },

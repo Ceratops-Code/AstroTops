@@ -19,17 +19,17 @@
   "environment": {
     "godot": "4.7.2.stable.official.ed1daf0bf",
     "platform": "windows",
-    "python": "3.12.14",
+    "python": "3.12.15",
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T053300Z-76801f36520f/controls-countdown/output.log"
+    "evidence/20261005T092539Z-08d7e3527962/controls-countdown/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "4a11c2d4e1ac05801a13687daecabb74d72e880f82d223fe6cd0436100955ef1",
-  "finishedAt": 1790487185.660369,
+  "fingerprint": "c17b5aa09c09089578b1587accb674f928c52e4a86cd3d4ef0bee1055a37793a",
+  "finishedAt": 1791192345.5168858,
   "id": "controls-countdown",
   "observations": [
     {
@@ -38,12 +38,12 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T053300Z-76801f36520f",
+  "runId": "20261005T092539Z-08d7e3527962",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.367,
+  "seconds": 0.466,
   "source": {
-    "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-    "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+    "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+    "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
     "dirty": false,
     "exactTags": []
   },

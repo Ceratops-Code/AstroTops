@@ -220,14 +220,29 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
             )
 
     class FakeAdb:
-        def __init__(self, installed_hash: str | None, connect_output: str) -> None:
+        def __init__(
+            self,
+            installed_hash: str | None,
+            connect_output: str,
+            connected_device: str | None = device,
+        ) -> None:
             self.installed_hash = installed_hash
             self.connect_output = connect_output
+            self.connected_device = connected_device
+            self.connects = 0
             self.installs = 0
             self.launches = 0
 
         def __call__(self, arguments: list[str]) -> subprocess.CompletedProcess[str]:
+            if arguments[1:] == ["devices"]:
+                row = f"{self.connected_device}\tdevice\n" if self.connected_device else ""
+                return subprocess.CompletedProcess(
+                    arguments, 0, f"List of devices attached\n{row}", ""
+                )
             if arguments[1:2] == ["connect"]:
+                self.connects += 1
+                if "connected to" in self.connect_output.lower():
+                    self.connected_device = arguments[2]
                 return subprocess.CompletedProcess(
                     arguments, 0, self.connect_output + "\n", ""
                 )
@@ -259,6 +274,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         artifact_type="android-apk",
         run=exact,
     )
+    check("connected-serial-skips-connect", 0, exact.connects)
     check("exact-apk-skips-install", 0, exact.installs)
     check("exact-apk-launches", 1, exact.launches)
     check(
@@ -287,7 +303,54 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     check("changed-apk-installs-once", 1, changed.installs)
     check("installed-apk-is-verified", expected_hash, changed.installed_hash)
 
-    false_success = FakeAdb(expected_hash, f"cannot connect to {device}")
+    usb_device = "R9ZY508NZWM"
+    usb = FakeAdb(expected_hash, "", connected_device=usb_device)
+    usb_receipt = android_deploy_result(
+        fake_repo,
+        adb_executable="adb",
+        device=usb_device,
+        package=package,
+        activity=activity,
+        artifact=artifact,
+        artifact_type="android-apk",
+        run=usb,
+    )
+    check("usb-serial-skips-connect", 0, usb.connects)
+    check("usb-serial-remains-target", usb_device, usb_receipt.get("target"))
+
+    mdns_device = "adb-R9ZY508NZWM-probe._adb-tls-connect._tcp"
+    mdns = FakeAdb(expected_hash, "", connected_device=mdns_device)
+    mdns_receipt = android_deploy_result(
+        fake_repo,
+        adb_executable="adb",
+        device=mdns_device,
+        package=package,
+        activity=activity,
+        artifact=artifact,
+        artifact_type="android-apk",
+        run=mdns,
+    )
+    check("mdns-serial-skips-connect", 0, mdns.connects)
+    check("mdns-serial-remains-target", mdns_device, mdns_receipt.get("target"))
+
+    network = FakeAdb(None, f"connected to {device}", connected_device=None)
+    android_deploy_result(
+        fake_repo,
+        adb_executable="adb",
+        device=device,
+        package=package,
+        activity=activity,
+        artifact=artifact,
+        artifact_type="android-apk",
+        run=network,
+    )
+    check("network-endpoint-connects", 1, network.connects)
+
+    false_success = FakeAdb(
+        expected_hash,
+        f"cannot connect to {device}",
+        connected_device=None,
+    )
     try:
         android_deploy_result(
             fake_repo,
@@ -576,15 +639,26 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
             pathlib.Path(command[-1]).write_bytes(b"debug-apk")
         return subprocess.CompletedProcess(command, 0, "", "")
 
-    validate_godot_project(fake_repo, repaired, run=fake_godot_run)
+    operation_console = temporary_root / "Godot_test_console.exe"
+    operation_console.write_bytes(b"fake-console-runtime")
+    operation_worker = temporary_root / "Godot_test.exe"
+    operation_worker.write_bytes(b"fake-non-console-runtime")
+    validate_godot_project(fake_repo, operation_console, run=fake_godot_run)
     check(
         "godot-project-validation-command",
-        [str(repaired), "--headless", "--editor", "--path", str(fake_repo), "--quit"],
+        [
+            str(operation_worker),
+            "--headless",
+            "--editor",
+            "--path",
+            str(fake_repo),
+            "--quit",
+        ],
         operation_calls[0],
     )
     exported = export_debug_project(
         fake_repo,
-        repaired,
+        operation_console,
         pathlib.Path(".build/artifacts/android/provisioned.apk"),
         run=fake_godot_run,
         template_provider=lambda: repaired_android_source,
@@ -598,6 +672,25 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         "godot-export-produces-artifact",
         "debug-apk",
         exported.read_bytes().decode("ascii"),
+    )
+    export_index = next(
+        index
+        for index, command in enumerate(operation_calls)
+        if "--export-debug" in command
+    )
+    export_call = operation_calls[export_index]
+    export_context = operation_contexts[export_index]
+    check(
+        "godot-export-uses-non-console-worker",
+        str(operation_worker),
+        export_call[0],
+    )
+    check(
+        "godot-export-uses-file-backed-capture",
+        True,
+        not export_context.get("capture_output", False)
+        and export_context.get("stdout") not in (None, subprocess.PIPE)
+        and export_context.get("stderr") not in (None, subprocess.PIPE),
     )
     validation_start = len(operation_calls)
     validate_android_build(

@@ -1,6 +1,6 @@
 {
   "artifact": null,
-  "assertions": 52,
+  "assertions": 55,
   "command": [
     "{godot}",
     "--headless",
@@ -19,17 +19,17 @@
   "environment": {
     "godot": "4.7.2.stable.official.ed1daf0bf",
     "platform": "windows",
-    "python": "3.12.14",
+    "python": "3.12.15",
     "renderer": "gl_compatibility"
   },
   "evidence": [
-    "evidence/20260927T053300Z-76801f36520f/menu-ui/output.log"
+    "evidence/20261005T092539Z-08d7e3527962/menu-ui/output.log"
   ],
   "execution": "executed",
   "exitCode": 0,
   "failures": [],
-  "fingerprint": "27c52172ee4ff61be17027a5184c1a29a553e0b5124de7cb8b15f47cb59edb35",
-  "finishedAt": 1790487185.291048,
+  "fingerprint": "b8bc80aeef570e0859e5fa9a811c23937233b9c3a26c26ac59b1e61e87e2e5a2",
+  "finishedAt": 1791192345.0447383,
   "id": "menu-ui",
   "observations": [
     {
@@ -42,12 +42,12 @@
     }
   ],
   "outcome": "passed",
-  "runId": "20260927T053300Z-76801f36520f",
+  "runId": "20261005T092539Z-08d7e3527962",
   "schema": "astrotops-test-group-result.v1",
-  "seconds": 0.398,
+  "seconds": 0.47,
   "source": {
-    "commit": "76801f36520fccaa4aab303ece98e75062d10e98",
-    "digest": "058e55a742947cd4abd90dceae283711334eb5772ef9dd76a38412e8c8df1c17",
+    "commit": "08d7e35279624b30643b2480ca8ae923c329b373",
+    "digest": "c73666446a7980f648b66392435885c5cc9e7623cff5a409d2a596ffd8b3691d",
     "dirty": false,
     "exactTags": []
   },

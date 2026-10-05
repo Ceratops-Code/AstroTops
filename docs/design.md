@@ -125,7 +125,7 @@ bounded evidence, artifact identity, and deterministic Android deployment.
   interface tones, the nonverbal capture poof, one-shot effects, delayed English
   voice discovery, and native speech queue submission.
 - [`scripts/player_ship.gd`](../scripts/player_ship.gd) owns movement bounds,
-  velocity, eight ship styles, cockpit placement, three pilots, and the bounded
+  velocity, eight ship styles, cockpit placement, four pilots, and the bounded
   exception that lets the scripted rescue fly offscreen.
 - [`scripts/space_target.gd`](../scripts/space_target.gd) defines the common
   capture, extent, and tractor-pull contract shared by stationary and moving
@@ -174,8 +174,10 @@ poof; the device speaks his name after that sound completes. His label, suit
 fabric, and suit panels adopt the exact ship color, while Traxy, his helmet
 glass, tail, and gold hardware retain their source colors. Solar Tour is an
 additive menu choice: it keeps the fifteen-body roster,
-accepts only the highlighted next body from the Sun outward, shows inward arrows
-for the first 2.5 seconds of every new target, and records a separate best time.
+accepts only the highlighted next body from smallest body radius to largest,
+starts the first inward-arrow cue one second after the countdown ends, shows the
+arrows for 2.5 seconds, cues later targets immediately, and records a separate
+best time.
 Completing the ordered roster adds a Tour Medal to the results panel.
 Both modes derive their result layout from the fallback font's actual bounds;
 the Solar Tour medal occupies its own row above the elapsed and best times.
@@ -219,10 +221,11 @@ rejects an incomplete toolchain before export, performs a real disposable debug
 export, and runs Gradle lint through the installed source template.
 
 Delivery first verifies saved validation and complete grouped test outcomes
-against the exact APK path, length, and SHA-256. ADB installation connects to
-the named device, compares the installed base APK hash, installs only changed
-bytes, verifies the installed hash, and launches the declared activity. Failed
-or semantically empty ADB responses are failures. There is no production
+against the exact APK path, length, and SHA-256. ADB installation reuses a
+ready USB, network, or secure-mDNS serial and connects only a missing network
+endpoint. It compares the installed base APK hash, installs only changed bytes,
+verifies the installed hash, and launches the declared activity. Failed or
+semantically empty ADB responses are failures. There is no production
 service to monitor; validation JSON, grouped results, build receipts, deployment
 receipts, screenshots, and logs provide operational evidence.
 
@@ -395,8 +398,9 @@ groups. Headless Godot groups observe menu, controls, audio requests, tractor
 behavior, target models, ship and pilot models, gameplay flow, pause, results,
 and persistence. The rendered group captures actual Godot output for menu,
 play, pause, countdown, results, cockpit, targets, the hidden tractor field,
-Traxy's smoothly turned overhead chair, independent thrusters, capture-cloud,
-shocked, progressive-hook, and cable-tow states, the standalone icon, and the
+the golden star pilot, Traxy's smoothly turned overhead chair, independent
+thrusters, capture-cloud, shocked, progressive-hook, and cable-tow states, the
+standalone icon, and the
 layered adaptive icon under a circular mask.
 Python tests cover result lifecycle, automatic editor and Android-template
 provisioning, tamper repair, bounded cache retention, safe project-template
