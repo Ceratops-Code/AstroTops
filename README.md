@@ -122,6 +122,10 @@ After artifact qualification, ordinary lifecycle test gates reuse that artifact
 binding only while the source, path, length, and SHA-256 still match. Missing or
 changed bytes make the qualification inapplicable.
 
+SDLC repository gates use `--no-record` to keep tracked acceptance records
+unchanged during CI and promotion. Explicit recorded runs still own those
+records for artifact qualification.
+
 Repository validation separately updates `.test-results/validation.json` on
 clean committed source. Delivery requires both that applicable validation
 record and the complete gameplay result before checking the exact artifact.
