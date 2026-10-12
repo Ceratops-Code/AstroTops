@@ -45,6 +45,7 @@ repository:
             - --locked
             - python
             - scripts/validate-repository.py
+            - --no-record
     test:
       requires:
         capabilities:
@@ -57,6 +58,7 @@ repository:
             - scripts
             - --locked
             - scripts/run-tests.py
+            - --no-record
             - --scope
             - repository
 deliverables:
