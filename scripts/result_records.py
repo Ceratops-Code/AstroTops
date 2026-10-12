@@ -19,9 +19,8 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 VALIDATION_SCHEMA = "astrotops-repository-validation.v1"
 RESULT_SCHEMA = "astrotops-repository-tests.v1"
