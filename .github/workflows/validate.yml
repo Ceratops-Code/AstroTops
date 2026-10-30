@@ -13,7 +13,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -38,7 +38,7 @@ jobs:
       - name: Install npm validation dependencies
         run: npm --prefix scripts ci
       - name: Validate and test through SDLC
-        uses: Ceratops-Code/Ceratops-AI-Agents-Kit/skills/ceratops-repo-lifecycle/scripts@fd2616cac03ef727a0ea96dc778ad15295d05b90 # revision fd2616cac03e
+        uses: Ceratops-Code/Ceratops-AI-Agents-Kit/skills/ceratops-repo-lifecycle/scripts@c20bc132452c0c3aa2841488a16cc6caaeda5344 # revision c20bc132452c
         with:
           repo-root: ${{ github.workspace }}
           evidence-file: ${{ runner.temp }}/repository-validation.log
