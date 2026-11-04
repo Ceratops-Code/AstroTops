@@ -284,13 +284,16 @@ class BoardBackend extends RefCounted:
 	var sensitivity_save_requests := 0
 	var sensitivity_percent := {"LEFT": 143, "RIGHT": 143, "UP": 143, "DOWN": 143, "DEAD_ZONE": 11}
 	var fail_save := false
+	var release_immediately := true
 
 	func connectToBoBoBoard() -> void:
 		connects += 1
 
 	func disconnectFromBoBoBoard() -> void:
 		disconnects += 1
-		board_state_changed.emit(JSON.stringify({"status": "disconnected", "message": "BoBo disconnected"}))
+		_publish_state("releasing")
+		if release_immediately:
+			_publish_state("disconnected")
 
 	func send_tilt(value: Vector2) -> void:
 		sequence += 1
@@ -443,7 +446,44 @@ func _test_board_input() -> void:
 	backend.board_state_changed.emit(JSON.stringify({"status": "ready", "message": "Bad input", "x": 2.0, "y": 0.0, "fresh": true, "sequence": 1}))
 	_assert_equal("BOBO-02/invalid-input-closed", backend.disconnects, 3)
 	_assert_true("BOBO-02/invalid-cause-survives-cleanup", "invalid movement" in main.board_input.message, main.board_input.message)
+	await _test_board_release_gate()
 	_observe("BOBO/preview-and-flight", "Same movement function, real ship movement, no preview mission, and explicit reconnect/resume")
+
+
+func _test_board_release_gate() -> void:
+	# Cover the terminal callback on either side of a fresh Connect, including
+	# releases whose visible status preserves the original input failure.
+	for cause in ["disconnect", "stale", "invalid"]:
+		for terminal in ["disconnected", "error"]:
+			var backend := BoardBackend.new()
+			backend.release_immediately = false
+			var main: Variant = await _new_main(root, "release-%s-%s.cfg" % [cause, terminal], backend)
+			main._connect_board()
+			backend.send_tilt(Vector2(0.4, 0.0))
+			_assert_true("BOBO-02/release-starts-ready-%s-%s" % [cause, terminal], main.board_input.is_ready(), main.board_input.status)
+			if cause == "disconnect":
+				main._disconnect_board()
+			elif cause == "stale":
+				main.board_input._last_packet_ms = Time.get_ticks_msec() - 1001
+				main.board_input._process(0.0)
+			else:
+				backend.send_tilt(Vector2(2.0, 0.0))
+			_assert_true("BOBO-02/release-disables-connect-%s-%s" % [cause, terminal], main.board_sidebar.connect_button.disabled, main.board_input.status)
+			main._connect_board()
+			main._connect_board()
+			_assert_equal("BOBO-02/release-cannot-queue-reconnect-%s-%s" % [cause, terminal], backend.connects, 1)
+			backend.send_tilt(Vector2.ONE)
+			_assert_equal("BOBO-02/release-ignores-late-movement-%s-%s" % [cause, terminal], main.board_input.movement, Vector2.ZERO)
+			backend._publish_state(terminal)
+			_assert_true("BOBO-02/release-completion-enables-connect-%s-%s" % [cause, terminal], not main.board_sidebar.connect_button.disabled, main.board_input.status)
+			main._connect_board()
+			main._connect_board()
+			_assert_equal("BOBO-02/release-completion-connects-once-%s-%s" % [cause, terminal], backend.connects, 2)
+			backend.send_tilt(Vector2(0.4, 0.0))
+			_assert_true("BOBO-02/release-completion-accepts-new-tilt-%s-%s" % [cause, terminal], main.board_input.is_ready(), main.board_input.status)
+			main.queue_free()
+			await process_frame
+	_observe("BOBO-02/release-gates-reconnect", "Connect waits for normal and failed release completion, then accepts fresh tilt")
 
 
 func _pcm_peak(stream: AudioStreamWAV) -> int:

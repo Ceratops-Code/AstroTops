@@ -27,6 +27,7 @@ Choose Connect to BoBo, then Test board to steer the real ship without a
 mission, countdown, targets, or score. Preview and flight use the same screen
 coordinates and movement function. Disconnect clears input, finishes local
 connection cleanup, and stays disconnected until another Connect command.
+Connect is disabled until release finishes, including cleanup after a tilt error.
 
 A lost or stale tilt stream stops the ship and pauses an active mission.
 Reconnect is available in the mission header; Resume remains a separate action.

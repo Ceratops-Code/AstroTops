@@ -262,6 +262,8 @@ Original work/check versions and execution identities survive reuse. The declare
 check-only input list separates check versions from product versions; both must
 match for current-candidate reuse. A check edit does not rewrite historical
 artifact acceptance. Current failed/running outcomes block an older pass.
+Each shared runner writes its running attempt before calling the check, so an
+interrupted worker cannot leave a previous pass current throughout execution.
 SDLC declares product/check inputs, dependency files, tools and environment.
 Its executor supplies the five result arguments and the requested alpha/beta/rc/
 final level. Runners record actual outcomes before returning success; original
@@ -297,7 +299,9 @@ the separate retained `.build/artifacts/android/AstroTops.apk`.
 
 The direct board path requires Android 12/API 31 and the standard Nearby devices
 permissions. Connect is explicit; Disconnect clears movement and stops discovery,
-then reports completion after closing the local GATT client. Failed or stale
+then reports completion after closing the local GATT client. Release cleanup
+keeps Connect disabled until its terminal callback, even while the interface
+preserves the original tilt error. Failed or stale
 streams clear input and pause active play; reconnecting does not resume a mission
 automatically. Leaving the foreground releases the board. Another application's
 connection cannot be forcibly released through the ordinary Bluetooth API.

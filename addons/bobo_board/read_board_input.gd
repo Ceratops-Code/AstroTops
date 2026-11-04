@@ -17,6 +17,8 @@ var calibration: Dictionary = {}
 var _last_packet_ms := -1
 var _last_sequence := -1
 var _local_failure := ""
+# A displayed error can outlive the asynchronous radio release behind it.
+var _release_pending := false
 
 
 func _ready() -> void:
@@ -80,8 +82,12 @@ func restore_imported_default() -> void:
         backend.call("restoreImportedBoardCalibration")
 
 
+func can_connect_board() -> bool:
+    return backend != null and not requested and not _release_pending
+
+
 func connect_board() -> void:
-    if backend == null or requested:
+    if not can_connect_board():
         return
     requested = true
     _local_failure = ""
@@ -104,6 +110,7 @@ func disconnect_board() -> void:
     if was_ready:
         board_input_lost.emit()
     if backend != null:
+        _release_pending = true
         status = "releasing"
         message = "Releasing BoBo"
         board_state_changed.emit()
@@ -116,6 +123,10 @@ func _receive_board_state(payload: String) -> void:
         return
     var was_ready := is_ready()
     var next_status := str(parsed.get("status", "error"))
+    if next_status == "releasing":
+        _release_pending = true
+    elif next_status in ["disconnected", "error"]:
+        _release_pending = false
     if not _local_failure.is_empty() and next_status in ["releasing", "disconnected"]:
         status = "error"
         message = _local_failure
@@ -147,6 +158,7 @@ func _receive_board_state(payload: String) -> void:
             message = "BoBo returned invalid movement"
             _local_failure = message
             must_release = true
+            _release_pending = true
             _last_packet_ms = -1
     else:
         _last_packet_ms = -1
@@ -166,6 +178,7 @@ func _process(_delta: float) -> void:
         message = "BoBo tilt stopped. Tap Connect to reconnect."
         _local_failure = message
         requested = false
+        _release_pending = true
         board_input_lost.emit()
         board_state_changed.emit()
         if backend != null:
@@ -320,7 +333,7 @@ class BoardSidebar extends Control:
             if board.battery >= 0:
                 status_label.text += "   %d%%" % board.battery
         profile_label.text = board.calibration_source
-        connect_button.disabled = not board.is_supported() or board.requested
+        connect_button.disabled = not board.can_connect_board()
         test_button.disabled = not board.is_supported()
         calibrate_button.disabled = not board.is_ready()
         disconnect_button.disabled = not board.is_supported() or board.status in ["disconnected", "releasing"]

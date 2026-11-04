@@ -1384,6 +1384,10 @@ def run_recorded_check(
         running = {**expected, "status": "running", "exit_code": None}
         if execution is not None:
             running["execution"] = execution
+        if current is not None:
+            # Replace an older pass before any check runs. A stopped worker
+            # must leave its unfinished attempt visible to the scheduler.
+            current.put("repository-check", args.check_id, target, running)
         failure: BaseException | None = None
         try:
             if context is not None:

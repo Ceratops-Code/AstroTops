@@ -54,6 +54,7 @@ from godot_toolchain import (  # noqa: E402
 )
 from result_records import (  # noqa: E402
     CHECK_CONTEXT_ENV,
+    CHECK_CONTEXT_SCHEMA,
     GROUP_SCHEMA,
     RESULT_SCHEMA,
     CurrentCheckResults,
@@ -832,7 +833,9 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         missing_jdk_rejected and len(operation_calls) == calls_before_missing_jdk,
     )
 
-    checks_before_reuse = current_result_lifecycle_checks(temporary_root) + shared_result_protocol_checks(temporary_root)
+    checks_before_reuse = (current_result_lifecycle_checks(temporary_root)
+                          + shared_result_protocol_checks(temporary_root)
+                          + shared_current_attempt_checks(temporary_root))
     for identifier in checks_before_reuse:
         check(identifier, True, True)
     return {
@@ -1003,6 +1006,74 @@ def shared_result_protocol_checks(temporary_root: pathlib.Path) -> list[str]:
     return ["shared-result-reuse-preserves-original-bytes", "shared-result-conflicts-preserve-acceptance",
             "shared-result-both-write-boundaries-converge", "shared-result-interruption-is-not-acceptance",
             "shared-result-malformed-repair-is-explicit", "shared-result-redirected-paths-block"]
+
+
+def shared_current_attempt_checks(temporary_root: pathlib.Path) -> list[str]:
+    """Exercise the public runner against its actual shared per-worktree file."""
+    root = temporary_root / "shared-current-attempts"
+    root.mkdir()
+    subprocess.run(["git", "init", "--quiet", str(root)], check=True, capture_output=True)
+    store = CurrentCheckResults(root)
+    target = {"operation": "repository.actions.test", "cwd": "."}
+    context = {
+        "schema": CHECK_CONTEXT_SCHEMA, "group": "probe", "scope": {
+            **target, "inputRules": {"product-inputs": ["product.txt"], "check-inputs": ["check.txt"]}},
+        "qualificationLevel": "alpha", "workVersion": "observed-work", "checkVersion": "observed-checks",
+        "productInputs": {"product.txt": None}, "checkInputs": {"check.txt": None},
+        "arguments": [], "dependencies": {}, "fingerprint": "1" * 64,
+        "environment": {"variables": {}, "tools": {}, "platform": platform.system(), "architecture": platform.machine()},
+    }
+    invocation: dict[str, object] = {"targets": [], "pytest_args": [], "pytest_addopts": [], "probe_command": None}
+    calls = 0
+
+    def request(identity: str) -> argparse.Namespace:
+        return argparse.Namespace(result_file=store.path, result_id=identity, candidate_id="observed-work",
+                                  check_id="protocol", check_version="observed-checks", repair_unaccepted_result=False,
+                                  probe_command=None)
+
+    def callback() -> int:
+        nonlocal calls
+        calls += 1
+        current = CurrentCheckResults(root).records("repository-check", target=target)
+        assert len(current) == 1 and current[0]["status"] == "running"
+        assert current[0]["execution"]["finishedAt"] is None
+        return 0
+
+    replace_file = os.replace
+    with patch.dict(os.environ, {CHECK_CONTEXT_ENV: json.dumps(context)}), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        for boundary in range(4):
+            assert run_recorded_check(callback, request("accepted-" + str(boundary)), invocation, repo_root=root) == 0
+            writes = 0
+            args = request("attempt-" + str(boundary))
+
+            def interrupted_replace(source: object, destination: object, boundary: int = boundary) -> None:
+                nonlocal writes
+                index = writes
+                writes += 1
+                if index == boundary // 2 and boundary % 2 == 0:
+                    raise OSError("interrupted before shared replacement")
+                replace_file(source, destination)  # type: ignore[arg-type]
+                if index == boundary // 2 and boundary % 2 == 1:
+                    raise OSError("interrupted after shared replacement")
+
+            before = calls
+            with patch("result_records.os.replace", side_effect=interrupted_replace):
+                assert run_recorded_check(callback, args, invocation, repo_root=root) == 2
+            assert calls - before == (1 if boundary >= 2 else 0)
+            records = CurrentCheckResults(root).records("repository-check", target=target)
+            assert len(records) == 1
+            assert records[0]["status"] == ("passed" if boundary in (0, 3) else "running")
+            assert records[0]["result_id"] == ("accepted-0" if boundary == 0 else args.result_id)
+            after = calls
+            if boundary == 3:
+                assert run_recorded_check(callback, args, invocation, repo_root=root) == 0
+                assert calls == after  # The completed attempt keeps its original identity.
+            else:
+                assert run_recorded_check(callback, request("fresh-" + str(boundary)), invocation, repo_root=root) == 0
+                assert calls == after + 1
+            assert not CurrentCheckResults(root).pending.exists()
+    return ["shared-current-running-precedes-callback", "shared-current-write-interruptions-converge",
+            "shared-current-interrupted-attempt-hides-old-pass", "shared-current-completed-attempt-is-reused"]
 
 
 def board_build_lifecycle_checks(temporary_root: pathlib.Path) -> list[str]:
