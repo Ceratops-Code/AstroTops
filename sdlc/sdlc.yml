@@ -77,7 +77,7 @@ repository:
             - --no-record
     test:
       check-results:
-        product-inputs:
+        product-inputs: &android-product-inputs
           - project.godot
           - export_presets.cfg
           - main.tscn
@@ -189,6 +189,29 @@ deliverables:
         - astrotops-android-apk
       actions:
         validate:
+          check-results:
+            product-inputs: *android-product-inputs
+            check-inputs:
+              - scripts/run-tests.py
+              - scripts/result_records.py
+              - sdlc/sdlc.yml
+            dependencies:
+              - scripts/uv.lock
+            environment:
+              - JAVA_HOME
+              - ANDROID_HOME
+              - ANDROID_SDK_ROOT
+              - JAVA_TOOL_OPTIONS
+              - GRADLE_OPTS
+              - GODOT_EXECUTABLE
+              - ASTROTOPS_TOOL_CACHE
+              - ASTROTOPS_ANDROID_SOURCE_TEMPLATE
+            tools:
+              - python
+              - git
+              - java
+              - adb
+              - uv
           requires:
             capabilities:
               - android-sdk
