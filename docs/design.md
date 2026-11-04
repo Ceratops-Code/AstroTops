@@ -217,9 +217,9 @@ after the face, so the ring visibly wraps around rather than sitting behind it.
 ## 7 Deployment and operations
 
 Desktop development runs the project directly in Godot. Android packaging
-produces `.build/artifacts/android/AstroTops.apk`; build identity and approval
-metadata live under `.build/builds/`. The immutable source tag is the build
-version, while its resolved commit is traceability metadata. The Gradle export
+produces `.build/artifacts/android/AstroTops.apk`; the current export identity,
+source digest and APK descriptor live in the shared current-results store.
+`.build/builds/` retains historical source-tag reports. The Gradle export
 uses separate adaptive background, foreground, and monochrome launcher layers.
 Every SDLC step that needs Godot calls the repository helper, which honors an
 explicit executable or a matching `PATH` installation and otherwise provisions
@@ -271,8 +271,13 @@ replacement removes its fixed in-process file, and startup removes that orphan.
 Worktree retirement removes
 these local outcomes. Raw `.test-results/evidence/<run-id>/` content is ignored
 and retains current group runs plus two unreferenced runs, at most fifteen
-folders with twelve groups. Build records bind a source tag
-to exact artifact bytes. Atomic sibling files prevent partial JSON replacement.
+folders with twelve groups. One `astrotops-android-export.v1` entry per worktree
+binds the completed APK to its source digest. It is published after export
+succeeds with unchanged source; identical source/bytes keep the original identity.
+The package-result command and installer compare current source and bytes before
+any ADB effect. Missing records or mismatches block installation. Atomic shared
+replacement preserves a complete prior/current record after interruption, and a
+fresh call inspects actual state. There is no extra export-history file.
 The external editor and Android-template caches are owned by
 `scripts/godot_toolchain.py`, separated by artifact purpose, grouped by version,
 cleaned at every provision attempt, and each bounded to the current version plus
@@ -346,7 +351,7 @@ Gameplay failure is contained locally: absent settings use safe defaults,
 missing text-to-speech remains nonfatal, target placement enforces separation,
 and reset reconstructs the run. Result recording rejects dirty portable source,
 keeps writes inside the repository, uses atomic replacement, and bounds ignored
-evidence. Artifact delivery fails closed when source, tag, bytes, package,
+evidence. Artifact delivery fails closed when source, export record, bytes, package,
 activity, installed hash, or launch confirmation differs.
 Godot provisioning downloads only the platform archive declared for the pinned
 version, verifies its exact byte length and SHA-256 before allowlisted
@@ -402,7 +407,7 @@ failure output.
 | Escape reliability | Traxy reaches an edge, corner, or nearby planet while fleeing | He chooses a traversable direction, remains in bounds, and continues moving rather than settling in place | `targets` |
 | Readability | The game renders at the 1280 by 720 logical viewport | Menu selectors, HUD, labels, pause, results, and countdown remain legible and non-overlapping | `rendered-ui` |
 | Icon survival | Android composes adaptive icon layers under a circular launcher mask | Dark space, the diagonal rocket, and the gold ringed planet remain visible; clipped corners are transparent | `rendered-ui` adaptive-icon capture |
-| Determinism | Delivery receives a qualified tagged APK | Saved results and the installed APK must match the exact source and SHA-256, or delivery fails | `delivery-lifecycle` |
+| Determinism | Delivery receives a completed APK export | Current source, recorded export and installed APK must match the source digest and SHA-256, or delivery stops | `delivery-lifecycle` |
 | Recovery | A run is reset or an unmatched diagnostic Back times out | The normal Ready or Menu state is restored without leaving the hidden field enabled accidentally | `pause-results`, `tractor-beam` |
 
 These are desired thresholds. A passing result applies only to the source,
@@ -473,9 +478,12 @@ per-board persistence and interruption before/after replacement. Result-store
 cases cover original identity, changed inputs, newer failure, repeated writes,
 interrupted replacement and corrupt evidence.
 
-Repository validation is separate from tests. Candidate qualification records
-the immutable source tag and exact APK identity. Delivery reuses only applicable
-passing records and verifies the artifact instead of rerunning tests. Native
+Repository checks are separate from tests. SDLC consumes applicable original
+passes, then builds and installs the APK under the checked source commit. The
+completed-export guard reads current source and APK bytes against its saved
+descriptor; it does not consult old tracked test reports. Tests cover repeated
+exports, missing records, changed bytes/source and interruption around record
+publication. Native
 speaker acoustics, manufacturer-specific launcher masks, and future off-screen
 camera behavior remain explicit verification gaps.
 
@@ -483,10 +491,10 @@ The Ceratops design draft's methodology informs independent owners, declared
 affected inputs, original result identity, bounded outputs, and fresh calls after
 interruptions. Shared check-result production, the current-results envelope,
 qualification levels and SDLC scheduling are connected. Public artifact-receipt
-Build/Deploy routing remains planned in the installed Kit; AstroTops package
-production and installation retain their existing tagged-source gates until that
-owner supplies the public route. A shared source-check receipt is not an accepted
-artifact receipt.
+Build/Deploy routing remains planned in the installed Kit. AstroTops package
+production and installation use their repository-owned completed-export guard
+with shared SDLC check outcomes. A shared source-check receipt or native export
+record is not a completed versioned artifact receipt.
 
 ## 14 Ownership and maintenance
 

@@ -143,9 +143,9 @@ The runner updates affected groups, preserves applicable passing results, and re
 `.test-results/tests.json`. Tracked JSON records are bound to source bytes,
 tools, environment, and an optional exact artifact; screenshots and raw logs
 are retained in the ignored `.test-results/evidence/` directory.
-After artifact qualification, ordinary lifecycle test gates reuse that artifact
-binding only while the source, path, length, and SHA-256 still match. Missing or
-changed bytes make the qualification inapplicable.
+Explicit `--source-tag` / `--artifact` calls can export historical reports.
+Normal lifecycle gates consume the current shared records rather than tracked
+reports from an older release.
 
 SDLC repository gates use `--no-record` to keep tracked acceptance records
 unchanged during CI and promotion. Explicit recorded runs still own those
@@ -178,12 +178,23 @@ running output, canonical completion, exact reuse, conflicts, interruptions and
 explicit repair of never-accepted malformed output. The maintained writer lives
 in `scripts/result_records.py`; adopting it adds the locked `packaging` dependency.
 CI uses a published action revision that supports this protocol.
+The Android build-and-lint operation has its own shared result and uses the
+same declared product inputs as gameplay checks. Applicable passes can be reused
+across promotion, deployment and shipping.
 
 Shared check receipts and qualification levels are connected. Artifact receipts
 and receipt-driven release consumption still require the Kit's planned public
-Build/Deploy routing. Current package build and installation keep their existing
-source/tag contract; they do not claim completed artifact-receipt acceptance.
+Build/Deploy routing. Current package build and installation use a repository-owned
+completed-export guard; this is separate from full artifact-receipt acceptance.
 
-Repository validation separately updates `.test-results/validation.json` on
-clean committed source. Delivery requires both that applicable validation
-record and the complete gameplay result before checking the exact artifact.
+Repository checks and gameplay checks remain separate SDLC stages. Successful
+Android export records the source digest and APK descriptor in the shared store
+as `astrotops-android-export.v1`. It publishes only after export succeeds with
+unchanged source. Identical source and bytes retain the original record identity.
+The package-result command and installer compare the actual APK and current
+source against that record before any device effect. Missing records or changed
+source/bytes block installation. There is one current Android export per worktree;
+the shared writer owns atomic replacement and orphan cleanup. Installation
+compares the tablet's APK hash, skips a redundant reinstall, and checks changed
+installs before launching. It requires no source-tag parameter or stale tracked
+test reports. SDLC still requires current applicable checks before build/install.

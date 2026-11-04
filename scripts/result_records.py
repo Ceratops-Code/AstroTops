@@ -5,9 +5,9 @@ The maintained producer contract is adopted from docs/result_records.py.tmpl.
 Runners emit actual outcomes into the shared per-worktree current-results file;
 the SDLC executor owns their input scope, identity and qualification level.
 Explicit final-file calls also support the public controlled-command probe.
-Existing portable source/tag build and delivery APIs remain repository-owned
-until the shared lifecycle exposes public artifact-receipt routing. Current
-group evidence and at most two unreferenced runs remain bounded.
+Portable source/tag report APIs remain available for historical exports.
+Android export and installation share one current source/byte-bound record in
+the shared store. Current group evidence and two unreferenced runs remain bounded.
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
+from uuid import uuid4
 
 VALIDATION_SCHEMA = "astrotops-repository-validation.v1"
 RESULT_SCHEMA = "astrotops-repository-tests.v1"
@@ -53,14 +54,23 @@ CommandRunner = Callable[[list[str]], subprocess.CompletedProcess[str]]
 def _git(repo_root: pathlib.Path, *arguments: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     """Run Git without a shell and return UTF-8 text output."""
 
-    return subprocess.run(
-        ["git", "-C", str(repo_root), *arguments],
-        check=check,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+    command = ["git", "-C", str(repo_root), *arguments]
+    try:
+        result = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except OSError as error:
+        raise ValueError(f"Read Git metadata for {repo_root}: invocation={command!r}; runtime={shutil.which('git')}; "
+                         f"exit=<not launched>; stdout=<absent>; stderr=<absent>; cause={error}") from error
+    if check and result.returncode:
+        raise ValueError(f"Read Git metadata for {repo_root}: invocation={command!r}; runtime={shutil.which('git')}; "
+                         f"exit={result.returncode}; stdout={result.stdout or '<absent>'}; stderr={result.stderr or '<absent>'}")
+    return result
 
 
 def _sha256(path: pathlib.Path) -> str:
@@ -389,6 +399,48 @@ def build_result(
     }
 
 
+def record_completed_android_export(
+    repo_root: pathlib.Path, artifact: pathlib.Path, source_before_export: SourceIdentity,
+) -> dict[str, Any]:
+    """Record an APK only after export succeeds with unchanged source inputs.
+
+    One current Android export belongs to this worktree's shared result store.
+    Identical source/bytes keep the original identity. A failed or interrupted
+    replacement cannot bless a different file; a fresh export inspects current
+    source, bytes and the current record rather than resuming saved steps.
+    """
+    current = resolve_source_identity(repo_root)
+    if current.digest != source_before_export.digest:
+        raise ValueError("Record Android export: source changed while building " + str(artifact))
+    descriptor = build_result(repo_root, artifact, "android-apk")["artifact"]
+    store = CurrentCheckResults(repo_root)
+    target = {"type": "android-apk"}
+    previous = next(iter(store.records("astrotops-android-export", target=target)), None)
+    if (previous is not None and previous.get("schema") == "astrotops-android-export.v1"
+            and previous.get("status") == "passed" and previous.get("artifact") == descriptor
+            and isinstance(previous.get("source"), dict) and previous["source"].get("digest") == current.digest):
+        return previous
+    record = {"schema": "astrotops-android-export.v1", "status": "passed", "result_id": uuid4().hex,
+              "source": source_before_export.portable(), "artifact": descriptor,
+              "builtAt": datetime.datetime.now(datetime.UTC).isoformat()}
+    store.put("astrotops-android-export", "android-apk", target, record)
+    return record
+
+
+def require_current_android_export(repo_root: pathlib.Path, artifact: pathlib.Path, artifact_type: str) -> dict[str, Any]:
+    """Read the completed export and reject changed APK bytes or source before ADB."""
+    actual = build_result(repo_root, artifact, artifact_type)["artifact"]
+    record = next(iter(CurrentCheckResults(repo_root).records("astrotops-android-export", target={"type": "android-apk"})), None)
+    if (record is None or record.get("schema") != "astrotops-android-export.v1" or record.get("status") != "passed"
+            or record.get("artifact") != actual or not isinstance(record.get("source"), dict)
+            or record["source"].get("digest") != resolve_source_identity(repo_root).digest):
+        raise ValueError("Install Android package: APK or source differs from the completed export: "
+                         + str(artifact) + ". Run the declared Android package build.")
+    if not isinstance(actual, dict):
+        raise ValueError("Install Android package: completed export has no artifact descriptor.")
+    return actual
+
+
 def _run_command(arguments: list[str]) -> subprocess.CompletedProcess[str]:
     """Run one deployment command without a shell or inherited output."""
 
@@ -414,7 +466,8 @@ def _require_command(
 
     output = _command_output(result)
     if result.returncode != 0:
-        raise ValueError(f"{action} failed: {output[:512] or f'exit {result.returncode}'}")
+        raise ValueError(f"{action} failed: invocation={result.args!r}; exit={result.returncode}; "
+                         f"stdout={result.stdout or '<absent>'}; stderr={result.stderr or '<absent>'}")
     return output
 
 
@@ -541,10 +594,7 @@ def android_deploy_result(
         raise ValueError("package must be a dotted Android identifier")
     if not _ANDROID_COMPONENT.fullmatch(activity) or not activity.startswith(package + "/"):
         raise ValueError("activity must be a component inside the selected package")
-    build = build_result(repo_root, artifact, artifact_type)
-    descriptor = build["artifact"]
-    if not isinstance(descriptor, dict):
-        raise ValueError("artifact descriptor is unavailable")
+    descriptor = require_current_android_export(repo_root, artifact, artifact_type)
 
     active_target = _ready_adb_target(adb_executable, device, run)
 
@@ -1394,9 +1444,11 @@ def main() -> int:
     deploy_parser.add_argument("--type", required=True)
     args = parser.parse_args()
     repo_root = pathlib.Path(__file__).resolve().parents[1]
+    result: dict[str, object]
     try:
         if args.command == "build-result":
-            result = build_result(repo_root, args.artifact, args.type)
+            result = {"schema": "ceratops-build-result.v1", "status": "passed",
+                      "artifact": require_current_android_export(repo_root, args.artifact, args.type)}
         else:
             result = android_deploy_result(
                 repo_root,

@@ -56,16 +56,15 @@ from result_records import (  # noqa: E402
     CHECK_CONTEXT_ENV,
     GROUP_SCHEMA,
     RESULT_SCHEMA,
-    VALIDATION_SCHEMA,
-    ArtifactIdentity,
     CurrentCheckResults,
     ResultStore,
-    SourceIdentity,
     add_result_arguments,
     android_deploy_result,
     check_result_context,
     describe_result_contract,
     group_fingerprint,
+    record_completed_android_export,
+    require_current_android_export,
     resolve_artifact_identity,
     resolve_source_identity,
     result_path,
@@ -200,6 +199,20 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     artifact = fake_repo / ".build" / "artifacts" / "android" / "AstroTops.apk"
     artifact.parent.mkdir(parents=True)
     artifact.write_bytes(b"qualified-astrotops-apk")
+    (fake_repo / "project.godot").write_text("config_version=5\n", encoding="utf-8")
+    for command in (["git", "init", "--quiet", str(fake_repo)], ["git", "-C", str(fake_repo), "add", "project.godot"],
+                    ["git", "-C", str(fake_repo), "-c", "user.name=AstroTops Tests", "-c", "user.email=tests@astrotops.invalid",
+                     "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "Source fixture"]):
+        completed = subprocess.run(command, check=False, capture_output=True, text=True)
+        assert completed.returncode == 0, (command, completed.returncode, completed.stdout or "<absent>", completed.stderr or "<absent>")
+    source_before_export = resolve_source_identity(fake_repo)
+    try:
+        require_current_android_export(fake_repo, artifact, "android-apk")
+    except ValueError:
+        missing_export_record = True
+    else:
+        missing_export_record = False
+    record_completed_android_export(fake_repo, artifact, source_before_export)
     expected_hash = hashlib.sha256(artifact.read_bytes()).hexdigest()
     device = "192.0.2.10:12345"
     package = "com.ceratopscode.astrotops"
@@ -279,6 +292,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
                 arguments, 97, "", "unexpected fake ADB command"
             )
 
+    check("missing-export-record-blocks", True, missing_export_record)
     exact = FakeAdb(expected_hash, f"connected to {device}")
     exact_receipt = android_deploy_result(
         fake_repo,
@@ -383,6 +397,58 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     else:
         connection_error = False
     check("false-success-connect-is-rejected", True, connection_error)
+    original = record_completed_android_export(fake_repo, artifact, source_before_export)
+    check("export-repeat-keeps-original-identity", original["result_id"],
+          record_completed_android_export(fake_repo, artifact, source_before_export)["result_id"])
+    original_bytes = artifact.read_bytes()
+    artifact.write_bytes(b"unrecorded-apk")
+    blocked = FakeAdb(None, "")
+    try:
+        android_deploy_result(fake_repo, adb_executable="adb", device=device, package=package,
+                              activity=activity, artifact=artifact, artifact_type="android-apk", run=blocked)
+    except ValueError:
+        changed_apk_blocked = True
+    else:
+        changed_apk_blocked = False
+    check("changed-apk-blocks-before-device-effects", (True, 0, 0), (changed_apk_blocked, blocked.installs, blocked.launches))
+    artifact.write_bytes(original_bytes)
+    project = fake_repo / "project.godot"
+    source_bytes = project.read_bytes()
+    project.write_bytes(source_bytes + b"changed-source\n")
+    for operation in (lambda: require_current_android_export(fake_repo, artifact, "android-apk"),
+                      lambda: record_completed_android_export(fake_repo, artifact, source_before_export)):
+        try:
+            operation()
+        except ValueError:
+            source_change_blocked = True
+        else:
+            source_change_blocked = False
+        check("changed-source-cannot-install-or-publish", True, source_change_blocked)
+    project.write_bytes(source_bytes)
+    replace_file = os.replace
+    for after in (False, True):
+        artifact.write_bytes(original_bytes + str(after).encode())
+
+        def interrupt_record(source: object, target: object, after: bool = after) -> None:
+            if after:
+                replace_file(source, target)  # type: ignore[arg-type]
+            raise OSError("export record interrupted")
+
+        try:
+            with patch("result_records.os.replace", side_effect=interrupt_record):
+                record_completed_android_export(fake_repo, artifact, source_before_export)
+        except OSError:
+            interrupted_record = True
+        else:
+            interrupted_record = False
+        check("export-record-interruption-reported", True, interrupted_record)
+        recovered = record_completed_android_export(fake_repo, artifact, source_before_export)
+        check("export-record-retry-keeps-complete-identity", recovered["result_id"],
+              record_completed_android_export(fake_repo, artifact, source_before_export)["result_id"])
+        check("export-record-retry-matches-actual-bytes", hashlib.sha256(artifact.read_bytes()).hexdigest(),
+              require_current_android_export(fake_repo, artifact, "android-apk")["sha256"])
+    artifact.write_bytes(original_bytes)
+    record_completed_android_export(fake_repo, artifact, source_before_export)
 
     import_calls: list[tuple[list[str], dict[str, object]]] = []
 
@@ -766,46 +832,6 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         missing_jdk_rejected and len(operation_calls) == calls_before_missing_jdk,
     )
 
-    merged_source = SourceIdentity(
-        commit="synthetic-merge",
-        digest="source-digest",
-        exact_tags=(),
-        dirty_paths=(),
-    )
-    tagged_artifact = ArtifactIdentity(
-        version="astrotops-local-test",
-        source_commit="tagged-source",
-        path=".build/artifacts/android/AstroTops.apk",
-        sha256=expected_hash,
-        length=artifact.stat().st_size,
-    )
-    check(
-        "delivery-validation-survives-content-identical-merge",
-        True,
-        qualification_source_matches(
-            {"commit": "tagged-source", "digest": "source-digest"},
-            merged_source,
-            tagged_artifact,
-        ),
-    )
-    check(
-        "delivery-validation-rejects-different-content",
-        False,
-        qualification_source_matches(
-            {"commit": "tagged-source", "digest": "different-digest"},
-            merged_source,
-            tagged_artifact,
-        ),
-    )
-    check(
-        "delivery-validation-rejects-unqualified-commit",
-        False,
-        qualification_source_matches(
-            {"commit": "unrelated-source", "digest": "source-digest"},
-            merged_source,
-            tagged_artifact,
-        ),
-    )
     checks_before_reuse = current_result_lifecycle_checks(temporary_root) + shared_result_protocol_checks(temporary_root)
     for identifier in checks_before_reuse:
         check(identifier, True, True)
@@ -1365,62 +1391,6 @@ def load_group_result(path: pathlib.Path) -> dict[str, object] | None:
     )
 
 
-def qualification_source_matches(
-    recorded_source: object,
-    source_identity: SourceIdentity,
-    artifact_identity: ArtifactIdentity,
-) -> bool:
-    """Bind validation to the tagged source while tolerating a content-identical merge commit."""
-
-    return (
-        isinstance(recorded_source, dict)
-        and recorded_source.get("commit") == artifact_identity.source_commit
-        and recorded_source.get("digest") == source_identity.digest
-    )
-
-
-def applicable_qualified_artifact(
-    repo_root: pathlib.Path,
-    source_identity: SourceIdentity,
-) -> ArtifactIdentity | None:
-    """Reuse qualification only while source and exact artifact bytes still match."""
-
-    try:
-        report = json.loads(
-            (repo_root / ".test-results" / "tests.json").read_text(encoding="utf-8")
-        )
-    except (OSError, json.JSONDecodeError):
-        return None
-    source = report.get("source") if isinstance(report, dict) else None
-    artifact = report.get("artifact") if isinstance(report, dict) else None
-    if (
-        not isinstance(report, dict)
-        or report.get("schema") != RESULT_SCHEMA
-        or report.get("outcome") != "passed"
-        or not isinstance(source, dict)
-        or source.get("commit") != source_identity.commit
-        or source.get("digest") != source_identity.digest
-        or not isinstance(artifact, dict)
-    ):
-        return None
-    version = artifact.get("version")
-    relative = artifact.get("artifactPath")
-    if not isinstance(version, str) or not isinstance(relative, str):
-        return None
-    try:
-        resolved = resolve_artifact_identity(
-            repo_root,
-            source_identity,
-            version,
-            repo_root.joinpath(*pathlib.PurePosixPath(relative).parts),
-        )
-    except (OSError, ValueError, subprocess.SubprocessError):
-        return None
-    if resolved is None or resolved.portable() != artifact:
-        return None
-    return resolved
-
-
 def reused_result(
     previous: dict[str, object], source: dict[str, object]
 ) -> dict[str, object]:
@@ -1446,164 +1416,6 @@ def applicable_group_pass(previous: dict[str, object] | None, fingerprint: str, 
     return bool(previous and level in levels and levels.index(str(level)) >= levels.index(qualification)
                 and previous.get("outcome") == "passed"
                 and previous.get("fingerprint") == fingerprint and previous.get("artifact") == artifact)
-
-
-def verify_delivery(
-    repo_root: pathlib.Path,
-    inventory: dict[str, object],
-    groups: list[dict[str, object]],
-    source_identity: SourceIdentity,
-    artifact_identity: ArtifactIdentity,
-    store: ResultStore,
-) -> int:
-    """Verify retained passing results and exact package bytes without testing again."""
-
-    if source_identity.dirty_paths:
-        print(
-            "delivery/source expected=clean source actual="
-            + ", ".join(source_identity.dirty_paths[:8]),
-            file=sys.stderr,
-        )
-        return 1
-    file_owners = inventory.get("fileOwners")
-    if not isinstance(file_owners, dict):
-        print(
-            "delivery/inventory expected=file ownership map actual=missing",
-            file=sys.stderr,
-        )
-        return 1
-    artifact = artifact_identity.portable()
-    failures: list[str] = []
-    try:
-        validation = json.loads(
-            (store.result_root / "validation.json").read_text(encoding="utf-8")
-        )
-    except (OSError, json.JSONDecodeError):
-        validation = None
-    if (
-        not isinstance(validation, dict)
-        or validation.get("schema") != VALIDATION_SCHEMA
-    ):
-        failures.append(
-            "delivery/validation expected=valid repository result actual=missing or invalid"
-        )
-    else:
-        validation_source = validation.get("source")
-        validation_results = validation.get("results")
-        required_validation = validation.get("requiredChecks")
-        if validation.get("outcome") != "passed":
-            failures.append(
-                f"delivery/validation expected=passed actual={validation.get('outcome')}"
-            )
-        if not qualification_source_matches(
-            validation_source, source_identity, artifact_identity
-        ):
-            failures.append(
-                "delivery/validation expected=applicable result actual=stale"
-            )
-        if (
-            not isinstance(required_validation, list)
-            or not required_validation
-            or not isinstance(validation_results, list)
-            or [item.get("id") for item in validation_results if isinstance(item, dict)]
-            != required_validation
-            or any(
-                item.get("outcome") != "passed"
-                for item in validation_results
-                if isinstance(item, dict)
-            )
-        ):
-            failures.append(
-                "delivery/validation expected=complete passing checks actual=incomplete"
-            )
-    group_ids: list[str] = []
-    for definition in groups:
-        group_id = str(definition["id"])
-        group_ids.append(group_id)
-        previous = load_group_result(store.group_root / f"{group_id}.json")
-        if previous is None:
-            failures.append(
-                f"delivery/{group_id} expected=recorded pass actual=missing"
-            )
-            continue
-        environment = previous.get("environment")
-        if not isinstance(environment, dict):
-            failures.append(
-                f"delivery/{group_id} expected=recorded environment actual=missing"
-            )
-            continue
-        owned_paths = [
-            str(relative)
-            for relative, owners in file_owners.items()
-            if isinstance(owners, list) and group_id in owners
-        ]
-        fingerprint = group_fingerprint(
-            repo_root, group_id, owned_paths, environment, artifact_identity
-        )
-        if previous.get("outcome") != "passed":
-            failures.append(
-                f"delivery/{group_id} expected=passed actual={previous.get('outcome')}"
-            )
-        elif previous.get("fingerprint") != fingerprint:
-            failures.append(
-                f"delivery/{group_id} expected=applicable result actual=stale"
-            )
-        elif previous.get("artifact") != artifact:
-            failures.append(
-                f"delivery/{group_id} expected=exact artifact actual=different"
-            )
-
-    try:
-        loaded_report = json.loads(
-            (store.result_root / "tests.json").read_text(encoding="utf-8")
-        )
-    except (OSError, json.JSONDecodeError):
-        loaded_report = None
-    if (
-        not isinstance(loaded_report, dict)
-        or loaded_report.get("schema") != RESULT_SCHEMA
-    ):
-        failures.append(
-            "delivery/report expected=valid repository result actual=missing or invalid"
-        )
-    else:
-        if loaded_report.get("outcome") != "passed":
-            failures.append(
-                f"delivery/report expected=passed actual={loaded_report.get('outcome')}"
-            )
-        if loaded_report.get("artifact") != artifact:
-            failures.append("delivery/report expected=exact artifact actual=different")
-        if loaded_report.get("requiredChecks") != group_ids:
-            failures.append(
-                "delivery/report expected=complete group coverage actual=incomplete"
-            )
-
-    try:
-        build = json.loads(
-            store.build_path(artifact_identity).read_text(encoding="utf-8")
-        )
-    except (OSError, json.JSONDecodeError):
-        build = None
-    if not isinstance(build, dict):
-        failures.append(
-            "delivery/build expected=tracked build metadata actual=missing or invalid"
-        )
-    else:
-        for key, value in {
-            **artifact,
-            "sourceDigest": source_identity.digest,
-        }.items():
-            if build.get(key) != value:
-                failures.append(
-                    f"delivery/build.{key} expected={value} actual={build.get(key)}"
-                )
-
-    if failures:
-        for failure in failures:
-            print(failure, file=sys.stderr)
-        return 1
-    print("OK")
-    return 0
 
 
 def current_test_environment(godot: pathlib.Path) -> dict[str, object]:
@@ -1652,11 +1464,6 @@ def main() -> int:
         "--export-debug",
         type=pathlib.Path,
         help="Export the Android debug artifact to a repository-relative path and stop.",
-    )
-    mode.add_argument(
-        "--verify-delivery",
-        action="store_true",
-        help="Verify retained results and exact artifact bytes without executing tests.",
     )
     parser.add_argument("--source-tag")
     parser.add_argument("--artifact", type=pathlib.Path)
@@ -1710,7 +1517,9 @@ def execute_test_request(args: argparse.Namespace, parser: argparse.ArgumentPars
             elif args.validate_project:
                 validate_godot_project(repo_root, godot)
             elif args.export_debug is not None:
+                source_before_export = resolve_source_identity(repo_root)
                 export_debug_project(repo_root, godot, args.export_debug)
+                record_completed_android_export(repo_root, args.export_debug, source_before_export)
         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
             print(str(error), file=sys.stderr)
             return 1
@@ -1727,32 +1536,11 @@ def execute_test_request(args: argparse.Namespace, parser: argparse.ArgumentPars
         artifact_identity = resolve_artifact_identity(
             repo_root, source_identity, args.source_tag, args.artifact
         )
-        if artifact_identity is None:
-            artifact_identity = applicable_qualified_artifact(
-                repo_root, source_identity
-            )
         store = ResultStore(
             repo_root,
             source_identity,
-            record=not args.no_record and not args.verify_delivery,
+            record=not args.no_record,
         )
-        if args.verify_delivery:
-            if args.fresh or args.group or args.no_record:
-                raise ValueError(
-                    "--verify-delivery cannot be combined with execution options."
-                )
-            if artifact_identity is None:
-                raise ValueError(
-                    "--verify-delivery requires --source-tag and --artifact."
-                )
-            return verify_delivery(
-                repo_root,
-                inventory,
-                groups,
-                source_identity,
-                artifact_identity,
-                store,
-            )
         godot = resolve_godot(args.godot)
         current_results = CurrentCheckResults(repo_root)
         environment = current_test_environment(godot)

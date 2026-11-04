@@ -241,21 +241,8 @@ deliverables:
           parameters:
             - adb_executable
             - device
-            - source_tag
           result-schema: ceratops-deployment-result.v1
           steps:
-            - run:
-                - uv
-                - run
-                - --project
-                - scripts
-                - --locked
-                - scripts/run-tests.py
-                - --verify-delivery
-                - --source-tag
-                - "{source_tag}"
-                - --artifact
-                - .build/artifacts/android/AstroTops.apk
             - run:
                 - uv
                 - run
