@@ -12,3 +12,8 @@ updates:
   directory: /scripts
   schedule:
     interval: weekly
+- package-ecosystem: gradle
+  # The settings file includes both the board and Godot subprojects.
+  directory: /addons/bobo_board/native
+  schedule:
+    interval: weekly

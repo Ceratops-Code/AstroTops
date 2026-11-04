@@ -1,6 +1,10 @@
 Godot Engine
 ============
 
+The reusable BoBo board module also includes WobblePad-derived packet/calibration
+code, Nordic Android BLE Library, and a Gradle wrapper. Their notices and the
+Apache 2.0 license for the derived portions are retained under addons/bobo_board.
+
 AstroTops uses the Godot Engine, available under the following license:
 
 Copyright (c) 2014-present Godot Engine contributors.

@@ -33,6 +33,35 @@ repository:
             - scripts/run-tests.py
             - --prepare-godot
     validate:
+      check-results:
+        product-inputs:
+          - project.godot
+          - export_presets.cfg
+          - main.tscn
+          - assets/**
+          - addons/bobo_board/**
+        check-inputs:
+          - "*.md"
+          - .gitignore
+          - THIRD_PARTY_NOTICES.txt
+          - scripts/**
+          - docs/**
+          - sdlc/sdlc.yml
+          - .github/**
+        dependencies:
+          - scripts/uv.lock
+          - scripts/package-lock.json
+        environment:
+          - JAVA_HOME
+          - ANDROID_HOME
+          - ANDROID_SDK_ROOT
+          - GITHUB_EVENT_NAME
+          - GITHUB_EVENT_PATH
+        tools:
+          - python
+          - git
+          - npm
+          - uv
       requires:
         capabilities:
           - uv
@@ -47,6 +76,57 @@ repository:
             - scripts/validate-repository.py
             - --no-record
     test:
+      check-results:
+        product-inputs: &android-product-inputs
+          - project.godot
+          - export_presets.cfg
+          - main.tscn
+          - assets/**
+          - scripts/main.gd
+          - scripts/audio_controller.gd
+          - scripts/space_target.gd
+          - scripts/player_ship.gd
+          - scripts/planet.gd
+          - scripts/traxy.gd
+          - scripts/meteor.gd
+          - scripts/godot_toolchain.py
+          - scripts/build_board_module.py
+          - addons/bobo_board/*.gd
+          - addons/bobo_board/plugin.cfg
+          - addons/bobo_board/native/*.kts
+          - addons/bobo_board/native/*.properties
+          - addons/bobo_board/native/gradlew*
+          - addons/bobo_board/native/gradle/**
+          - addons/bobo_board/native/board/build.gradle.kts
+          - addons/bobo_board/native/godot/build.gradle.kts
+          - addons/bobo_board/native/board/src/main/**
+          - addons/bobo_board/native/godot/src/main/**
+        check-inputs:
+          - scripts/run-tests.py
+          - scripts/regression_tests.gd
+          - scripts/result_records.py
+          - docs/feature-acceptance.json
+          - sdlc/sdlc.yml
+          - addons/bobo_board/native/board/src/test/**
+        dependencies:
+          - scripts/uv.lock
+          - scripts/package-lock.json
+        environment:
+          - JAVA_HOME
+          - ANDROID_HOME
+          - ANDROID_SDK_ROOT
+          - JAVA_TOOL_OPTIONS
+          - GRADLE_OPTS
+          - DISPLAY
+          - LANG
+          - LC_ALL
+          - TZ
+        tools:
+          - python
+          - git
+          - java
+          - adb
+          - uv
       requires:
         capabilities:
           - uv
@@ -57,6 +137,7 @@ repository:
             - --project
             - scripts
             - --locked
+            - python
             - scripts/run-tests.py
             - --no-record
             - --scope
@@ -108,6 +189,29 @@ deliverables:
         - astrotops-android-apk
       actions:
         validate:
+          check-results:
+            product-inputs: *android-product-inputs
+            check-inputs:
+              - scripts/run-tests.py
+              - scripts/result_records.py
+              - sdlc/sdlc.yml
+            dependencies:
+              - scripts/uv.lock
+            environment:
+              - JAVA_HOME
+              - ANDROID_HOME
+              - ANDROID_SDK_ROOT
+              - JAVA_TOOL_OPTIONS
+              - GRADLE_OPTS
+              - GODOT_EXECUTABLE
+              - ASTROTOPS_TOOL_CACHE
+              - ASTROTOPS_ANDROID_SOURCE_TEMPLATE
+            tools:
+              - python
+              - git
+              - java
+              - adb
+              - uv
           requires:
             capabilities:
               - android-sdk
@@ -137,21 +241,8 @@ deliverables:
           parameters:
             - adb_executable
             - device
-            - source_tag
           result-schema: ceratops-deployment-result.v1
           steps:
-            - run:
-                - uv
-                - run
-                - --project
-                - scripts
-                - --locked
-                - scripts/run-tests.py
-                - --verify-delivery
-                - --source-tag
-                - "{source_tag}"
-                - --artifact
-                - .build/artifacts/android/AstroTops.apk
             - run:
                 - uv
                 - run

@@ -30,6 +30,10 @@ window/stretch/aspect="keep"
 
 pointing/emulate_mouse_from_touch=false
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/bobo_board/plugin.cfg")
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

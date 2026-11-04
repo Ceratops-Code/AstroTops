@@ -27,6 +27,7 @@ import urllib.request
 import zipfile
 from collections.abc import Callable, Iterable, Mapping
 
+from build_board_module import build_board_module
 from remotezip import RemoteZip  # type: ignore[import-untyped]
 
 GODOT_VERSION = "4.7.2"
@@ -891,6 +892,7 @@ def export_debug_project(
     *,
     run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
     template_provider: Callable[[], pathlib.Path] = provision_android_source_template,
+    board_builder: Callable[[pathlib.Path], object] = build_board_module,
 ) -> pathlib.Path:
     """Install prerequisites and create one fresh Android debug artifact."""
 
@@ -906,6 +908,7 @@ def export_debug_project(
             f"Godot export must stay inside {repo_root}: {resolved}"
         ) from error
     ensure_android_build_template(repo_root, template_provider=template_provider)
+    board_builder(repo_root)
     resolved.parent.mkdir(parents=True, exist_ok=True)
     resolved.unlink(missing_ok=True)
     _run_godot_operation(
@@ -974,6 +977,7 @@ def validate_android_build(
     run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
     template_provider: Callable[[], pathlib.Path] = provision_android_source_template,
     environ: Mapping[str, str] | None = None,
+    board_builder: Callable[[pathlib.Path], object] = build_board_module,
 ) -> None:
     """Parse, export, and lint Android while cleaning the validation-only APK."""
 
@@ -989,6 +993,7 @@ def validate_android_build(
             validation_apk,
             run=run,
             template_provider=template_provider,
+            board_builder=board_builder,
         )
         wrapper_name = "gradlew.bat" if os.name == "nt" else "gradlew"
         wrapper = root / "android" / "build" / wrapper_name

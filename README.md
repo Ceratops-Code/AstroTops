@@ -16,6 +16,20 @@ arrows appear one second after the launch countdown ends.
 - Gamepad: left stick or D-pad; A confirms; X toggles the tractor beam; Start
   pauses; Y changes mode on the menu; B goes back
 - Touch or mouse: drag on the left side of the playfield
+- BoBo board on Android: open **BoBo Board** at the upper left, choose
+  **Connect to BoBo**, then **Test board** to steer
+  the ship without starting a mission. **Disconnect BoBo** fully releases the
+  connection and keeps it off until Connect is pressed again. WobblePad and
+  Shizuku are not required. The saved board calibration is bundled; Android
+  asks for Nearby devices permission when needed. Lost tilt pauses play, and
+  Connect/Disconnect remain available in the mission header.
+  **Calibrate board** guides five three-second poses and saves an acceptable
+  profile for that board. Cancel or disconnect discards the draft; **Restore
+  imported default** restores the original profile. The sidebar remembers its
+  open/closed state. The calibration screen also has four sensitivity sliders,
+  center dead zone, and live preview. **Save sensitivity** keeps the existing
+  poses, so changing the feel does not require recapturing them. The main-menu
+  **Exit** button closes the game.
 
 Choose **Launch Mission**, then press any keyboard key, gamepad button, or tap to
 start the animated `5` to `1` countdown. The in-game header also provides Back,
@@ -49,6 +63,13 @@ GL Compatibility renderer so it can later target Android with the same project.
 
 The authoritative architecture and lifecycle description is in
 [`docs/design.md`](docs/design.md).
+
+The standalone Android board library and Godot adapter are in
+[`addons/bobo_board`](addons/bobo_board/README.md). Other Android applications
+can reuse the board library without Godot or any AstroTops game code. It requires
+Android 12 or newer. Android export builds its libraries automatically;
+`uv run --project scripts --locked python scripts/build_board_module.py` builds
+only the reusable module.
 
 Trixie's source artwork is stored in `assets/trixie.png`; Traxy's six-frame
 source atlas is `assets/traxy.png`, with one overhead chair frame and two shocked
@@ -84,15 +105,16 @@ signature can be installed.
 
 ## Automated gameplay tests
 
-`scripts/run-tests.py` owns ten persistent groups covering menus, controls,
+`scripts/run-tests.py` owns twelve persistent groups covering menus, controls,
 countdown, speech and tones, tractor-beam behavior, targets, ships and pilots,
-pause/results, Android delivery, and rendered UI. The acceptance map is
+pause/results, Android delivery, direct BoBo input, and rendered UI. The
+acceptance map is
 `docs/feature-acceptance.json`.
 
-Run the whole suite; the helper resolves or provisions Godot 4.7.2 first:
+Run missing or affected groups; the helper resolves Godot 4.7.2 first:
 
 ```powershell
-uv run --project scripts --locked scripts/run-tests.py --fresh
+uv run --project scripts --locked scripts/run-tests.py --no-record
 ```
 
 `scripts/run-tests.py --prepare-godot` performs only the editor preflight.
@@ -113,19 +135,66 @@ or customized `android` directory is preserved and reported instead of replaced.
 The runner first asks Godot to import project assets, so a fresh checkout does
 not require opening the editor before tests.
 
-Pass `--group <group-id>` for a targeted rerun. The runner updates that group,
-preserves only applicable passing results for other groups, and recalculates
+Pass `--group <group-id>` to select a group. A matching pass is reused even for
+an explicitly selected group; `--fresh` explicitly requests execution again.
+With caller-supplied result identities, a fresh run needs a new result ID/path;
+an accepted identity remains immutable.
+The runner updates affected groups, preserves applicable passing results, and recalculates
 `.test-results/tests.json`. Tracked JSON records are bound to source bytes,
 tools, environment, and an optional exact artifact; screenshots and raw logs
 are retained in the ignored `.test-results/evidence/` directory.
-After artifact qualification, ordinary lifecycle test gates reuse that artifact
-binding only while the source, path, length, and SHA-256 still match. Missing or
-changed bytes make the qualification inapplicable.
+Explicit `--source-tag` / `--artifact` calls can export historical reports.
+Normal lifecycle gates consume the current shared records rather than tracked
+reports from an older release.
 
 SDLC repository gates use `--no-record` to keep tracked acceptance records
 unchanged during CI and promotion. Explicit recorded runs still own those
-records for artifact qualification.
+records for artifact qualification. Both modes retain actual outcomes in the
+shared Ceratops store under the Git common directory at
+`ceratops/results/repository-checks/<worktree-id>/check_results.json`.
+The SDLC declarations provide product inputs, separate check-only inputs,
+dependency locks, relevant environment and tools. The shared executor supplies
+the result/candidate/check identities and qualification level. The runner writes
+actual outcomes using `ceratops-repository-check-result.v1`; original group
+executions, source and check versions survive reuse. New alpha results cannot
+satisfy beta, rc or final gates. The same shared file owns current game-group
+outcomes and repository-check outcomes; there is no separate local cache owner.
+Reuse matches owned inputs, dependency locks, runtime/build scope and
+artifact identity.
+Inputs are checked again after execution; changed inputs cannot receive a pass.
+A latest failed/running outcome cannot reuse an older pass. New calls execute
+missing work from current inputs rather than resuming saved steps. Malformed
+local outcomes block the call and retain their bytes for diagnosis. Serialize
+runner calls in each worktree. The shared current file is bounded to 64 MiB;
+repository-check results additionally obey the shared executor's record limit.
+Its writer removes the fixed in-process file at startup and after replacement.
+Evidence retains current group runs plus two unreferenced runs, at most fifteen
+folders for the twelve-group inventory. Retiring the worktree removes its local
+outcomes; portable release records remain separate.
 
-Repository validation separately updates `.test-results/validation.json` on
-clean committed source. Delivery requires both that applicable validation
-record and the complete gameplay result before checking the exact artifact.
+Both test and repository-check runners expose `--describe-test-results` and
+the shared five-argument result interface. Their public protocol probes cover
+running output, canonical completion, exact reuse, conflicts, interruptions and
+explicit repair of never-accepted malformed output. The maintained writer lives
+in `scripts/result_records.py`; adopting it adds the locked `packaging` dependency.
+CI uses a published action revision that supports this protocol.
+The Android build-and-lint operation has its own shared result and uses the
+same declared product inputs as gameplay checks. Applicable passes can be reused
+across promotion, deployment and shipping.
+
+Shared check receipts and qualification levels are connected. Artifact receipts
+and receipt-driven release consumption still require the Kit's planned public
+Build/Deploy routing. Current package build and installation use a repository-owned
+completed-export guard; this is separate from full artifact-receipt acceptance.
+
+Repository checks and gameplay checks remain separate SDLC stages. Successful
+Android export records the source digest and APK descriptor in the shared store
+as `astrotops-android-export.v1`. It publishes only after export succeeds with
+unchanged source. Identical source and bytes retain the original record identity.
+The package-result command and installer compare the actual APK and current
+source against that record before any device effect. Missing records or changed
+source/bytes block installation. There is one current Android export per worktree;
+the shared writer owns atomic replacement and orphan cleanup. Installation
+compares the tablet's APK hash, skips a redundant reinstall, and checks changed
+installs before launching. It requires no source-tag parameter or stale tracked
+test reports. SDLC still requires current applicable checks before build/install.

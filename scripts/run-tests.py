@@ -13,7 +13,9 @@ bounded ``.test-results/evidence`` logs.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
+import io
 import json
 import os
 import pathlib
@@ -25,11 +27,14 @@ import tempfile
 import time
 import zipfile
 from datetime import UTC, datetime
+from unittest.mock import patch
+from uuid import uuid4
 
 _SCRIPT_DIRECTORY = pathlib.Path(__file__).resolve().parent
 if str(_SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIRECTORY))
 
+from build_board_module import build_board_module  # noqa: E402
 from godot_toolchain import (  # noqa: E402
     GODOT_TEMPLATE_IDENTIFIER,
     GODOT_VERSION,
@@ -48,16 +53,24 @@ from godot_toolchain import (  # noqa: E402
     validate_godot_project,
 )
 from result_records import (  # noqa: E402
+    CHECK_CONTEXT_ENV,
+    CHECK_CONTEXT_SCHEMA,
     GROUP_SCHEMA,
     RESULT_SCHEMA,
-    VALIDATION_SCHEMA,
-    ArtifactIdentity,
+    CurrentCheckResults,
     ResultStore,
-    SourceIdentity,
+    add_result_arguments,
     android_deploy_result,
+    check_result_context,
+    describe_result_contract,
     group_fingerprint,
+    record_completed_android_export,
+    require_current_android_export,
     resolve_artifact_identity,
     resolve_source_identity,
+    result_path,
+    run_recorded_check,
+    write_result,
 )
 
 INVENTORY_SCHEMA = "astrotops-test-inventory.v1"
@@ -78,11 +91,14 @@ def load_inventory(
         )
     groups = inventory.get("groups")
     owners = inventory.get("fileOwners")
+    check_inputs = inventory.get("checkInputs")
     requirements = document.get("requirements")
     if not isinstance(groups, list) or not groups:
         raise ValueError("The test inventory must declare groups.")
     if not isinstance(owners, dict) or not owners:
         raise ValueError("The test inventory must map source files to groups.")
+    if not isinstance(check_inputs, list) or not all(isinstance(path, str) and path in owners for path in check_inputs):
+        raise ValueError("The test inventory must identify owned check-only inputs.")
     if not isinstance(requirements, list) or not requirements:
         raise ValueError("The feature map must declare acceptance requirements.")
     validated_groups: list[dict[str, object]] = []
@@ -184,6 +200,20 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     artifact = fake_repo / ".build" / "artifacts" / "android" / "AstroTops.apk"
     artifact.parent.mkdir(parents=True)
     artifact.write_bytes(b"qualified-astrotops-apk")
+    (fake_repo / "project.godot").write_text("config_version=5\n", encoding="utf-8")
+    for command in (["git", "init", "--quiet", str(fake_repo)], ["git", "-C", str(fake_repo), "add", "project.godot"],
+                    ["git", "-C", str(fake_repo), "-c", "user.name=AstroTops Tests", "-c", "user.email=tests@astrotops.invalid",
+                     "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "Source fixture"]):
+        completed = subprocess.run(command, check=False, capture_output=True, text=True)
+        assert completed.returncode == 0, (command, completed.returncode, completed.stdout or "<absent>", completed.stderr or "<absent>")
+    source_before_export = resolve_source_identity(fake_repo)
+    try:
+        require_current_android_export(fake_repo, artifact, "android-apk")
+    except ValueError:
+        missing_export_record = True
+    else:
+        missing_export_record = False
+    record_completed_android_export(fake_repo, artifact, source_before_export)
     expected_hash = hashlib.sha256(artifact.read_bytes()).hexdigest()
     device = "192.0.2.10:12345"
     package = "com.ceratopscode.astrotops"
@@ -263,6 +293,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
                 arguments, 97, "", "unexpected fake ADB command"
             )
 
+    check("missing-export-record-blocks", True, missing_export_record)
     exact = FakeAdb(expected_hash, f"connected to {device}")
     exact_receipt = android_deploy_result(
         fake_repo,
@@ -367,6 +398,58 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     else:
         connection_error = False
     check("false-success-connect-is-rejected", True, connection_error)
+    original = record_completed_android_export(fake_repo, artifact, source_before_export)
+    check("export-repeat-keeps-original-identity", original["result_id"],
+          record_completed_android_export(fake_repo, artifact, source_before_export)["result_id"])
+    original_bytes = artifact.read_bytes()
+    artifact.write_bytes(b"unrecorded-apk")
+    blocked = FakeAdb(None, "")
+    try:
+        android_deploy_result(fake_repo, adb_executable="adb", device=device, package=package,
+                              activity=activity, artifact=artifact, artifact_type="android-apk", run=blocked)
+    except ValueError:
+        changed_apk_blocked = True
+    else:
+        changed_apk_blocked = False
+    check("changed-apk-blocks-before-device-effects", (True, 0, 0), (changed_apk_blocked, blocked.installs, blocked.launches))
+    artifact.write_bytes(original_bytes)
+    project = fake_repo / "project.godot"
+    source_bytes = project.read_bytes()
+    project.write_bytes(source_bytes + b"changed-source\n")
+    for operation in (lambda: require_current_android_export(fake_repo, artifact, "android-apk"),
+                      lambda: record_completed_android_export(fake_repo, artifact, source_before_export)):
+        try:
+            operation()
+        except ValueError:
+            source_change_blocked = True
+        else:
+            source_change_blocked = False
+        check("changed-source-cannot-install-or-publish", True, source_change_blocked)
+    project.write_bytes(source_bytes)
+    replace_file = os.replace
+    for after in (False, True):
+        artifact.write_bytes(original_bytes + str(after).encode())
+
+        def interrupt_record(source: object, target: object, after: bool = after) -> None:
+            if after:
+                replace_file(source, target)  # type: ignore[arg-type]
+            raise OSError("export record interrupted")
+
+        try:
+            with patch("result_records.os.replace", side_effect=interrupt_record):
+                record_completed_android_export(fake_repo, artifact, source_before_export)
+        except OSError:
+            interrupted_record = True
+        else:
+            interrupted_record = False
+        check("export-record-interruption-reported", True, interrupted_record)
+        recovered = record_completed_android_export(fake_repo, artifact, source_before_export)
+        check("export-record-retry-keeps-complete-identity", recovered["result_id"],
+              record_completed_android_export(fake_repo, artifact, source_before_export)["result_id"])
+        check("export-record-retry-matches-actual-bytes", hashlib.sha256(artifact.read_bytes()).hexdigest(),
+              require_current_android_export(fake_repo, artifact, "android-apk")["sha256"])
+    artifact.write_bytes(original_bytes)
+    record_completed_android_export(fake_repo, artifact, source_before_export)
 
     import_calls: list[tuple[list[str], dict[str, object]]] = []
 
@@ -662,6 +745,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         pathlib.Path(".build/artifacts/android/provisioned.apk"),
         run=fake_godot_run,
         template_provider=lambda: repaired_android_source,
+        board_builder=lambda _root: None,
     )
     check(
         "godot-export-installs-android-template",
@@ -699,6 +783,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         run=fake_godot_run,
         template_provider=lambda: repaired_android_source,
         environ=fake_android_environment,
+        board_builder=lambda _root: None,
     )
     validation_calls = operation_calls[validation_start:]
     check(
@@ -736,6 +821,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
             run=fake_godot_run,
             template_provider=lambda: repaired_android_source,
             environ={"ANDROID_HOME": str(fake_android_sdk), "PATH": ""},
+            board_builder=lambda _root: None,
         )
     except RuntimeError as error:
         missing_jdk_rejected = "requires a JDK" in str(error)
@@ -747,46 +833,11 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         missing_jdk_rejected and len(operation_calls) == calls_before_missing_jdk,
     )
 
-    merged_source = SourceIdentity(
-        commit="synthetic-merge",
-        digest="source-digest",
-        exact_tags=(),
-        dirty_paths=(),
-    )
-    tagged_artifact = ArtifactIdentity(
-        version="astrotops-local-test",
-        source_commit="tagged-source",
-        path=".build/artifacts/android/AstroTops.apk",
-        sha256=expected_hash,
-        length=artifact.stat().st_size,
-    )
-    check(
-        "delivery-validation-survives-content-identical-merge",
-        True,
-        qualification_source_matches(
-            {"commit": "tagged-source", "digest": "source-digest"},
-            merged_source,
-            tagged_artifact,
-        ),
-    )
-    check(
-        "delivery-validation-rejects-different-content",
-        False,
-        qualification_source_matches(
-            {"commit": "tagged-source", "digest": "different-digest"},
-            merged_source,
-            tagged_artifact,
-        ),
-    )
-    check(
-        "delivery-validation-rejects-unqualified-commit",
-        False,
-        qualification_source_matches(
-            {"commit": "unrelated-source", "digest": "source-digest"},
-            merged_source,
-            tagged_artifact,
-        ),
-    )
+    checks_before_reuse = (current_result_lifecycle_checks(temporary_root)
+                          + shared_result_protocol_checks(temporary_root)
+                          + shared_current_attempt_checks(temporary_root))
+    for identifier in checks_before_reuse:
+        check(identifier, True, True)
     return {
         "group": "delivery-lifecycle",
         "status": "passed" if not failures else "failed",
@@ -795,6 +846,311 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         "observations": observations,
         "evidence": [],
     }
+
+
+
+def current_result_lifecycle_checks(temporary_root: pathlib.Path) -> list[str]:
+    """Exercise current outcomes, preserved identity and both replacement boundaries."""
+    root = temporary_root / "current-results"
+    root.mkdir()
+    subprocess.run(["git", "init", "--quiet", str(root)], check=True, capture_output=True)
+    product = root / "game.txt"
+    product.write_text("current product", encoding="utf-8")
+    fingerprint = group_fingerprint(root, "probe", ["game.txt"], {"runtime": "test"}, None)
+    passed: dict[str, object] = {
+        "id": "probe", "outcome": "passed", "fingerprint": fingerprint, "artifact": None,
+        "source": {"commit": "original", "digest": "original-inputs"}, "runId": "original-execution",
+        "finishedAt": 10, "checkVersion": "original-check", "schema": GROUP_SCHEMA, "qualificationLevel": "alpha",
+    }
+    store = CurrentCheckResults(root)
+    target = {"os": "test", "architecture": "test"}
+    kind = "astrotops-gameplay-group"
+    store.put(kind, "probe", target, passed)
+    original_bytes = store.path.read_bytes()
+    with patch("result_records.os.replace", side_effect=AssertionError("unchanged output must not be replaced")):
+        store.put(kind, "probe", target, passed)
+    assert store.path.read_bytes() == original_bytes
+    twice = reused_result(reused_result(passed, {"commit": "later"}), {"commit": "latest"})
+    assert twice["source"] == passed["source"] and twice["originalRunId"] == passed["runId"]
+    assert twice["checkVersion"] == passed["checkVersion"]
+    assert applicable_group_pass(CurrentCheckResults(root).records(kind, target=target)[0], fingerprint, None)
+    assert not applicable_group_pass(passed, fingerprint, None, "beta")
+    assert applicable_group_pass({**passed, "qualificationLevel": "final"}, fingerprint, None, "beta")
+    product.write_text("changed product", encoding="utf-8")
+    changed = group_fingerprint(root, "probe", ["game.txt"], {"runtime": "test"}, None)
+    assert not applicable_group_pass(passed, changed, None)
+    assert not applicable_group_pass(passed, group_fingerprint(root, "probe", ["game.txt"], {"runtime": "different"}, None), None)
+    for outcome in ("failed", "running"):
+        store.put(kind, "probe", target, {**passed, "outcome": outcome})
+        assert not applicable_group_pass(CurrentCheckResults(root).records(kind, target=target)[0], fingerprint, None)
+    replace_file = os.replace
+    for after in (False, True):
+        store = CurrentCheckResults(root)
+        store.put(kind, "probe", target, {**passed, "outcome": "running"})
+
+        def interrupt_replace(source: object, target: object, after: bool = after) -> None:
+            if after:
+                replace_file(source, target)  # type: ignore[arg-type]
+            raise OSError("interrupted after replacement" if after else "interrupted before replacement")
+
+        try:
+            with patch("result_records.os.replace", side_effect=interrupt_replace):
+                store.put(kind, "probe", target, passed)
+        except OSError as error:
+            assert "interrupted" in str(error)
+        else:
+            raise AssertionError("replacement interruption was not reported")
+        fresh = CurrentCheckResults(root)
+        assert next(item for item in fresh.records(kind, target=target) if item["id"] == "probe")["outcome"] == ("passed" if after else "running")
+        fresh.put(kind, "probe", target, passed)
+        assert not fresh.pending.exists()
+        fresh.put(kind, "other", target, {**passed, "id": "other", "runId": "other-execution"})
+        assert next(item for item in fresh.records(kind, target=target) if item["id"] == "probe")["runId"] == "original-execution"
+    fresh.path.write_text("broken evidence", encoding="utf-8")
+    try:
+        CurrentCheckResults(root)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("malformed current outcomes were treated as reusable")
+    assert fresh.path.read_text(encoding="utf-8") == "broken evidence"
+    return ["results-reuse-keeps-original-work-and-check", "results-change-requires-new-execution",
+            "results-newer-failure-or-interruption-blocks-pass", "results-replacement-interruptions-converge",
+            "results-repeat-does-not-rewrite-accepted-outcome", "results-corruption-blocks-without-rewriting"]
+
+
+def shared_result_protocol_checks(temporary_root: pathlib.Path) -> list[str]:
+    """Interrupt the public final-file interface around each visible write effect."""
+    root = temporary_root / "shared-results"
+    root.mkdir()
+    clean_environment = {key: value for key, value in os.environ.items() if key != CHECK_CONTEXT_ENV}
+    invocation: dict[str, object] = {"targets": [], "pytest_args": [], "pytest_addopts": [], "probe_command": None}
+    count = 0
+
+    def callback() -> int:
+        nonlocal count
+        count += 1
+        return 0
+
+    def request(name: str) -> argparse.Namespace:
+        return argparse.Namespace(result_file=root / (name + ".json"), result_id=name, candidate_id="observed-work",
+                                  check_id="protocol", check_version="observed-checks", repair_unaccepted_result=False,
+                                  probe_command=None)
+
+    with patch.dict(os.environ, clean_environment, clear=True), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        args = request("original")
+        assert run_recorded_check(callback, args, invocation) == 0
+        accepted = args.result_file.read_bytes()
+        assert run_recorded_check(callback, args, invocation) == 0 and count == 1
+        assert args.result_file.read_bytes() == accepted
+        conflict = request("original")
+        conflict.candidate_id = "different-work"
+        assert run_recorded_check(callback, conflict, invocation) == 2 and count == 1
+        assert args.result_file.read_bytes() == accepted
+        for boundary in range(4):
+            args = request("boundary" + str(boundary))
+            writes = 0
+
+            def interrupted_write(path: pathlib.Path, value: dict[str, object], *, exclusive: bool,
+                                  boundary: int = boundary) -> None:
+                nonlocal writes
+                current = writes
+                writes += 1
+                if current == boundary // 2 and boundary % 2 == 0:
+                    raise OSError("interrupted before final-file write")
+                write_result(path, value, exclusive=exclusive)
+                if current == boundary // 2 and boundary % 2 == 1:
+                    raise OSError("interrupted after final-file write")
+
+            before = count
+            with patch("result_records.write_result", side_effect=interrupted_write):
+                assert run_recorded_check(callback, args, invocation) == 2
+            after = count
+            assert after - before == (1 if boundary >= 2 else 0)
+            if boundary in (0, 3):
+                assert run_recorded_check(callback, args, invocation) == 0
+                assert count == after + (1 if boundary == 0 else 0)
+            else:
+                assert run_recorded_check(callback, args, invocation) == 2 and count == after
+                assert json.loads(args.result_file.read_bytes())["status"] == "running"
+                assert run_recorded_check(callback, request("fresh" + str(boundary)), invocation) == 0
+        bad = request("malformed")
+        bad.result_file.write_bytes(b"incomplete")
+        assert run_recorded_check(callback, bad, invocation) == 2
+        assert bad.result_file.read_bytes() == b"incomplete"
+        bad.repair_unaccepted_result = True
+        assert run_recorded_check(callback, bad, invocation) == 0
+        interrupted = request("interrupt")
+
+        def stop() -> int:
+            raise KeyboardInterrupt
+
+        assert run_recorded_check(stop, interrupted, invocation) == 130
+        assert json.loads(interrupted.result_file.read_bytes())["status"] == "interrupted"
+        destination = root / "destination"
+        destination.mkdir()
+        redirected = root / "redirected"
+        if os.name == "nt":
+            command = ["cmd", "/c", "mklink", "/J", str(redirected), str(destination)]
+            completed = subprocess.run(command, check=False, capture_output=True, text=True)
+            assert completed.returncode == 0, (command, completed.returncode, completed.stdout, completed.stderr)
+        else:
+            redirected.symlink_to(destination, target_is_directory=True)
+        try:
+            result_path(redirected / "outcome.json")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("redirected result path was accepted")
+        assert not (destination / "outcome.json").exists()
+    return ["shared-result-reuse-preserves-original-bytes", "shared-result-conflicts-preserve-acceptance",
+            "shared-result-both-write-boundaries-converge", "shared-result-interruption-is-not-acceptance",
+            "shared-result-malformed-repair-is-explicit", "shared-result-redirected-paths-block"]
+
+
+def shared_current_attempt_checks(temporary_root: pathlib.Path) -> list[str]:
+    """Exercise the public runner against its actual shared per-worktree file."""
+    root = temporary_root / "shared-current-attempts"
+    root.mkdir()
+    subprocess.run(["git", "init", "--quiet", str(root)], check=True, capture_output=True)
+    store = CurrentCheckResults(root)
+    target = {"operation": "repository.actions.test", "cwd": "."}
+    context = {
+        "schema": CHECK_CONTEXT_SCHEMA, "group": "probe", "scope": {
+            **target, "inputRules": {"product-inputs": ["product.txt"], "check-inputs": ["check.txt"]}},
+        "qualificationLevel": "alpha", "workVersion": "observed-work", "checkVersion": "observed-checks",
+        "productInputs": {"product.txt": None}, "checkInputs": {"check.txt": None},
+        "arguments": [], "dependencies": {}, "fingerprint": "1" * 64,
+        "environment": {"variables": {}, "tools": {}, "platform": platform.system(), "architecture": platform.machine()},
+    }
+    invocation: dict[str, object] = {"targets": [], "pytest_args": [], "pytest_addopts": [], "probe_command": None}
+    calls = 0
+
+    def request(identity: str) -> argparse.Namespace:
+        return argparse.Namespace(result_file=store.path, result_id=identity, candidate_id="observed-work",
+                                  check_id="protocol", check_version="observed-checks", repair_unaccepted_result=False,
+                                  probe_command=None)
+
+    def callback() -> int:
+        nonlocal calls
+        calls += 1
+        current = CurrentCheckResults(root).records("repository-check", target=target)
+        assert len(current) == 1 and current[0]["status"] == "running"
+        assert current[0]["execution"]["finishedAt"] is None
+        return 0
+
+    replace_file = os.replace
+    with patch.dict(os.environ, {CHECK_CONTEXT_ENV: json.dumps(context)}), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        for boundary in range(4):
+            assert run_recorded_check(callback, request("accepted-" + str(boundary)), invocation, repo_root=root) == 0
+            writes = 0
+            args = request("attempt-" + str(boundary))
+
+            def interrupted_replace(source: object, destination: object, boundary: int = boundary) -> None:
+                nonlocal writes
+                index = writes
+                writes += 1
+                if index == boundary // 2 and boundary % 2 == 0:
+                    raise OSError("interrupted before shared replacement")
+                replace_file(source, destination)  # type: ignore[arg-type]
+                if index == boundary // 2 and boundary % 2 == 1:
+                    raise OSError("interrupted after shared replacement")
+
+            before = calls
+            with patch("result_records.os.replace", side_effect=interrupted_replace):
+                assert run_recorded_check(callback, args, invocation, repo_root=root) == 2
+            assert calls - before == (1 if boundary >= 2 else 0)
+            records = CurrentCheckResults(root).records("repository-check", target=target)
+            assert len(records) == 1
+            assert records[0]["status"] == ("passed" if boundary in (0, 3) else "running")
+            assert records[0]["result_id"] == ("accepted-0" if boundary == 0 else args.result_id)
+            after = calls
+            if boundary == 3:
+                assert run_recorded_check(callback, args, invocation, repo_root=root) == 0
+                assert calls == after  # The completed attempt keeps its original identity.
+            else:
+                assert run_recorded_check(callback, request("fresh-" + str(boundary)), invocation, repo_root=root) == 0
+                assert calls == after + 1
+            assert not CurrentCheckResults(root).pending.exists()
+    return ["shared-current-running-precedes-callback", "shared-current-write-interruptions-converge",
+            "shared-current-interrupted-attempt-hides-old-pass", "shared-current-completed-attempt-is-reused"]
+
+
+def board_build_lifecycle_checks(temporary_root: pathlib.Path) -> list[str]:
+    """Interrupt each AAR copy/publication effect, then repeat the normal build call."""
+    from unittest.mock import patch
+
+    names = [f"{module}-{variant}.aar" for module in ("board", "godot") for variant in ("debug", "release")]
+    root = temporary_root / "board-build"
+    output = root / "addons" / "bobo_board" / ".artifacts"
+    native = output.parent / "native"
+
+    def gradle(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        for name in names:
+            source = native / ".build" / name.split("-")[0] / "outputs" / "aar" / name
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_bytes(("current:" + name).encode())
+        return subprocess.CompletedProcess(command, 0, "Gradle finished", "")
+
+    checks = []
+    original_copy = shutil.copyfile
+    original_replace = pathlib.Path.replace
+    for operation in ("copy", "publish"):
+        for boundary in ("before", "after"):
+            for index in range(len(names)):
+                calls = 0
+
+                def copy(source: pathlib.Path, target: pathlib.Path, selected_index: int = index, selected_boundary: str = boundary) -> pathlib.Path:
+                    nonlocal calls
+                    selected = calls == selected_index
+                    calls += 1
+                    if selected and selected_boundary == "before":
+                        raise OSError("interrupted before AAR copy")
+                    result = original_copy(source, target)
+                    if selected and selected_boundary == "after":
+                        raise OSError("interrupted after AAR copy")
+                    return result
+
+                def replace(source: pathlib.Path, target: pathlib.Path, selected_index: int = index, selected_boundary: str = boundary) -> pathlib.Path:
+                    nonlocal calls
+                    selected = calls == selected_index
+                    calls += 1
+                    if selected and selected_boundary == "before":
+                        raise OSError("interrupted before AAR publication")
+                    result = original_replace(source, target)
+                    if selected and selected_boundary == "after":
+                        raise OSError("interrupted after AAR publication")
+                    return result
+
+                with patch("build_board_module.shutil.copyfile", copy) if operation == "copy" else patch.object(pathlib.Path, "replace", replace):
+                    try:
+                        build_board_module(root, run=gradle)
+                    except RuntimeError as error:
+                        assert "publication failed" in str(error)
+                    else:
+                        raise AssertionError("AAR interruption did not fail the operation.")
+                assert not any((output / name).exists() for name in names)
+                assert not list(output.glob("*.tmp"))
+                build_board_module(root, run=gradle)
+                assert all((output / name).read_bytes() == ("current:" + name).encode() for name in names)
+                checks.append(f"board-build/{operation}-{boundary}-{index}")
+    for _ in range(2):
+        build_board_module(root, run=gradle)
+    checks.append("board-build/repeated-build-converges")
+
+    def failed(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(command, 7, "", "explicit Gradle failure")
+
+    try:
+        build_board_module(root, run=failed)
+    except RuntimeError as error:
+        assert "exit_status: 7" in str(error) and "explicit Gradle failure" in str(error)
+        assert "stdout:\n<absent>" in str(error) and "invocation:" in str(error)
+    else:
+        raise AssertionError("A failed Gradle command was accepted.")
+    assert not any((output / name).exists() for name in names)
+    checks.append("board-build/child-failure-keeps-cause-and-clears-stale-output")
+    return checks
 
 
 def run_python_group(
@@ -812,6 +1168,19 @@ def run_python_group(
     with tempfile.TemporaryDirectory(prefix=f"astrotops-{group_id}-") as temporary:
         if group_id == "delivery-lifecycle":
             payload = deployment_lifecycle_payload(pathlib.Path(temporary))
+        elif group_id == "board-module":
+            try:
+                lifecycle_checks = board_build_lifecycle_checks(pathlib.Path(temporary))
+                result = build_board_module(_SCRIPT_DIRECTORY.parent, tests=True)
+                checks = result["checks"]
+                assert isinstance(checks, list)
+                checks = lifecycle_checks + checks
+                payload = {"group": group_id, "status": "passed", "assertions": len(checks),
+                           "failures": [], "observations": checks, "evidence": []}
+            except (RuntimeError, OSError) as error:
+                payload = {"group": group_id, "status": "failed", "assertions": 0,
+                           "failures": [{"id": "board-module/behavior", "expected": "passing JVM behavior tests", "actual": str(error)}],
+                           "observations": [], "evidence": []}
         else:
             payload = {
                 "group": group_id,
@@ -1093,62 +1462,6 @@ def load_group_result(path: pathlib.Path) -> dict[str, object] | None:
     )
 
 
-def qualification_source_matches(
-    recorded_source: object,
-    source_identity: SourceIdentity,
-    artifact_identity: ArtifactIdentity,
-) -> bool:
-    """Bind validation to the tagged source while tolerating a content-identical merge commit."""
-
-    return (
-        isinstance(recorded_source, dict)
-        and recorded_source.get("commit") == artifact_identity.source_commit
-        and recorded_source.get("digest") == source_identity.digest
-    )
-
-
-def applicable_qualified_artifact(
-    repo_root: pathlib.Path,
-    source_identity: SourceIdentity,
-) -> ArtifactIdentity | None:
-    """Reuse qualification only while source and exact artifact bytes still match."""
-
-    try:
-        report = json.loads(
-            (repo_root / ".test-results" / "tests.json").read_text(encoding="utf-8")
-        )
-    except (OSError, json.JSONDecodeError):
-        return None
-    source = report.get("source") if isinstance(report, dict) else None
-    artifact = report.get("artifact") if isinstance(report, dict) else None
-    if (
-        not isinstance(report, dict)
-        or report.get("schema") != RESULT_SCHEMA
-        or report.get("outcome") != "passed"
-        or not isinstance(source, dict)
-        or source.get("commit") != source_identity.commit
-        or source.get("digest") != source_identity.digest
-        or not isinstance(artifact, dict)
-    ):
-        return None
-    version = artifact.get("version")
-    relative = artifact.get("artifactPath")
-    if not isinstance(version, str) or not isinstance(relative, str):
-        return None
-    try:
-        resolved = resolve_artifact_identity(
-            repo_root,
-            source_identity,
-            version,
-            repo_root.joinpath(*pathlib.PurePosixPath(relative).parts),
-        )
-    except (OSError, ValueError, subprocess.SubprocessError):
-        return None
-    if resolved is None or resolved.portable() != artifact:
-        return None
-    return resolved
-
-
 def reused_result(
     previous: dict[str, object], source: dict[str, object]
 ) -> dict[str, object]:
@@ -1159,169 +1472,37 @@ def reused_result(
         execution="reused",
         exitCode=0,
         seconds=0.0,
-        source=source,
-        originalFinishedAt=previous.get("finishedAt"),
-        originalRunId=previous.get("runId"),
+        requestedSource=source,
+        originalFinishedAt=previous.get("originalFinishedAt", previous.get("finishedAt")),
+        originalRunId=previous.get("originalRunId", previous.get("runId")),
     )
     return result
 
 
-def verify_delivery(
-    repo_root: pathlib.Path,
-    inventory: dict[str, object],
-    groups: list[dict[str, object]],
-    source_identity: SourceIdentity,
-    artifact_identity: ArtifactIdentity,
-    store: ResultStore,
-) -> int:
-    """Verify retained passing results and exact package bytes without testing again."""
+def applicable_group_pass(previous: dict[str, object] | None, fingerprint: str, artifact: object,
+                          qualification: str = "alpha") -> bool:
+    """Reuse only the latest matching successful outcome for this execution scope."""
+    levels = ("alpha", "beta", "rc", "final")
+    level = previous.get("qualificationLevel") if previous else None
+    return bool(previous and level in levels and levels.index(str(level)) >= levels.index(qualification)
+                and previous.get("outcome") == "passed"
+                and previous.get("fingerprint") == fingerprint and previous.get("artifact") == artifact)
 
-    if source_identity.dirty_paths:
-        print(
-            "delivery/source expected=clean source actual="
-            + ", ".join(source_identity.dirty_paths[:8]),
-            file=sys.stderr,
-        )
-        return 1
-    file_owners = inventory.get("fileOwners")
-    if not isinstance(file_owners, dict):
-        print(
-            "delivery/inventory expected=file ownership map actual=missing",
-            file=sys.stderr,
-        )
-        return 1
-    artifact = artifact_identity.portable()
-    failures: list[str] = []
-    try:
-        validation = json.loads(
-            (store.result_root / "validation.json").read_text(encoding="utf-8")
-        )
-    except (OSError, json.JSONDecodeError):
-        validation = None
-    if (
-        not isinstance(validation, dict)
-        or validation.get("schema") != VALIDATION_SCHEMA
-    ):
-        failures.append(
-            "delivery/validation expected=valid repository result actual=missing or invalid"
-        )
-    else:
-        validation_source = validation.get("source")
-        validation_results = validation.get("results")
-        required_validation = validation.get("requiredChecks")
-        if validation.get("outcome") != "passed":
-            failures.append(
-                f"delivery/validation expected=passed actual={validation.get('outcome')}"
-            )
-        if not qualification_source_matches(
-            validation_source, source_identity, artifact_identity
-        ):
-            failures.append(
-                "delivery/validation expected=applicable result actual=stale"
-            )
-        if (
-            not isinstance(required_validation, list)
-            or not required_validation
-            or not isinstance(validation_results, list)
-            or [item.get("id") for item in validation_results if isinstance(item, dict)]
-            != required_validation
-            or any(
-                item.get("outcome") != "passed"
-                for item in validation_results
-                if isinstance(item, dict)
-            )
-        ):
-            failures.append(
-                "delivery/validation expected=complete passing checks actual=incomplete"
-            )
-    group_ids: list[str] = []
-    for definition in groups:
-        group_id = str(definition["id"])
-        group_ids.append(group_id)
-        previous = load_group_result(store.group_root / f"{group_id}.json")
-        if previous is None:
-            failures.append(
-                f"delivery/{group_id} expected=recorded pass actual=missing"
-            )
-            continue
-        environment = previous.get("environment")
-        if not isinstance(environment, dict):
-            failures.append(
-                f"delivery/{group_id} expected=recorded environment actual=missing"
-            )
-            continue
-        owned_paths = [
-            str(relative)
-            for relative, owners in file_owners.items()
-            if isinstance(owners, list) and group_id in owners
-        ]
-        fingerprint = group_fingerprint(
-            repo_root, group_id, owned_paths, environment, artifact_identity
-        )
-        if previous.get("outcome") != "passed":
-            failures.append(
-                f"delivery/{group_id} expected=passed actual={previous.get('outcome')}"
-            )
-        elif previous.get("fingerprint") != fingerprint:
-            failures.append(
-                f"delivery/{group_id} expected=applicable result actual=stale"
-            )
-        elif previous.get("artifact") != artifact:
-            failures.append(
-                f"delivery/{group_id} expected=exact artifact actual=different"
-            )
 
-    try:
-        loaded_report = json.loads(
-            (store.result_root / "tests.json").read_text(encoding="utf-8")
-        )
-    except (OSError, json.JSONDecodeError):
-        loaded_report = None
-    if (
-        not isinstance(loaded_report, dict)
-        or loaded_report.get("schema") != RESULT_SCHEMA
-    ):
-        failures.append(
-            "delivery/report expected=valid repository result actual=missing or invalid"
-        )
-    else:
-        if loaded_report.get("outcome") != "passed":
-            failures.append(
-                f"delivery/report expected=passed actual={loaded_report.get('outcome')}"
-            )
-        if loaded_report.get("artifact") != artifact:
-            failures.append("delivery/report expected=exact artifact actual=different")
-        if loaded_report.get("requiredChecks") != group_ids:
-            failures.append(
-                "delivery/report expected=complete group coverage actual=incomplete"
-            )
-
-    try:
-        build = json.loads(
-            store.build_path(artifact_identity).read_text(encoding="utf-8")
-        )
-    except (OSError, json.JSONDecodeError):
-        build = None
-    if not isinstance(build, dict):
-        failures.append(
-            "delivery/build expected=tracked build metadata actual=missing or invalid"
-        )
-    else:
-        for key, value in {
-            **artifact,
-            "sourceDigest": source_identity.digest,
-        }.items():
-            if build.get(key) != value:
-                failures.append(
-                    f"delivery/build.{key} expected={value} actual={build.get(key)}"
-                )
-
-    if failures:
-        for failure in failures:
-            print(failure, file=sys.stderr)
-        return 1
-    print("OK")
-    return 0
+def current_test_environment(godot: pathlib.Path) -> dict[str, object]:
+    """Bind local reuse to resolved runtime bytes and relevant inherited build scope."""
+    java = shutil.which("java")
+    return {
+        "godot": godot_version(godot), "platform": platform.system().lower(),
+        "platformRelease": platform.release(), "python": platform.python_version(),
+        "renderer": "gl_compatibility", "godotBytes": _sha256(godot),
+        "pythonBytes": _sha256(pathlib.Path(sys.executable)), "machine": platform.machine(),
+        "javaBytes": _sha256(pathlib.Path(java)) if java else None,
+        "buildEnvironment": hashlib.sha256(json.dumps({key: os.environ.get(key, "") for key in (
+            "PATH", "JAVA_HOME", "ANDROID_HOME", "ANDROID_SDK_ROOT", "JAVA_TOOL_OPTIONS", "GRADLE_OPTS",
+            "DISPLAY", "LANG", "LC_ALL", "TZ",
+        )}, sort_keys=True).encode()).hexdigest(),
+    }
 
 
 def main() -> int:
@@ -1355,14 +1536,32 @@ def main() -> int:
         type=pathlib.Path,
         help="Export the Android debug artifact to a repository-relative path and stop.",
     )
-    mode.add_argument(
-        "--verify-delivery",
-        action="store_true",
-        help="Verify retained results and exact artifact bytes without executing tests.",
-    )
     parser.add_argument("--source-tag")
     parser.add_argument("--artifact", type=pathlib.Path)
+    add_result_arguments(parser)
     args = parser.parse_args()
+    if args.describe_test_results:
+        describe_result_contract()
+        return 0
+    probe = None
+    if args.probe_command:
+        try:
+            probe = json.loads(args.probe_command)
+        except json.JSONDecodeError as error:
+            parser.error(str(error))
+        if not isinstance(probe, list) or not probe or not all(isinstance(item, str) and item for item in probe):
+            parser.error("probe-command must be a nonempty JSON argv")
+    checks: list[dict[str, object]] = []
+    invocation = {"targets": sorted(args.group), "pytest_args": [], "pytest_addopts": [], "probe_command": probe}
+    return run_recorded_check(lambda: execute_test_request(args, parser, checks, probe), args, invocation,
+                              checks=(lambda: checks) if probe is None else None, repo_root=args.repo_root)
+
+
+def execute_test_request(args: argparse.Namespace, parser: argparse.ArgumentParser,
+                         results: list[dict[str, object]], probe: list[str] | None) -> int:
+    """Execute the requested checks; the shared writer owns their durable result."""
+    if probe is not None:
+        return subprocess.run(probe, check=False).returncode
 
     repo_root = args.repo_root.expanduser().resolve(strict=True)
     lifecycle_mode = bool(
@@ -1389,7 +1588,9 @@ def main() -> int:
             elif args.validate_project:
                 validate_godot_project(repo_root, godot)
             elif args.export_debug is not None:
+                source_before_export = resolve_source_identity(repo_root)
                 export_debug_project(repo_root, godot, args.export_debug)
+                record_completed_android_export(repo_root, args.export_debug, source_before_export)
         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
             print(str(error), file=sys.stderr)
             return 1
@@ -1406,39 +1607,16 @@ def main() -> int:
         artifact_identity = resolve_artifact_identity(
             repo_root, source_identity, args.source_tag, args.artifact
         )
-        if artifact_identity is None:
-            artifact_identity = applicable_qualified_artifact(
-                repo_root, source_identity
-            )
         store = ResultStore(
             repo_root,
             source_identity,
-            record=not args.no_record and not args.verify_delivery,
+            record=not args.no_record,
         )
-        if args.verify_delivery:
-            if args.fresh or args.group or args.no_record:
-                raise ValueError(
-                    "--verify-delivery cannot be combined with execution options."
-                )
-            if artifact_identity is None:
-                raise ValueError(
-                    "--verify-delivery requires --source-tag and --artifact."
-                )
-            return verify_delivery(
-                repo_root,
-                inventory,
-                groups,
-                source_identity,
-                artifact_identity,
-                store,
-            )
         godot = resolve_godot(args.godot)
-        environment: dict[str, object] = {
-            "godot": godot_version(godot),
-            "platform": platform.system().lower(),
-            "python": platform.python_version(),
-            "renderer": "gl_compatibility",
-        }
+        current_results = CurrentCheckResults(repo_root)
+        environment = current_test_environment(godot)
+        context = check_result_context(args.check_version) if args.result_file is not None else None
+        qualification = str(context["qualificationLevel"]) if context is not None else "alpha"
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         print(str(error), file=sys.stderr)
         return 1
@@ -1446,16 +1624,17 @@ def main() -> int:
     selected = set(args.group or group_ids)
     started = time.time()
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    run_id = f"{timestamp}-{source_identity.commit[:12]}"
-    evidence_root = store.begin_evidence_run(run_id)
-    explicit_selection = bool(args.group)
+    run_id = f"{timestamp}-{uuid4().hex[:12]}"
+    group_target = {"os": environment["platform"], "architecture": environment["machine"], "renderer": environment["renderer"]}
+    current_groups = {str(item["id"]): item for item in current_results.records("astrotops-gameplay-group", target=group_target)}
+    keep_evidence = {str(item["runId"]) for item in current_groups.values() if item.get("runId")}
+    evidence_root = store.begin_evidence_run(run_id, keep=keep_evidence)
     source = source_identity.portable()
     artifact = artifact_identity.portable() if artifact_identity else None
     file_owners = inventory["fileOwners"]
     if not isinstance(file_owners, dict):
         print("The test inventory has no valid file ownership map.", file=sys.stderr)
         return 1
-    results: list[dict[str, object]] = []
     imports_bootstrapped = False
 
     for definition in groups:
@@ -1468,15 +1647,10 @@ def main() -> int:
         fingerprint = group_fingerprint(
             repo_root, group_id, owned_paths, environment, artifact_identity
         )
-        previous = load_group_result(store.group_root / f"{group_id}.json")
-        applicable_pass = bool(
-            previous
-            and previous.get("outcome") == "passed"
-            and previous.get("fingerprint") == fingerprint
-            and previous.get("artifact") == artifact
-        )
+        previous = current_groups.get(group_id) or load_group_result(store.group_root / f"{group_id}.json")
+        applicable_pass = applicable_group_pass(previous, fingerprint, artifact, qualification)
         must_execute = group_id in selected and (
-            args.fresh or explicit_selection or not applicable_pass
+            args.fresh or not applicable_pass
         )
         if must_execute:
             if definition["mode"] != "python" and not imports_bootstrapped:
@@ -1486,6 +1660,11 @@ def main() -> int:
                     print(str(error), file=sys.stderr)
                     return 1
                 imports_bootstrapped = True
+            current_results.put("astrotops-gameplay-group", group_id, group_target, {
+                "id": group_id, "outcome": "running", "fingerprint": fingerprint,
+                "runId": run_id, "source": source, "environment": environment, "artifact": artifact,
+                "qualificationLevel": qualification,
+            })
             result = run_group(
                 repo_root,
                 godot,
@@ -1497,6 +1676,18 @@ def main() -> int:
                 run_id,
                 artifact,
             )
+            check_inputs = inventory["checkInputs"]
+            assert isinstance(check_inputs, list)
+            result["checkVersion"] = group_fingerprint(repo_root, group_id, [path for path in owned_paths if path in check_inputs], environment, None)
+            result["productVersion"] = group_fingerprint(repo_root, group_id, [path for path in owned_paths if path not in check_inputs], environment, artifact_identity)
+            result["qualificationLevel"] = qualification
+            result["result_id"] = run_id + ":" + group_id
+            if group_fingerprint(repo_root, group_id, owned_paths, current_test_environment(godot), artifact_identity) != fingerprint:
+                result.update(status="failed", outcome="failed", exitCode=1)
+                failures = result.get("failures")
+                result["failures"] = [*(failures if isinstance(failures, list) else []), {"id": "runner/inputs-changed", "actual": "Owned inputs changed while the group was running."}]
+            current_results.put("astrotops-gameplay-group", group_id, group_target, result)
+            current_groups[group_id] = result
             store.write_group(group_id, result)
         elif applicable_pass and previous is not None:
             result = reused_result(previous, source)
@@ -1551,7 +1742,7 @@ def main() -> int:
         store.write_report(report)
     if artifact_identity is not None:
         store.write_build(artifact_identity, source_identity.digest)
-    store.prune_evidence(keep={run_id})
+    store.prune_evidence(keep={run_id, *(str(item["runId"]) for item in current_groups.values() if item.get("runId"))})
     if passed:
         print("OK")
         return 0
