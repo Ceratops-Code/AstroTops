@@ -6,6 +6,7 @@ const TraxyScene := preload("res://scripts/traxy.gd")
 const ShipScene := preload("res://scripts/player_ship.gd")
 const MeteorScene := preload("res://scripts/meteor.gd")
 const AudioControllerScene := preload("res://scripts/audio_controller.gd")
+const BoardInputScene := preload("res://addons/bobo_board/read_board_input.gd")
 
 const VIEW_SIZE := Vector2(1280.0, 720.0)
 const HUD_HEIGHT := 136.0
@@ -85,8 +86,10 @@ const START_BUTTON := Rect2(485.0, 544.0, 310.0, 62.0)
 const RESET_BEST_BUTTON := Rect2(540.0, 646.0, 200.0, 32.0)
 const AGAIN_BUTTON := Rect2(400.0, 545.0, 230.0, 72.0)
 const MENU_BUTTON := Rect2(650.0, 545.0, 230.0, 72.0)
+const BOARD_HUD_CONNECT := Rect2(800.0, 88.0, 200.0, 38.0)
+const BOARD_HUD_DISCONNECT := Rect2(1010.0, 88.0, 230.0, 38.0)
 
-enum GameState { MENU, READY, COUNTDOWN, PLAYING, PAUSED, RESCUE, FINALE, RESULTS }
+enum GameState { MENU, READY, COUNTDOWN, PLAYING, PAUSED, RESCUE, FINALE, RESULTS, BOARD_TEST, BOARD_CALIBRATION }
 enum GameMode { SPACE_RUSH, SOLAR_TOUR }
 
 signal ui_click_requested
@@ -162,6 +165,12 @@ var message_label: Label
 var countdown_label: Label
 var audio_controller: AstroAudioController
 var milky_way_texture: Texture2D
+var board_input: BoboBoardInput
+var board_backend: Object
+var board_sidebar
+var board_calibration_panel
+var board_panel_expanded := false
+var board_controls_selected := false
 
 
 func _ready() -> void:
@@ -183,6 +192,26 @@ func _ready() -> void:
 	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
 	ship.position = MENU_SHIP_POSITION
 	ship.scale = MENU_SHIP_SCALE
+	board_input = BoardInputScene.new()
+	board_input.backend = board_backend
+	board_input.board_state_changed.connect(_on_board_state_changed)
+	board_input.board_input_lost.connect(_on_board_input_lost)
+	add_child(board_input)
+	var board_layer := CanvasLayer.new()
+	board_layer.layer = 10
+	add_child(board_layer)
+	board_sidebar = board_input.create_sidebar()
+	board_sidebar.expanded = board_panel_expanded
+	board_sidebar.expanded_changed.connect(_remember_board_sidebar)
+	board_sidebar.connection_selected.connect(_select_board_controls)
+	board_sidebar.test_requested.connect(_begin_board_test)
+	board_sidebar.calibration_requested.connect(_begin_board_calibration)
+	board_layer.add_child(board_sidebar)
+	board_calibration_panel = board_input.create_calibration_panel()
+	board_calibration_panel.visible = false
+	board_calibration_panel.closed.connect(_close_board_calibration)
+	board_layer.add_child(board_calibration_panel)
+	_on_board_state_changed()
 	set_process_input(true)
 	_update_overlay()
 	queue_redraw()
@@ -215,12 +244,17 @@ func _process(delta: float) -> void:
 			_update_traxy_rescue(delta)
 		GameState.MENU:
 			ship.rotation = lerp_angle(ship.rotation, sin(input_hint_time * 0.6) * 0.08, delta * 2.0)
+		GameState.BOARD_TEST:
+			ship.move_ship(_movement_input(), delta)
 	_update_overlay()
 	queue_redraw()
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		if state == GameState.BOARD_CALIBRATION:
+			board_calibration_panel.close_panel()
+			return
 		if state == GameState.MENU:
 			get_tree().quit()
 		else:
@@ -266,6 +300,9 @@ func _setup_overlay() -> void:
 
 
 func _update_overlay() -> void:
+	if board_sidebar != null:
+		board_sidebar.visible = state == GameState.MENU
+		board_calibration_panel.visible = state == GameState.BOARD_CALIBRATION
 	overlay_shade.visible = false
 	message_label.visible = false
 	countdown_label.visible = false
@@ -306,6 +343,7 @@ func _load_settings() -> void:
 		best_time = float(config.get_value("times", "best", 0.0))
 		tour_best_time = float(config.get_value("times", "tour_best", 0.0))
 		tractor_beam_enabled = bool(config.get_value("tractor_beam", "enabled", true))
+		board_panel_expanded = bool(config.get_value("bobo", "sidebar_expanded", false))
 		tractor_beam_strength = clampf(float(config.get_value("tractor_beam", "strength", TRACTOR_DEFAULT_STRENGTH)), 0.0, 1.0)
 
 
@@ -319,6 +357,7 @@ func _settings_config() -> ConfigFile:
 	config.set_value("times", "best", best_time)
 	config.set_value("times", "tour_best", tour_best_time)
 	config.set_value("tractor_beam", "enabled", tractor_beam_enabled)
+	config.set_value("bobo", "sidebar_expanded", board_panel_expanded)
 	config.set_value("tractor_beam", "strength", tractor_beam_strength)
 	return config
 
@@ -451,6 +490,8 @@ func _clear_targets() -> void:
 
 
 func _prepare_run() -> void:
+	if board_controls_selected and not board_input.is_ready():
+		return
 	_stop_target_speech()
 	_setup_tts()
 	tour_progress_index = 0
@@ -505,6 +546,8 @@ func _toggle_pause() -> void:
 		_clear_touch()
 		_play_ui_click()
 	elif state == GameState.PAUSED:
+		if board_controls_selected and not board_input.is_ready():
+			return
 		state = state_before_pause
 		_play_ui_click()
 
@@ -727,6 +770,8 @@ func _return_to_menu(play_click := true) -> void:
 
 
 func _movement_input() -> Vector2:
+	if board_controls_selected or state == GameState.BOARD_TEST:
+		return board_input.movement if board_input.is_ready() else Vector2.ZERO
 	var movement := Vector2.ZERO
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
 		movement.x -= 1.0
@@ -856,6 +901,25 @@ func _best_tractor_candidate(course_direction: Vector2) -> Dictionary:
 
 
 func _input(event: InputEvent) -> void:
+	if state == GameState.MENU and event is InputEventKey and board_sidebar != null:
+		var focused := get_viewport().gui_get_focus_owner()
+		if focused != null and board_sidebar.is_ancestor_of(focused):
+			if event.pressed and event.keycode == KEY_ESCAPE:
+				board_sidebar.set_expanded(false)
+				focused.release_focus()
+			return
+	if state == GameState.BOARD_CALIBRATION:
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			board_calibration_panel.close_panel()
+		return
+	if state == GameState.BOARD_TEST and event is InputEventKey:
+		if event.pressed and event.keycode == KEY_ESCAPE:
+			_return_to_menu()
+		return
+	if state == GameState.BOARD_TEST and event is InputEventJoypadButton:
+		if event.pressed and event.button_index == JOY_BUTTON_B:
+			_return_to_menu()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if state == GameState.READY:
 			if event.keycode == KEY_ESCAPE:
@@ -1004,6 +1068,10 @@ func _handle_mouse_pointer(position: Vector2, pressed: bool) -> void:
 
 
 func _handle_system_button(position: Vector2) -> bool:
+	if state != GameState.MENU and _handle_board_hud_button(position):
+		return true
+	if state == GameState.BOARD_TEST and not CLOSE_BUTTON.has_point(position) and not BACK_BUTTON.has_point(position):
+		return false
 	var button := ""
 	if CLOSE_BUTTON.has_point(position):
 		button = "close"
@@ -1490,6 +1558,8 @@ func _draw() -> void:
 	match state:
 		GameState.MENU:
 			_draw_menu()
+		GameState.BOARD_TEST:
+			_draw_board_test()
 		GameState.READY, GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED, GameState.RESCUE:
 			_draw_game_hud()
 			if state == GameState.PLAYING:
@@ -1510,7 +1580,7 @@ func _draw_menu() -> void:
 	_draw_brand_title(78.0, 60, Color("f4f8ff"))
 	_draw_space_subtitle(MENU_SUBTITLE, 115.0, 24, accent.lightened(0.18))
 	_center_text(MENU_TAGLINE, 145.0, 18, Color("c1cbea"))
-	_button(CLOSE_BUTTON, "CLOSE", Color("ff657a"))
+	_button(CLOSE_BUTTON, "EXIT", Color("ff657a"))
 	_section_label(SHIP_LABEL, "SHIP")
 	_arrow_button(SHIP_LEFT_BUTTON, -1.0, palette[selected_color_index])
 	_arrow_button(SHIP_RIGHT_BUTTON, 1.0, palette[selected_color_index])
@@ -1527,7 +1597,7 @@ func _draw_menu() -> void:
 	_arrow_button(MODE_LEFT_BUTTON, -1.0, palette[selected_color_index])
 	_arrow_button(MODE_RIGHT_BUTTON, 1.0, palette[selected_color_index])
 	_selector(MODE_NAME_BUTTON, MODE_NAMES[selected_game_mode])
-	_button(START_BUTTON, "LAUNCH MISSION", palette[selected_color_index])
+	_button(START_BUTTON, "LAUNCH MISSION", palette[selected_color_index], not board_controls_selected or board_input.is_ready())
 	var reset_label := "TAP AGAIN TO RESET" if Time.get_ticks_msec() <= best_reset_confirmation_until else "RESET BEST TIME"
 	_button(RESET_BEST_BUTTON, reset_label, Color("ffc857"))
 	var active_best := _active_best_time()
@@ -1537,6 +1607,7 @@ func _draw_menu() -> void:
 
 
 func _draw_game_hud() -> void:
+	# Board controls remain usable while a lost connection has paused the mission.
 	draw_rect(Rect2(0.0, 0.0, VIEW_SIZE.x, HUD_HEIGHT), Color(0.015, 0.02, 0.08, 0.94), true)
 	draw_rect(Rect2(0.0, 0.0, VIEW_SIZE.x, 4.0), Color(palette[selected_color_index], 0.86), true)
 	draw_line(Vector2(0.0, 82.0), Vector2(VIEW_SIZE.x, 82.0), Color(0.42, 0.49, 0.72, 0.32), 2.0)
@@ -1565,6 +1636,8 @@ func _draw_game_hud() -> void:
 	draw_rect(Rect2(TRACTOR_SLIDER_TRACK.position, Vector2(TRACTOR_SLIDER_TRACK.size.x * tractor_beam_strength, TRACTOR_SLIDER_TRACK.size.y)), Color(palette[selected_color_index], slider_alpha), true)
 	var knob_x := TRACTOR_SLIDER_TRACK.position.x + TRACTOR_SLIDER_TRACK.size.x * tractor_beam_strength
 	draw_circle(Vector2(knob_x, TRACTOR_SLIDER_TRACK.get_center().y), 10.0, Color(Color.WHITE, slider_alpha))
+	if board_input.is_supported():
+		_draw_board_hud_controls()
 
 
 func _draw_touch_stick() -> void:
@@ -1575,6 +1648,104 @@ func _draw_touch_stick() -> void:
 	draw_circle(origin, 53.0, Color(0.75, 0.82, 1.0, 0.10))
 	draw_arc(origin, 53.0, 0.0, TAU, 40, Color(0.75, 0.82, 1.0, 0.30), 2.0, true)
 	draw_circle(knob, 23.0, Color(palette[selected_color_index], 0.34))
+
+
+func _connect_board() -> void:
+	if not board_input.is_supported():
+		return
+	board_controls_selected = true
+	board_input.connect_board()
+	_play_ui_click()
+
+
+func _disconnect_board() -> void:
+	board_controls_selected = false
+	board_input.disconnect_board()
+	_play_ui_click()
+
+
+func _on_board_state_changed() -> void:
+	queue_redraw()
+
+
+func _remember_board_sidebar(expanded: bool) -> void:
+	board_panel_expanded = expanded
+	_save_settings()
+
+
+func _select_board_controls(active: bool) -> void:
+	board_controls_selected = active
+	_play_ui_click()
+
+
+func _begin_board_calibration() -> void:
+	if not board_input.is_ready():
+		return
+	_stop_target_speech()
+	board_controls_selected = true
+	state = GameState.BOARD_CALIBRATION
+	ship.stop()
+	ship.visible = false
+	_clear_touch()
+	_update_overlay()
+	board_input.begin_calibration()
+
+
+func _close_board_calibration() -> void:
+	if state == GameState.BOARD_CALIBRATION:
+		_return_to_menu(false)
+		_update_overlay()
+
+
+func _on_board_input_lost() -> void:
+	ship.stop()
+	if state in [GameState.COUNTDOWN, GameState.PLAYING]:
+		state_before_pause = state
+		state = GameState.PAUSED
+		_clear_touch()
+	_update_overlay()
+
+
+func _begin_board_test() -> void:
+	if not board_input.is_supported():
+		return
+	_stop_target_speech()
+	board_controls_selected = true
+	state = GameState.BOARD_TEST
+	ship.position = SHIP_START
+	ship.rotation = 0.0
+	ship.scale = Vector2.ONE
+	ship.configure(palette[selected_color_index], SHIP_BOUNDS, selected_ship_index, selected_pilot_index)
+	ship.stop()
+	_clear_touch()
+	_update_overlay()
+
+
+func _handle_board_hud_button(position: Vector2) -> bool:
+	if not board_input.is_supported():
+		return false
+	if BOARD_HUD_CONNECT.has_point(position):
+		_connect_board()
+		return true
+	if BOARD_HUD_DISCONNECT.has_point(position):
+		_disconnect_board()
+		return true
+	return false
+
+
+func _draw_board_hud_controls() -> void:
+	_button(BOARD_HUD_CONNECT, "CONNECT BOBO", Color("41f4c6"), not board_input.requested)
+	_button(BOARD_HUD_DISCONNECT, "DISCONNECT BOBO", Color("ffc857"), board_input.status not in ["disconnected", "releasing"])
+
+
+func _draw_board_test() -> void:
+	draw_rect(Rect2(0.0, 0.0, VIEW_SIZE.x, HUD_HEIGHT), Color(0.015, 0.02, 0.08, 0.94))
+	draw_string(font, Vector2(24.0, 49.0), "BOBO BOARD TEST", HORIZONTAL_ALIGNMENT_LEFT, 650.0, 28, Color("41f4c6"))
+	draw_string(font, Vector2(24.0, 99.0), "Tilt the board to move the ship. No mission is running.", HORIZONTAL_ALIGNMENT_LEFT, 760.0, 18, Color.WHITE)
+	draw_string(font, Vector2(24.0, 130.0), board_input.message, HORIZONTAL_ALIGNMENT_LEFT, 1200.0, 17, Color("c1cbea"))
+	_button(BACK_BUTTON, "BACK", Color("8291b9"))
+	_button(CLOSE_BUTTON, "CLOSE", Color("ff657a"))
+	_draw_board_hud_controls()
 
 
 func _draw_results() -> void:

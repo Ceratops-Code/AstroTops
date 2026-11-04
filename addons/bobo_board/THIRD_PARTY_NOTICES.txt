@@ -1,0 +1,22 @@
+BoBo Board module third-party notices
+====================================
+
+Packet decoding and the least-squares tilt calibration/filtering algorithm are
+derived from WobblePad (Ceratops-Code/Wobblepad-Adapter), Apache License 2.0.
+The accompanying LICENSE preserves the Apache 2.0 license for those portions.
+Original surrounding code remains governed by the repository LICENSE.
+
+Nordic Android BLE Library 2.11.0
+https://github.com/NordicSemiconductor/Android-BLE-Library
+Apache License 2.0.
+
+Gradle wrapper
+https://gradle.org/
+Apache License 2.0.
+
+Godot Engine Android API
+https://godotengine.org/
+MIT License; the complete Godot notice is in the repository THIRD_PARTY_NOTICES.txt.
+
+JUnit 4.13.2 (tests only): Eclipse Public License 1.0.
+JSON-java 20250517 (tests only): public domain.

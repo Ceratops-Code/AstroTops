@@ -17,6 +17,7 @@ const GROUPS := [
 	"gameplay-flow",
 	"pause-results",
 	"rendered-ui",
+	"board-ui",
 ]
 
 var group := ""
@@ -50,6 +51,7 @@ func _run() -> void:
 		"gameplay-flow": await _test_gameplay_flow()
 		"pause-results": await _test_pause_results()
 		"rendered-ui": await _test_rendered_ui()
+		"board-ui": await _test_board_ui()
 	await _cleanup_test_nodes()
 	_finish()
 
@@ -81,10 +83,11 @@ func _parse_arguments() -> bool:
 	return failures.is_empty()
 
 
-func _new_main(parent: Node, settings_name := "settings.cfg") -> Variant:
+func _new_main(parent: Node, settings_name := "settings.cfg", board_backend: Object = null) -> Variant:
 	var main: Variant = MainScene.instantiate()
 	main.settings_path = temporary_root.path_join(settings_name)
 	main.audio_playback_enabled = false
+	main.board_backend = board_backend
 	parent.add_child(main)
 	await process_frame
 	main.set_process(false)
@@ -265,6 +268,182 @@ func _test_controls_countdown() -> void:
 	for pair in [[main.BACK_BUTTON, main.RESET_BUTTON], [main.RESET_BUTTON, main.PAUSE_BUTTON], [main.PAUSE_BUTTON, main.CLOSE_BUTTON]]:
 		_assert_true("CTRL-02/system-buttons-separated-%s" % pair[0].position.x, not pair[0].intersects(pair[1]), pair, "non-overlapping")
 	_observe("COUNT/countdown", shown_values)
+	await _test_board_input()
+
+
+class BoardBackend extends RefCounted:
+	signal board_state_changed(payload: String)
+	var connects := 0
+	var disconnects := 0
+	var sequence := 0
+	var calibration: Dictionary = {}
+	var calibration_source := "Imported default"
+	var capture_requests := 0
+	var save_requests := 0
+	var restore_requests := 0
+	var sensitivity_save_requests := 0
+	var sensitivity_percent := {"LEFT": 143, "RIGHT": 143, "UP": 143, "DOWN": 143, "DEAD_ZONE": 11}
+	var fail_save := false
+
+	func connectToBoBoBoard() -> void:
+		connects += 1
+
+	func disconnectFromBoBoBoard() -> void:
+		disconnects += 1
+		board_state_changed.emit(JSON.stringify({"status": "disconnected", "message": "BoBo disconnected"}))
+
+	func send_tilt(value: Vector2) -> void:
+		sequence += 1
+		calibration["preview_x"] = value.x
+		calibration["preview_y"] = value.y
+		_publish_state("calibrating" if calibration.get("active", false) else "ready", value)
+
+	func lose_input() -> void:
+		calibration = {}
+		_publish_state("error")
+
+	func _publish_state(state: String, value := Vector2.ZERO) -> void:
+		board_state_changed.emit(JSON.stringify({"status": state, "message": "BoBo ready" if state in ["ready", "calibrating"] else "BoBo tilt stopped",
+			"x": value.x, "y": value.y, "fresh": state in ["ready", "calibrating"], "sequence": sequence,
+			"calibration_source": calibration_source, "calibration": calibration}))
+
+	func beginBoardCalibration() -> void:
+		calibration = {"active": true, "pose": "CENTER", "captured": [], "capturing": false,
+			"remaining_ms": 0, "can_save": false, "message": "Place the board level, then capture Center.", "event": "started",
+			"can_save_sensitivity": false, "sensitivity_controls": []}
+		for pair in [["LEFT", "Left"], ["RIGHT", "Right"], ["UP", "Forward"], ["DOWN", "Backward"], ["DEAD_ZONE", "Center dead zone"]]:
+			calibration["sensitivity_controls"].append({"id": pair[0], "label": pair[1], "minimum": 0 if pair[0] == "DEAD_ZONE" else 50,
+				"maximum": 30 if pair[0] == "DEAD_ZONE" else 200, "percent": sensitivity_percent[pair[0]]})
+		_publish_state("calibrating")
+
+	func setBoardSensitivityPercent(control: String, percent: int) -> void:
+		if calibration.get("capturing", false):
+			return
+		for item: Dictionary in calibration.get("sensitivity_controls", []):
+			if item["id"] == control:
+				item["percent"] = percent
+		calibration["can_save_sensitivity"] = true
+		_publish_state("calibrating")
+
+	func saveBoardSensitivity() -> void:
+		if fail_save:
+			calibration["event"] = "sensitivity_failed"
+			calibration["message"] = "Could not confirm the sensitivity save. Active profile kept. Retry Save sensitivity."
+		else:
+			sensitivity_save_requests += 1
+			for item: Dictionary in calibration["sensitivity_controls"]:
+				sensitivity_percent[item["id"]] = item["percent"]
+			calibration["can_save_sensitivity"] = false
+			calibration["event"] = "sensitivity_saved"
+			calibration_source = "Saved for this board"
+		_publish_state("calibrating")
+
+	func selectBoardCalibrationPose(pose: String) -> void:
+		if calibration.get("active", false) and not calibration.get("capturing", false):
+			calibration["pose"] = pose
+			_publish_state("calibrating")
+
+	func captureBoardCalibrationPose() -> void:
+		capture_requests += 1
+		calibration["capturing"] = true
+		calibration["remaining_ms"] = 3000
+		calibration["can_save"] = false
+		calibration["message"] = "Hold still for three seconds."
+		_publish_state("calibrating")
+
+	func finish_pose() -> void:
+		var poses := ["CENTER", "LEFT", "RIGHT", "UP", "DOWN"]
+		var captured: Array = calibration["captured"]
+		if not calibration["pose"] in captured:
+			captured.append(calibration["pose"])
+		for pose in poses:
+			if not pose in captured:
+				calibration["pose"] = pose
+				break
+		calibration["capturing"] = false
+		calibration["remaining_ms"] = 0
+		calibration["can_save"] = captured.size() == 5
+		calibration["message"] = "All five poses passed. Save, or select a pose to capture it again." if captured.size() == 5 else "Pose captured. Move to the highlighted pose."
+		send_tilt(Vector2.ZERO)
+
+	func cancelBoardCalibration() -> void:
+		calibration = {"event": "cancelled"}
+		_publish_state("waiting")
+
+	func saveBoardCalibration() -> void:
+		if fail_save:
+			calibration["event"] = "save_failed"
+			calibration["message"] = "Could not confirm the BoBo calibration save. Active profile kept. Retry Save."
+			_publish_state("calibrating")
+			return
+		save_requests += 1
+		calibration_source = "Saved for this board"
+		calibration = {"event": "saved"}
+		_publish_state("waiting")
+
+	func restoreImportedBoardCalibration() -> void:
+		restore_requests += 1
+		calibration_source = "Imported default"
+		sensitivity_percent = {"LEFT": 143, "RIGHT": 143, "UP": 143, "DOWN": 143, "DEAD_ZONE": 11}
+		calibration = {"event": "restored"}
+		_publish_state("waiting")
+
+
+func _test_board_input() -> void:
+	var backend := BoardBackend.new()
+	var main: Variant = await _new_main(root, "board-settings.cfg", backend)
+	main._connect_board()
+	main._connect_board()
+	_assert_equal("BOBO-02/repeated-connect", backend.connects, 1)
+	main._prepare_run()
+	_assert_equal("BOBO-01/waits-for-real-tilt", main.state, main.GameState.MENU)
+	main._begin_board_test()
+	_assert_equal("BOBO-03/preview-without-mission", main.state, main.GameState.BOARD_TEST)
+	backend.send_tilt(Vector2(0.65, -0.4))
+	_assert_equal("BOBO-01/board-movement", main._movement_input(), Vector2(0.65, -0.4))
+	var position_before: Vector2 = main.ship.position
+	main._process(0.2)
+	_assert_true("BOBO-03/board-preview", main.ship.position.x > position_before.x and main.ship.position.y < position_before.y, main.ship.position)
+	_assert_equal("BOBO-03/preview-no-timer", main.elapsed_time, 0.0)
+	_assert_equal("BOBO-03/preview-no-targets", main.planets.size(), 0)
+	main._return_to_menu(false)
+	main._prepare_run()
+	main.state = main.GameState.PLAYING
+	main.tractor_beam_enabled = false
+	position_before = main.ship.position
+	main._process(0.2)
+	_assert_true("BOBO-01/same-flight-input", main.ship.position.x > position_before.x, main.ship.position)
+	backend.lose_input()
+	_assert_equal("BOBO-03/board-lost-pauses", main.state, main.GameState.PAUSED)
+	_assert_equal("BOBO-02/lost-clears-velocity", main.ship.velocity, Vector2.ZERO)
+	_assert_equal("BOBO-02/lost-clears-input", main._movement_input(), Vector2.ZERO)
+	main._toggle_pause()
+	_assert_equal("BOBO-03/no-resume-without-board", main.state, main.GameState.PAUSED)
+	main._connect_board()
+	backend.send_tilt(Vector2(0.5, 0.0))
+	_assert_equal("BOBO-03/reconnect-keeps-paused", main.state, main.GameState.PAUSED)
+	main._toggle_pause()
+	_assert_equal("BOBO-03/explicit-resume", main.state, main.GameState.PLAYING)
+	main._disconnect_board()
+	main._disconnect_board()
+	_assert_equal("BOBO-02/board-disconnect", backend.disconnects, 1)
+	backend.send_tilt(Vector2.ONE)
+	_assert_equal("BOBO-02/late-tilt-ignored", main.board_input.movement, Vector2.ZERO)
+	_assert_true("BOBO-02/disconnect-stays-off", not main.board_input.requested, main.board_input.status)
+	main._connect_board()
+	backend.send_tilt(Vector2(0.5, 0.0))
+	main.board_input._last_packet_ms = Time.get_ticks_msec() - 1001
+	backend.board_state_changed.emit(JSON.stringify({"status": "ready", "message": "Battery changed",
+		"x": 0.5, "y": 0.0, "fresh": true, "sequence": backend.sequence, "battery": 90}))
+	main.board_input._process(0.0)
+	_assert_true("BOBO-02/status-cannot-refresh-old-tilt", not main.board_input.is_ready(), main.board_input.status)
+	_assert_equal("BOBO-02/stale-tilt-zero", main.board_input.movement, Vector2.ZERO)
+	_assert_true("BOBO-02/stall-cause-survives-cleanup", "tilt stopped" in main.board_input.message, main.board_input.message)
+	main._connect_board()
+	backend.board_state_changed.emit(JSON.stringify({"status": "ready", "message": "Bad input", "x": 2.0, "y": 0.0, "fresh": true, "sequence": 1}))
+	_assert_equal("BOBO-02/invalid-input-closed", backend.disconnects, 3)
+	_assert_true("BOBO-02/invalid-cause-survives-cleanup", "invalid movement" in main.board_input.message, main.board_input.message)
+	_observe("BOBO/preview-and-flight", "Same movement function, real ship movement, no preview mission, and explicit reconnect/resume")
 
 
 func _pcm_peak(stream: AudioStreamWAV) -> int:
@@ -903,6 +1082,164 @@ func _circularly_masked(image: Image, center: Vector2, radius: float) -> Image:
 			if delta.length_squared() > radius_squared:
 				masked.set_pixel(x, y, Color.TRANSPARENT)
 	return masked
+
+
+func _test_board_ui() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1280, 720)
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(viewport)
+	var backend := BoardBackend.new()
+	var main: Variant = await _new_main(viewport, "board-render-settings.cfg", backend)
+	_assert_true("BOBO-UI/sidebar-initially-collapsed", not main.board_sidebar.panel.visible, main.board_sidebar.expanded)
+	await _capture(viewport, "board-menu-collapsed.png")
+	main.board_sidebar.toggle_button.pressed.emit()
+	_assert_true("BOBO-UI/toggle-opens-sidebar", main.board_sidebar.panel.visible, main.board_sidebar.expanded)
+	main.board_sidebar.connect_button.pressed.emit()
+	backend.send_tilt(Vector2(0.6, -0.2))
+	main.queue_redraw()
+	var menu: Image = await _capture(viewport, "board-menu.png")
+	_assert_equal("BOBO-UI/menu-size", menu.get_size(), Vector2i(1280, 720))
+	var sidebar: Variant = main.board_sidebar
+	_assert_true("BOBO-UI/status-above-buttons", sidebar.status_label.get_global_rect().end.y < sidebar.connect_button.get_global_rect().position.y, sidebar.status_label.get_global_rect())
+	_assert_true("BOBO-UI/footer-clear-of-disconnect", sidebar.profile_label.get_global_rect().position.y > sidebar.disconnect_button.get_global_rect().end.y + 10.0, sidebar.profile_label.get_global_rect())
+	_assert_true("BOBO-UI/controls-outside-selectors", sidebar.panel.get_global_rect().end.x < main.SHIP_LABEL.position.x, sidebar.panel.get_global_rect())
+	backend.calibration_source = "Imported default (saved profile unavailable)"
+	backend.send_tilt(Vector2(0.6, -0.2))
+	await _wait_frames(3)
+	_assert_true("BOBO-UI/wrapped-profile-cannot-overlap", sidebar.profile_label.get_global_rect().position.y > sidebar.disconnect_button.get_global_rect().end.y + 10.0, sidebar.profile_label.get_global_rect())
+	_assert_true("BOBO-UI/wrapped-profile-fits-viewport", sidebar.panel.get_global_rect().end.y < 720.0, sidebar.panel.get_global_rect())
+	backend.calibration_source = "Imported default"
+	backend.send_tilt(Vector2(0.6, -0.2))
+	sidebar.test_button.grab_focus()
+	var accept := InputEventKey.new()
+	accept.keycode = KEY_ENTER
+	accept.pressed = true
+	main._input(accept)
+	_assert_equal("BOBO-UI/focused-button-does-not-launch-mission", main.state, main.GameState.MENU)
+	viewport.push_input(accept)
+	accept.pressed = false
+	viewport.push_input(accept)
+	await _wait_frames(2)
+	_assert_equal("BOBO-UI/test-button-opens-preview", main.state, main.GameState.BOARD_TEST)
+	var before: Vector2 = main.ship.position
+	main._process(0.3)
+	main.queue_redraw()
+	var preview: Image = await _capture(viewport, "board-preview.png")
+	_assert_true("BOBO-UI/preview-moves-real-ship", main.ship.position.x > before.x, main.ship.position)
+	_assert_equal("BOBO-UI/no-mission-timer", main.elapsed_time, 0.0)
+	_assert_equal("BOBO-UI/no-mission-targets", main.planets.size(), 0)
+	_assert_true("BOBO-UI/no-countdown-overlay", not main.countdown_label.visible and not main.message_label.visible, main.countdown_label.visible)
+	_assert_true("BOBO-UI/distinct-preview-screen", _different_pixels(menu, preview, Rect2i(0, 0, 1280, 720), 0.03, 4) > 1000, "rendered menu and preview")
+	main._handle_mouse_pointer(main.BOARD_HUD_DISCONNECT.get_center(), true)
+	_assert_equal("BOBO-UI/disconnect-stops-preview", main.ship.velocity, Vector2.ZERO)
+	var key := InputEventKey.new()
+	key.keycode = KEY_W
+	key.pressed = true
+	Input.parse_input_event(key)
+	_assert_equal("BOBO-UI/keyboard-cannot-pretend-to-be-board", main._movement_input(), Vector2.ZERO)
+	key.pressed = false
+	Input.parse_input_event(key)
+	main._return_to_menu(false)
+	main._update_overlay()
+	main._connect_board()
+	backend.send_tilt(Vector2.ZERO)
+	await _test_board_calibration_ui(viewport, main, backend)
+	main.board_sidebar.toggle_button.pressed.emit()
+	_assert_true("BOBO-UI/toggle-closes-sidebar", not main.board_sidebar.panel.visible, main.board_sidebar.expanded)
+	main.board_sidebar.toggle_button.pressed.emit()
+	var config := ConfigFile.new()
+	config.load(main.settings_path)
+	_assert_equal("BOBO-UI/sidebar-choice-saved", config.get_value("bobo", "sidebar_expanded"), true)
+	var fresh: Variant = await _new_main(viewport, "board-render-settings.cfg", BoardBackend.new())
+	_assert_true("BOBO-UI/sidebar-choice-restored", fresh.board_sidebar.expanded and fresh.board_sidebar.panel.visible, fresh.board_sidebar.expanded)
+	fresh.queue_free()
+	_observe("BOBO-UI/screens", ["board-menu-collapsed.png", "board-menu.png", "board-preview.png", "board-calibration.png", "board-calibration-ready.png"])
+
+
+func _test_board_calibration_ui(viewport: SubViewport, main: Variant, backend: BoardBackend) -> void:
+	main.board_sidebar.calibrate_button.pressed.emit()
+	_assert_equal("BOBO-CAL/open-from-sidebar", main.state, main.GameState.BOARD_CALIBRATION)
+	_assert_true("BOBO-CAL/old-profile-kept-during-capture", main.board_input.calibration_source == "Imported default", main.board_input.calibration_source)
+	await _capture(viewport, "board-calibration.png")
+	var panel: Variant = main.board_calibration_panel
+	_assert_equal("BOBO-SENS/five-module-controls", panel.sensitivity_sliders.size(), 5)
+	_assert_true("BOBO-SENS/panel-fits-screen", Rect2(Vector2.ZERO, Vector2(1280, 720)).encloses(panel.get_global_rect()), panel.get_global_rect())
+	for control_id: String in panel.sensitivity_sliders:
+		var slider: HSlider = panel.sensitivity_sliders[control_id]
+		_assert_equal("BOBO-SENS/imported-%s" % control_id, slider.value, 11.0 if control_id == "DEAD_ZONE" else 143.0)
+		_assert_equal("BOBO-SENS/minimum-%s" % control_id, slider.min_value, 0.0 if control_id == "DEAD_ZONE" else 50.0)
+		_assert_equal("BOBO-SENS/maximum-%s" % control_id, slider.max_value, 30.0 if control_id == "DEAD_ZONE" else 200.0)
+		_assert_true("BOBO-SENS/label-separate-%s" % control_id, not slider.get_global_rect().intersects(panel.sensitivity_labels[control_id].get_global_rect()), slider.get_global_rect())
+	panel.sensitivity_sliders["LEFT"].value = 85
+	_assert_equal("BOBO-SENS/slider-calls-module", backend.calibration["sensitivity_controls"][0]["percent"], 85)
+	_assert_true("BOBO-SENS/save-controls-without-poses", not panel.sensitivity_save_button.disabled and panel.save_button.disabled, panel.sensitivity_save_button.disabled)
+	backend.send_tilt(Vector2(-0.65, 0.15))
+	_assert_equal("BOBO-SENS/preview-from-module", panel.preview.tilt, Vector2(-0.65, 0.15))
+	_assert_equal("BOBO-SENS/draft-does-not-change-saved-controls", backend.sensitivity_percent["LEFT"], 143)
+	_assert_true("BOBO-CAL/save-disabled-before-poses", panel.save_button.disabled, panel.save_button.disabled)
+	var old_captures := backend.capture_requests
+	panel.capture_button.pressed.emit()
+	_assert_equal("BOBO-CAL/capture-button-calls-module", backend.capture_requests, old_captures + 1)
+	_assert_true("BOBO-CAL/capture-is-nonblocking", panel.capture_button.disabled and panel.cancel_button.disabled == false, panel.capture_button.text)
+	_assert_true("BOBO-SENS/capture-locks-controls", not panel.sensitivity_sliders["LEFT"].editable and panel.sensitivity_save_button.disabled, panel.sensitivity_sliders["LEFT"].editable)
+	_assert_equal("BOBO-CAL/pose-holds-do-not-steer", main.board_input.movement, Vector2.ZERO)
+	panel.cancel_button.pressed.emit()
+	_assert_equal("BOBO-CAL/cancel-returns-menu", main.state, main.GameState.MENU)
+	_assert_equal("BOBO-CAL/cancel-preserves-profile", main.board_input.calibration_source, "Imported default")
+	backend.send_tilt(Vector2.ZERO)
+	main.board_sidebar.calibrate_button.pressed.emit()
+	for index in range(5):
+		backend.send_tilt(Vector2.ZERO)
+		panel.capture_button.pressed.emit()
+		backend.finish_pose()
+	_assert_true("BOBO-CAL/save-enabled-after-five-poses", not panel.save_button.disabled, panel.save_button.disabled)
+	await _capture(viewport, "board-calibration-ready.png")
+	backend.fail_save = true
+	backend.send_tilt(Vector2.ZERO)
+	panel.save_button.pressed.emit()
+	_assert_equal("BOBO-CAL/failed-save-keeps-wizard", main.state, main.GameState.BOARD_CALIBRATION)
+	_assert_equal("BOBO-CAL/failed-save-preserves-profile", main.board_input.calibration_source, "Imported default")
+	_assert_true("BOBO-CAL/failed-save-explained", "Active profile kept" in panel.status_label.text, panel.status_label.text)
+	backend.fail_save = false
+	panel.save_button.pressed.emit()
+	_assert_equal("BOBO-CAL/save-returns-menu", main.state, main.GameState.MENU)
+	_assert_equal("BOBO-CAL/save-updates-source", main.board_input.calibration_source, "Saved for this board")
+	_assert_equal("BOBO-CAL/save-once", backend.save_requests, 1)
+	backend.send_tilt(Vector2.ZERO)
+	main.board_sidebar.calibrate_button.pressed.emit()
+	panel.restore_button.pressed.emit()
+	_assert_equal("BOBO-CAL/restore-returns-menu", main.state, main.GameState.MENU)
+	_assert_equal("BOBO-CAL/restore-imported-default", main.board_input.calibration_source, "Imported default")
+	_assert_equal("BOBO-CAL/restore-once", backend.restore_requests, 1)
+	backend.send_tilt(Vector2.ZERO)
+	main.board_sidebar.calibrate_button.pressed.emit()
+	_assert_equal("BOBO-SENS/cancel-discarded-draft", panel.sensitivity_sliders["LEFT"].value, 143.0)
+	panel.sensitivity_sliders["RIGHT"].value = 75
+	backend.fail_save = true
+	panel.sensitivity_save_button.pressed.emit()
+	_assert_true("BOBO-SENS/failed-save-keeps-draft", not panel.sensitivity_save_button.disabled, panel.sensitivity_save_button.disabled)
+	_assert_equal("BOBO-SENS/failed-save-keeps-profile", main.board_input.calibration_source, "Imported default")
+	backend.fail_save = false
+	panel.sensitivity_save_button.pressed.emit()
+	_assert_equal("BOBO-SENS/saved-without-captures", backend.sensitivity_save_requests, 1)
+	_assert_equal("BOBO-SENS/save-keeps-wizard", main.state, main.GameState.BOARD_CALIBRATION)
+	_assert_true("BOBO-SENS/saved-controls-no-longer-dirty", panel.sensitivity_save_button.disabled, panel.sensitivity_save_button.disabled)
+	panel.cancel_button.pressed.emit()
+	backend.send_tilt(Vector2.ZERO)
+	main.board_sidebar.calibrate_button.pressed.emit()
+	_assert_equal("BOBO-SENS/reopen-retains-saved-settings", panel.sensitivity_sliders["RIGHT"].value, 75.0)
+	panel.restore_button.pressed.emit()
+	backend.send_tilt(Vector2.ZERO)
+	main.board_sidebar.calibrate_button.pressed.emit()
+	panel.capture_button.pressed.emit()
+	backend.lose_input()
+	_assert_true("BOBO-CAL/lost-board-stops-capture", not main.board_input.calibration.get("active", false), main.board_input.calibration)
+	_assert_true("BOBO-CAL/lost-board-blocks-save", panel.save_button.disabled, panel.save_button.disabled)
+	panel.cancel_button.pressed.emit()
+	_assert_equal("BOBO-CAL/lost-board-can-exit", main.state, main.GameState.MENU)
+	main._connect_board()
+	backend.send_tilt(Vector2.ZERO)
 
 
 func _test_rendered_ui() -> void:

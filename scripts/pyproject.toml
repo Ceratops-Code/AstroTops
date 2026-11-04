@@ -2,7 +2,12 @@
 name = "repository-tools"
 version = "0.0.0"
 requires-python = ">=3.11"
-dependencies = ["mypy", "remotezip==0.12.6", "ruff"]
+dependencies = [
+    "mypy",
+    "packaging>=26.3",
+    "remotezip==0.12.6",
+    "ruff",
+]
 
 [tool.uv]
 package = false

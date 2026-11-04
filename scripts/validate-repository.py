@@ -29,7 +29,10 @@ from result_records import (  # noqa: E402
     VALIDATION_SCHEMA,
     ResultStore,
     SourceIdentity,
+    add_result_arguments,
+    describe_result_contract,
     resolve_source_identity,
+    run_recorded_check,
 )
 
 CHECK_DEFINITIONS = [{'id': 'repository-contract',
@@ -367,7 +370,30 @@ def main() -> int:
         action="store_true",
         help="Run validation without replacing .test-results/validation.json.",
     )
+    add_result_arguments(parser)
     args = parser.parse_args()
+    if args.describe_test_results:
+        describe_result_contract()
+        return 0
+    probe = None
+    if args.probe_command:
+        try:
+            probe = json.loads(args.probe_command)
+        except json.JSONDecodeError as error:
+            parser.error(str(error))
+        if not isinstance(probe, list) or not probe or not all(isinstance(item, str) and item for item in probe):
+            parser.error("probe-command must be a nonempty JSON argv")
+    checks: list[dict[str, object]] = []
+    invocation = {"targets": ["repository-contract"] if args.contract_only else [],
+                  "pytest_args": [], "pytest_addopts": [], "probe_command": probe}
+    return run_recorded_check(lambda: execute_repository_checks(args, checks, probe), args, invocation,
+                              checks=(lambda: checks) if probe is None else None, repo_root=pathlib.Path(__file__).resolve().parents[1])
+
+
+def execute_repository_checks(args: argparse.Namespace, results: list[dict[str, object]], probe: list[str] | None) -> int:
+    """Run repository checks while the shared protocol owns their final outcome."""
+    if probe is not None:
+        return subprocess.run(probe, check=False).returncode
     repo_root = pathlib.Path(__file__).resolve().parents[1]
     if args.contract_only:
         problems = repository_contract(repo_root)
@@ -386,7 +412,6 @@ def main() -> int:
     store = ResultStore(repo_root, source, record=record)
     environment = validation_environment()
     required_checks = [str(item["id"]) for item in CHECK_DEFINITIONS]
-    results: list[dict[str, object]] = []
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
     with tempfile.TemporaryDirectory(prefix="repository-validation-") as temporary:
         temporary_root = pathlib.Path(temporary)

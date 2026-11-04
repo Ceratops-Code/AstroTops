@@ -10,6 +10,8 @@
     {"path": "main.tscn", "role": "Executable scene entry and script attachment"},
     {"path": "scripts/main.gd", "role": "Implemented game state machine, modes, controls, target orchestration, tractor beam, persistence, and UI"},
     {"path": "scripts/audio_controller.gd", "role": "Implemented generated cues and capture poof, sound-effect playback, and native text-to-speech requests"},
+    {"path": "addons/bobo_board/README.md", "role": "Reusable Android board-library API, Godot adapter, calibration provenance, and output ownership"},
+    {"path": "scripts/build_board_module.py", "role": "Standalone BoBo library build, JVM behavior checks, bounded build diagnostics, and AAR publication"},
     {"path": "scripts/player_ship.gd", "role": "Implemented ship movement, rendering, styles, and pilot presentation"},
     {"path": "scripts/planet.gd", "role": "Implemented celestial-body rendering, capture, collision extent, and explosion behavior"},
     {"path": "scripts/meteor.gd", "role": "Implemented meteor-flight and impact behavior"},
@@ -124,6 +126,13 @@ bounded evidence, artifact identity, and deterministic Android deployment.
 - [`scripts/audio_controller.gd`](../scripts/audio_controller.gd) owns generated
   interface tones, the nonverbal capture poof, one-shot effects, delayed English
   voice discovery, and native speech queue submission.
+- [`addons/bobo_board`](../addons/bobo_board/README.md) owns direct Android BLE
+  input, packet parsing, calibration and the engine adapter. Its Android library
+  has no dependency on AstroTops or Godot. The facade supplies screen-coordinate
+  X/Y values to the same movement path used by the menu-accessible board test and
+  active flight. Shizuku and a virtual controller are unnecessary for this path.
+- [`scripts/build_board_module.py`](../scripts/build_board_module.py) builds the
+  reusable libraries before Android export and runs their JVM behavior group.
 - [`scripts/player_ship.gd`](../scripts/player_ship.gd) owns movement bounds,
   velocity, eight ship styles, cockpit placement, four pilots, and the bounded
   exception that lets the scripted rescue fly offscreen.
@@ -242,8 +251,27 @@ the storage identity intentionally starts a distinct store.
 
 Tracked `.test-results/groups/*.json`, `.test-results/tests.json`, and
 `.test-results/validation.json` describe the exact source and environment they
-tested. Raw `.test-results/evidence/<run-id>/` content is ignored and bounded to
-the current run plus at most two predecessors. Build records bind a source tag
+tested. The runner also owns one current outcome per group in its worktree's Git
+metadata through the shared Ceratops file at
+`<git-common-dir>/ceratops/results/repository-checks/<worktree-id>/check_results.json`,
+capped at 64 MiB. Repository-check results also obey the shared executor's
+per-record limit. This includes dirty candidate inputs and leaves portable records
+untouched with `--no-record`. The repository-owned writer is deliberately adopted
+from the maintained Ceratops reference and shares the exact current-store envelope.
+Original work/check versions and execution identities survive reuse. The declared
+check-only input list separates check versions from product versions; both must
+match for current-candidate reuse. A check edit does not rewrite historical
+artifact acceptance. Current failed/running outcomes block an older pass.
+SDLC declares product/check inputs, dependency files, tools and environment.
+Its executor supplies the five result arguments and the requested alpha/beta/rc/
+final level. Runners record actual outcomes before returning success; original
+levels are retained rather than promoted by reuse. Both expose the supported
+controlled-command protocol probe. Calls in one worktree are serialized; each
+replacement removes its fixed in-process file, and startup removes that orphan.
+Worktree retirement removes
+these local outcomes. Raw `.test-results/evidence/<run-id>/` content is ignored
+and retains current group runs plus two unreferenced runs, at most fifteen
+folders with twelve groups. Build records bind a source tag
 to exact artifact bytes. Atomic sibling files prevent partial JSON replacement.
 The external editor and Android-template caches are owned by
 `scripts/godot_toolchain.py`, separated by artifact purpose, grouped by version,
@@ -261,6 +289,36 @@ start and deletes it at the end, including failure paths. The package build owns
 the separate retained `.build/artifacts/android/AstroTops.apk`.
 
 ### 8.2 APIs and integrations
+
+The direct board path requires Android 12/API 31 and the standard Nearby devices
+permissions. Connect is explicit; Disconnect clears movement and stops discovery,
+then reports completion after closing the local GATT client. Failed or stale
+streams clear input and pause active play; reconnecting does not resume a mission
+automatically. Leaving the foreground releases the board. Another application's
+connection cannot be forcibly released through the ordinary Bluetooth API.
+
+The default calibration is an imported five-pose WobblePad profile containing 84
+samples, directional sensitivity 1.43 and dead zone 0.11, without its Bluetooth
+address. It lives in the native library's assets and is independent of WobblePad
+installation. A collapsible sidebar uses Godot containers to keep status, four
+actions, and profile source separated; its expansion preference is stored in
+the existing game configuration. The reusable module owns the five-pose capture
+controller and optional Godot wizard. Captures stay in bounded memory until all
+poses pass and the user saves. Cancellation or a lost connection discards the
+draft. Saved profiles are scoped to the board, and Restore affects only that
+board. Four WobblePad-style direction sensitivities (50–200%) and center dead zone
+(0–30%) use module-owned metadata and mapping. A live preview uses draft controls
+without moving the game ship. Separate Save sensitivity preserves accepted poses
+and pending captures; Save calibration includes new poses and draft controls.
+Changing controls reuses fitted geometry. Cancel discards unsaved changes,
+capture freezes edits, and Restore resets both poses and controls.
+Android AtomicFile owns complete replacement and recovery under the
+application-private `filesDir/bobo_board/calibrations` directory, with one
+current file per board named by an address digest. The store serializes clients
+inside one app process and writes no operational logs. Gradle
+owns its local native caches; the build helper owns four current AARs, exact
+temporary siblings, and one bounded last-build log under the ignored addon
+`.artifacts` directory, as described in the module README.
 
 Godot Input and `InputEvent` are the player-control interface. `DisplayServer`
 owns the native text-to-speech queue. The audio controller retries English
@@ -393,7 +451,7 @@ and licenses are recorded in
 
 ## 13 Testing and verification
 
-The acceptance map assigns every supported requirement to one or more of ten
+The acceptance map assigns every supported requirement to one or more of twelve
 groups. Headless Godot groups observe menu, controls, audio requests, tractor
 behavior, target models, ship and pilot models, gameplay flow, pause, results,
 and persistence. The rendered group captures actual Godot output for menu,
@@ -407,12 +465,28 @@ provisioning, tamper repair, bounded cache retention, safe project-template
 installation, project validation, Android toolchain preflight, real export and
 Gradle-lint command composition, temporary-output cleanup, asset-import
 bootstrapping, and ADB behavior.
+The BoBo groups add JVM packet/calibration and interrupted-connection checks,
+interrupted AAR publication checks, and a rendered menu and preview that exercise
+the same ship movement used during flight. Sensitivity cases cover ranges,
+directional response, preview isolation, discarded drafts, separate saves,
+per-board persistence and interruption before/after replacement. Result-store
+cases cover original identity, changed inputs, newer failure, repeated writes,
+interrupted replacement and corrupt evidence.
 
 Repository validation is separate from tests. Candidate qualification records
 the immutable source tag and exact APK identity. Delivery reuses only applicable
 passing records and verifies the artifact instead of rerunning tests. Native
 speaker acoustics, manufacturer-specific launcher masks, and future off-screen
 camera behavior remain explicit verification gaps.
+
+The Ceratops design draft's methodology informs independent owners, declared
+affected inputs, original result identity, bounded outputs, and fresh calls after
+interruptions. Shared check-result production, the current-results envelope,
+qualification levels and SDLC scheduling are connected. Public artifact-receipt
+Build/Deploy routing remains planned in the installed Kit; AstroTops package
+production and installation retain their existing tagged-source gates until that
+owner supplies the public route. A shared source-check receipt is not an accepted
+artifact receipt.
 
 ## 14 Ownership and maintenance
 
@@ -427,7 +501,8 @@ design together when one architectural decision changes.
 are creating or migrating a Ceratops-compatible repository. It is a reusable
 starting point, not imported or executed by AstroTops and not an automatic
 source for [`scripts/result_records.py`](../scripts/result_records.py). Its
-lifecycle is deliberate adoption: compare the target repository's existing
+lifecycle is deliberate adoption, including the shared result protocol and its
+locked `packaging` dependency: compare the target repository's existing
 `scripts/result_records.py` and callers, copy the template into that runtime
 path only when appropriate, customize project schemas and integrations, add
 behavior tests, and review the change. Each repository must be assessed
