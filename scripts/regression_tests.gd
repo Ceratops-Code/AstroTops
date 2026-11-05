@@ -265,7 +265,7 @@ func _test_controls_countdown() -> void:
 	main.touch_position = Vector2(500.0, 500.0)
 	main._update_touch_vector()
 	_assert_true("CTRL-01/touch-vector-bounded", main.touch_vector.length() <= 1.0001, main.touch_vector.length(), "<= 1")
-	for pair in [[main.BACK_BUTTON, main.RESET_BUTTON], [main.RESET_BUTTON, main.PAUSE_BUTTON], [main.PAUSE_BUTTON, main.CLOSE_BUTTON]]:
+	for pair in [[main.BACK_BUTTON, main.RESET_BUTTON], [main.RESET_BUTTON, main.PAUSE_BUTTON], [main.PAUSE_BUTTON, main.EXIT_BUTTON]]:
 		_assert_true("CTRL-02/system-buttons-separated-%s" % pair[0].position.x, not pair[0].intersects(pair[1]), pair, "non-overlapping")
 	_observe("COUNT/countdown", shown_values)
 	await _test_board_input()
@@ -636,11 +636,11 @@ func _test_tractor_beam() -> void:
 	_assert_equal("TRACTOR-05/partial-prefix-interrupt-resolves-back", main.state, main.GameState.MENU)
 	_assert_equal("TRACTOR-05/partial-prefix-interrupt-resets", main.tractor_debug_sequence_index, 0)
 	main.state = main.GameState.PLAYING
-	for button_rect in [main.BACK_BUTTON, main.RESET_BUTTON, main.PAUSE_BUTTON, main.CLOSE_BUTTON]:
+	for button_rect in [main.BACK_BUTTON, main.RESET_BUTTON, main.PAUSE_BUTTON, main.EXIT_BUTTON]:
 		main._handle_system_button(button_rect.get_center())
 	_assert_equal("TRACTOR-05/secret-sequence-shows", main.tractor_debug_field_visible, true)
 	_assert_equal("TRACTOR-05/secret-sequence-consumed", main.state, main.GameState.PLAYING)
-	for button_rect in [main.BACK_BUTTON, main.RESET_BUTTON, main.PAUSE_BUTTON, main.CLOSE_BUTTON]:
+	for button_rect in [main.BACK_BUTTON, main.RESET_BUTTON, main.PAUSE_BUTTON, main.EXIT_BUTTON]:
 		main._handle_system_button(button_rect.get_center())
 	_assert_equal("TRACTOR-05/secret-sequence-hides", main.tractor_debug_field_visible, false)
 	_observe("TRACTOR/profile", {"pull_steps": pull_steps, "widths": [near_width, bulb_width, tail_width], "range": max_distance})
@@ -1171,7 +1171,15 @@ func _test_board_ui() -> void:
 	_assert_equal("BOBO-UI/no-mission-targets", main.planets.size(), 0)
 	_assert_true("BOBO-UI/no-countdown-overlay", not main.countdown_label.visible and not main.message_label.visible, main.countdown_label.visible)
 	_assert_true("BOBO-UI/distinct-preview-screen", _different_pixels(menu, preview, Rect2i(0, 0, 1280, 720), 0.03, 4) > 1000, "rendered menu and preview")
-	main._handle_mouse_pointer(main.BOARD_HUD_DISCONNECT.get_center(), true)
+	var header: Array[Rect2] = main._board_test_header_rects()
+	for rect in [header[1], header[2]]:
+		_assert_equal("BOBO-UI/top-row-height-%s" % rect.position.x, rect.size.y, main.BACK_BUTTON.size.y)
+		_assert_equal("BOBO-UI/top-row-alignment-%s" % rect.position.x, rect.position.y, main.BACK_BUTTON.position.y)
+		_assert_true("BOBO-UI/top-row-label-fits-%s" % rect.position.x, main.font.get_string_size("CONNECT BOBO" if rect == header[1] else "DISCONNECT BOBO", HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x < rect.size.x - 20, rect.size)
+	_assert_true("BOBO-UI/top-row-separated", header[0].end.x < header[1].position.x and header[1].end.x < header[2].position.x, header)
+	main._handle_mouse_pointer(header[2].get_center(), true)
+	_assert_equal("BOBO-UI/disconnect-keeps-preview-open", main.state, main.GameState.BOARD_TEST)
+	_assert_true("BOBO-UI/old-hud-hit-region-inactive", not main._handle_system_button(main.BOARD_HUD_DISCONNECT.get_center()), main.state)
 	_assert_equal("BOBO-UI/disconnect-stops-preview", main.ship.velocity, Vector2.ZERO)
 	var key := InputEventKey.new()
 	key.keycode = KEY_W
@@ -1194,7 +1202,76 @@ func _test_board_ui() -> void:
 	var fresh: Variant = await _new_main(viewport, "board-render-settings.cfg", BoardBackend.new())
 	_assert_true("BOBO-UI/sidebar-choice-restored", fresh.board_sidebar.expanded and fresh.board_sidebar.panel.visible, fresh.board_sidebar.expanded)
 	fresh.queue_free()
+	await _test_board_touch_controls()
 	_observe("BOBO-UI/screens", ["board-menu-collapsed.png", "board-menu.png", "board-preview.png", "board-calibration.png", "board-calibration-ready.png"])
+
+
+func _send_screen_touch(point: Vector2, pressed: bool) -> void:
+	var event := InputEventScreenTouch.new()
+	event.index = 0
+	event.position = point
+	event.pressed = pressed
+	Input.parse_input_event(event)
+	await process_frame
+
+
+func _tap_screen(point: Vector2) -> void:
+	await _send_screen_touch(point, true)
+	await _send_screen_touch(point, false)
+
+
+func _test_board_touch_controls() -> void:
+	# Use the real window input path: direct slider assignment and pressed.emit()
+	# cannot show whether Android touches reach Godot's standard GUI controls.
+	var backend := BoardBackend.new()
+	var main: Variant = await _new_main(root, "board-touch-settings.cfg", backend)
+	await _tap_screen(main.board_sidebar.toggle_button.get_global_rect().get_center())
+	_assert_true("BOBO-TOUCH/sidebar-opens", main.board_sidebar.panel.visible, main.board_sidebar.expanded)
+	await _tap_screen(main.board_sidebar.connect_button.get_global_rect().get_center())
+	_assert_equal("BOBO-TOUCH/connect-fires-once", backend.connects, 1)
+	backend.send_tilt(Vector2.ZERO)
+	await _tap_screen(main.board_sidebar.calibrate_button.get_global_rect().get_center())
+	_assert_equal("BOBO-TOUCH/settings-opens", main.state, main.GameState.BOARD_CALIBRATION)
+	var panel: Variant = main.board_calibration_panel
+	var slider: HSlider = panel.sensitivity_sliders["RIGHT"]
+	var slider_rect := slider.get_global_rect()
+	var start := slider_rect.position + slider_rect.size * Vector2(0.62, 0.5)
+	var finish := slider_rect.position + slider_rect.size * Vector2(0.20, 0.5)
+	await _send_screen_touch(start, true)
+	var drag := InputEventScreenDrag.new()
+	drag.index = 0
+	drag.position = finish
+	drag.relative = finish - start
+	Input.parse_input_event(drag)
+	await process_frame
+	await _send_screen_touch(finish, false)
+	var edited := roundi(slider.value)
+	_assert_true("BOBO-TOUCH/drag-edits-sensitivity-without-captures", edited < 123 and slider.editable, edited)
+	_assert_equal("BOBO-TOUCH/drag-reaches-module", backend.calibration["sensitivity_controls"][1]["percent"], edited)
+	_assert_equal("BOBO-TOUCH/no-calibration-required", backend.capture_requests, 0)
+	_assert_true("BOBO-TOUCH/save-enabled-without-poses", not panel.sensitivity_save_button.disabled and panel.save_button.disabled, panel.sensitivity_save_button.disabled)
+	await _tap_screen(panel.sensitivity_save_button.get_global_rect().get_center())
+	await _tap_screen(panel.sensitivity_save_button.get_global_rect().get_center())
+	_assert_equal("BOBO-TOUCH/sensitivity-saved-once", backend.sensitivity_save_requests, 1)
+	_assert_equal("BOBO-TOUCH/saved-touch-value", backend.sensitivity_percent["RIGHT"], edited)
+	await _tap_screen(panel.cancel_button.get_global_rect().get_center())
+	_assert_equal("BOBO-TOUCH/cancel-returns-menu", main.state, main.GameState.MENU)
+	backend.send_tilt(Vector2.ZERO)
+	await _tap_screen(main.board_sidebar.test_button.get_global_rect().get_center())
+	_assert_equal("BOBO-TOUCH/test-opens-without-mission", main.state, main.GameState.BOARD_TEST)
+	await _tap_screen(main._board_hud_disconnect_rect().get_center())
+	_assert_equal("BOBO-TOUCH/disconnect-fires-once", backend.disconnects, 1)
+	_assert_equal("BOBO-TOUCH/disconnect-keeps-test-screen", main.state, main.GameState.BOARD_TEST)
+	await _tap_screen(main._board_hud_connect_rect().get_center())
+	_assert_equal("BOBO-TOUCH/top-connect-fires-once", backend.connects, 2)
+	backend.send_tilt(Vector2.ZERO)
+	await _tap_screen(main._back_button_rect().get_center())
+	_assert_equal("BOBO-TOUCH/back-returns-menu", main.state, main.GameState.MENU)
+	await _tap_screen(main.START_BUTTON.get_center())
+	_assert_equal("BOBO-TOUCH/start-tap-does-not-also-start-countdown", main.state, main.GameState.READY)
+	main.queue_free()
+	await process_frame
+	_observe("BOBO-SENS/touch-without-calibration", "Actual touchscreen tap, drag, save and navigation events; imported poses need no captures")
 
 
 func _test_board_calibration_ui(viewport: SubViewport, main: Variant, backend: BoardBackend) -> void:
@@ -1310,13 +1387,13 @@ func _test_rendered_ui() -> void:
 	main._update_overlay()
 	main.queue_redraw()
 	var playing_image: Image = await _capture(viewport, "playing.png")
-	for button_rect in [main.BACK_BUTTON, main.RESET_BUTTON, main.PAUSE_BUTTON, main.CLOSE_BUTTON]:
+	for button_rect in [main.BACK_BUTTON, main.RESET_BUTTON, main.PAUSE_BUTTON, main.EXIT_BUTTON]:
 		main._handle_system_button(button_rect.get_center())
 	main.queue_redraw()
 	var debug_field_image: Image = await _capture(viewport, "tractor-debug.png")
 	var debug_field_difference := _different_pixels(playing_image, debug_field_image, Rect2i(300, 136, 680, 500), 0.02, 2)
 	_assert_true("RENDER-08/tractor-debug-visible-after-sequence", debug_field_difference > 180, debug_field_difference, "> 180 sampled pixels")
-	for button_rect in [main.BACK_BUTTON, main.RESET_BUTTON, main.PAUSE_BUTTON, main.CLOSE_BUTTON]:
+	for button_rect in [main.BACK_BUTTON, main.RESET_BUTTON, main.PAUSE_BUTTON, main.EXIT_BUTTON]:
 		main._handle_system_button(button_rect.get_center())
 	main._handle_mouse_pointer(main.PAUSE_BUTTON.get_center(), true)
 	main._handle_mouse_pointer(main.PAUSE_BUTTON.get_center(), false)

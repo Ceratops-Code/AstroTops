@@ -291,7 +291,7 @@ class BoardSidebar extends Control:
         test_button = BoboBoardInput.make_action_button("TEST BOARD", Color("46a8ff"))
         test_button.pressed.connect(func() -> void: test_requested.emit())
         column.add_child(test_button)
-        calibrate_button = BoboBoardInput.make_action_button("CALIBRATE BOARD", Color("a879ff"))
+        calibrate_button = BoboBoardInput.make_action_button("BOARD SETTINGS", Color("a879ff"))
         calibrate_button.pressed.connect(func() -> void: calibration_requested.emit())
         column.add_child(calibrate_button)
         disconnect_button = BoboBoardInput.make_action_button("DISCONNECT BOBO", Color("ffc857"))
@@ -377,12 +377,12 @@ class BoardCalibrationPanel extends PanelContainer:
         size = Vector2(1144, 0)
         var column := BoboBoardInput.make_panel_margin(self, 16)
         var title := Label.new()
-        title.text = "CALIBRATE BOBO BOARD"
+        title.text = "BOBO CALIBRATION & SENSITIVITY"
         title.add_theme_font_size_override("font_size", 28)
         title.add_theme_color_override("font_color", Color("41f4c6"))
         column.add_child(title)
         var explanation := Label.new()
-        explanation.text = "Adjust sensitivity, capture five poses, or both. Changes apply only when you save."
+        explanation.text = "Your current calibration is ready. Adjust sensitivity now; capturing new poses is optional."
         explanation.add_theme_font_size_override("font_size", 17)
         column.add_child(explanation)
         var body := HBoxContainer.new()

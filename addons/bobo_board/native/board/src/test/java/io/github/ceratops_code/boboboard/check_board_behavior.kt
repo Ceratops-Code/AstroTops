@@ -34,10 +34,10 @@ class BoardBehaviorTest {
         override fun releaseBoard(released: (Boolean) -> Unit) { releases++; this.released = released }
         fun finishRelease(acknowledged: Boolean = true) { open = false; released?.invoke(acknowledged) }
     }
-    private class Harness(val radio: Radio = Radio(), store: BoardCalibrationStore? = null) {
+    private class Harness(val radio: Radio = Radio(), store: BoardCalibrationStore? = null, profile: BoardCalibration = calibration()) {
         var clock = 1L
         val history = mutableListOf<BoardSnapshot>()
-        val session = BoboBoardSession(radio, calibration(), { clock }, history::add, store)
+        val session = BoboBoardSession(radio, profile, { clock }, history::add, store)
         fun ready(address: String = "test-board") {
             session.connectToBoBoBoard()
             radio.found!!.invoke(address)
@@ -114,6 +114,48 @@ class BoardBehaviorTest {
         assertThrows(IllegalArgumentException::class.java) { h.session.replaceCalibration(bad) }
         h.tilt()
         assertTrue(h.session.snapshot.fresh)
+    }
+    @Test fun deadZoneBoundaryStaysFixedAtEveryDirectionalSensitivity() {
+        for (gain in listOf(0.5, 1.0, 1.43, 2.0)) {
+            val settings = BoardSensitivity(gain, gain, gain, gain, 0.11)
+            val mapper = BoardTiltMapper.fromCalibration(calibration().copy(sensitivity = settings))
+            for ((x, y) in listOf(10.0 to 0.0, -10.0 to 0.0, 0.0 to 10.0, 0.0 to -10.0,
+                7.0 to 7.0, -7.0 to -7.0, 11.0 to 0.0)) {
+                repeat(2) { assertEquals(BoardTilt(), mapper.update(vector(x, y), it.toLong())) }
+            }
+            for ((x, y) in listOf(12.0 to 0.0, -12.0 to 0.0, 0.0 to 12.0, 0.0 to -12.0)) {
+                mapper.reset()
+                val actual = mapper.update(vector(x, y), 0)
+                assertTrue(hypot(actual.x.toDouble(), actual.y.toDouble()) > 0)
+                assertTrue(actual.x * x >= 0 && actual.y * y <= 0)
+            }
+            mapper.reset()
+            assertEquals(minOf(1.0, gain).toFloat(), mapper.update(vector(100.0, 0.0), 0).x, 0.0001f)
+        }
+    }
+    @Test fun enteringDeadZoneImmediatelyClearsOldFilteredTilt() {
+        val mapper = BoardTiltMapper.fromCalibration(calibration().copy(sensitivity = BoardSensitivity(deadZone = 0.11)))
+        assertEquals(1f, mapper.update(vector(100.0, 0.0), 0).x, 0.0001f)
+        assertEquals(BoardTilt(), mapper.update(vector(10.0, 0.0), 1_000_000))
+        assertEquals(BoardTilt(), mapper.update(vector(0.0, 0.0), 2_000_000))
+        val next = mapper.update(vector(-12.0, 0.0), 3_000_000)
+        assertTrue(next.x < 0 && next.x > -0.02f)
+    }
+    @Test fun importedCenterSamplesAndSmallTiltsStayStillWithoutRecapturing() {
+        val profile = BoardCalibration.fromJson(javaClass.getResourceAsStream("/bobo_board/default_calibration.json")!!.bufferedReader().use { it.readText() })
+        val mapper = BoardTiltMapper.fromCalibration(profile)
+        val centerRows = profile.samples.getValue(BoardPose.CENTER)
+        val center = DoubleArray(9) { i -> centerRows.sumOf { it[i] } / centerRows.size }
+        for (pose in BoardPose.entries.filter { it != BoardPose.CENTER }) {
+            val rows = profile.samples.getValue(pose)
+            val full = DoubleArray(9) { i -> rows.sumOf { it[i] } / rows.size }
+            val small = DoubleArray(9) { i -> center[i] + 0.10 * (full[i] - center[i]) }
+            repeat(2) {
+                assertTrue(mapper.update(full, 0) != BoardTilt())
+                assertEquals(BoardTilt(), mapper.update(small, 1_000_000))
+                centerRows.forEachIndexed { index, values -> assertEquals(BoardTilt(), mapper.update(values, (index + 2) * 1_000_000L)) }
+            }
+        }
     }
     @Test fun connectIsRepeatedSafelyBeforeAndAfterEveryConnectionEffect() {
         val h = Harness()
@@ -430,7 +472,7 @@ class BoardBehaviorTest {
             if (changed) repeat(2) { h.session.setBoardSensitivityPercent(BoardSensitivityControl.RIGHT, 50) }
             h.tilt(50)
             assertEquals(BoardTilt(), h.session.snapshot.tilt)
-            val expected = ((if (changed) 0.25 else 0.5) - 0.08) / 0.92
+            val expected = (0.5 - 0.08) / 0.92 * if (changed) 0.5 else 1.0
             assertEquals(expected.toFloat(), h.session.snapshot.calibration.previewTilt.x, 0.0001f)
             if (disconnect) {
                 h.session.disconnectFromBoBoBoard(); h.radio.finishRelease(); h.ready()
@@ -458,7 +500,7 @@ class BoardBehaviorTest {
             assertEquals(listOf("CENTER"), h.session.snapshot.calibration.captured)
             assertTrue(h.session.snapshot.calibration.active)
             h.session.cancelBoardCalibration(); h.tilt()
-            assertEquals(((0.5 - 0.08) / 0.92).toFloat(), h.session.snapshot.tilt.x, 0.0001f)
+            assertEquals(0.5f, h.session.snapshot.tilt.x, 0.0001f)
             val fresh = Harness(store = profiles); fresh.ready(); fresh.tilt()
             assertEquals(h.session.snapshot.tilt, fresh.session.snapshot.tilt)
             val other = Harness(store = profiles); other.ready("other-board"); other.tilt()
@@ -485,7 +527,7 @@ class BoardBehaviorTest {
         h.session.setBoardSensitivityPercent(BoardSensitivityControl.RIGHT, 50)
         assertTrue(h.session.snapshot.calibration.canSave)
         h.session.saveBoardCalibration(); h.tilt()
-        assertEquals(((0.25 - 0.08) / 0.92).toFloat(), h.session.snapshot.tilt.x, 0.0001f)
+        assertEquals(((0.5 - 0.08) / 0.92 * 0.5).toFloat(), h.session.snapshot.tilt.x, 0.0001f)
         assertEquals(0.5, profiles.values.getValue("test-board").sensitivity.right, 0.0)
         h.session.beginBoardCalibration()
         h.session.restoreImportedBoardCalibration(); h.tilt()
@@ -509,6 +551,33 @@ class BoardBehaviorTest {
             assertEquals(control.minimumPercent, item.getInt("minimum"))
             assertEquals(control.maximumPercent, item.getInt("maximum"))
             assertEquals(if (control == BoardSensitivityControl.RIGHT) 75 else BoardSensitivity().percent(control), item.getInt("percent"))
+        }
+    }
+    @Test fun importedSensitivitySavesWithoutAnyCaptureAcrossBothWriteBoundaries() {
+        val imported = BoardCalibration.fromJson(javaClass.getResourceAsStream("/bobo_board/default_calibration.json")!!.bufferedReader().use { it.readText() })
+        for (after in listOf(false, true)) {
+            val profiles = Profiles()
+            val h = Harness(store = profiles, profile = imported); h.ready(); h.tilt()
+            assertEquals(imported.sensitivity, h.session.snapshot.calibration.sensitivity)
+            h.session.beginBoardCalibration()
+            repeat(2) { h.session.setBoardSensitivityPercent(BoardSensitivityControl.RIGHT, 75) }
+            h.session.setBoardSensitivityPercent(BoardSensitivityControl.DEAD_ZONE, 20)
+            assertEquals(emptyList<String>(), h.session.snapshot.calibration.captured)
+            assertFalse(h.session.snapshot.calibration.canSave)
+            assertTrue(h.session.snapshot.calibration.canSaveSensitivity)
+            profiles.interruptBefore = !after; profiles.interruptAfter = after
+            h.session.saveBoardSensitivity()
+            assertEquals("sensitivity_failed", h.session.snapshot.calibration.event)
+            profiles.interruptBefore = false; profiles.interruptAfter = false
+            repeat(2) { h.session.saveBoardSensitivity() }
+            assertEquals(1, profiles.writes)
+            val saved = profiles.values.getValue("test-board")
+            assertTrue(saved.copy(sensitivity = imported.sensitivity).hasSameValues(imported))
+            assertEquals(0.75, saved.sensitivity.right, 0.0)
+            assertEquals(0.20, saved.sensitivity.deadZone, 0.0)
+            val fresh = Harness(store = profiles, profile = imported); fresh.ready(); fresh.tilt()
+            assertEquals(saved.sensitivity, fresh.session.snapshot.calibration.sensitivity)
+            assertFalse(fresh.session.snapshot.calibration.active)
         }
     }
 

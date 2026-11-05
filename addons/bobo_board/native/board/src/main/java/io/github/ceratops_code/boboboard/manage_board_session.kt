@@ -170,7 +170,8 @@ class BoboBoardSession(
     }
     private fun liveTilt() = lastPacket >= 0 && nowMs() - lastPacket <= 1000
     private fun calibrationStatus(event: String? = null, message: String? = null): BoardCalibrationStatus {
-        val capture = pendingCalibration ?: return snapshot.calibration.copy(
+        val capture = pendingCalibration ?: return BoardCalibrationStatus(
+            sensitivity = activeProfile.sensitivity,
             event = event ?: snapshot.calibration.event, message = message ?: snapshot.calibration.message)
         if (message != null) capture.reportActionFailure(message)
         return BoardCalibrationStatus(true, capture.pose.name, capture.captured.map { it.name }, capture.capturing,

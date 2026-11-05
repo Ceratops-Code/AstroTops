@@ -190,17 +190,25 @@ class BoardTiltMapper private constructor(
     }
     fun update(values: DoubleArray, nowNanos: Long): BoardTilt {
         val (px, py) = project(values)
-        val x = px / gains[if (px >= 0) 0 else 1] * if (px >= 0) controls.right else controls.left
-        val y = py / gains[if (py >= 0) 2 else 3] * if (py >= 0) controls.up else controls.down
+        val x = px / gains[if (px >= 0) 0 else 1]
+        val y = py / gains[if (py >= 0) 2 else 3]
+        // The dead zone is a fraction of calibrated tilt, independent of gain.
+        // Entering it also clears filter history so old tilt cannot keep steering.
+        if (hypot(x, y) <= controls.deadZone) {
+            reset()
+            return BoardTilt()
+        }
         val previous = lastNanos
         val alpha = if (previous == null) 1.0 else 1 - exp(-max(0L, nowNanos - previous) / 60_000_000.0)
         filteredX += alpha * (x - filteredX); filteredY += alpha * (y - filteredY)
         lastNanos = nowNanos
         val radius = hypot(filteredX, filteredY)
-        val scale = if (radius <= controls.deadZone) 0.0 else
-            min(1.0, (radius - controls.deadZone) / (1.0 - controls.deadZone)) / radius
-        if (scale == 0.0) return BoardTilt()
-        return BoardTilt((filteredX * scale).toFloat(), (-filteredY * scale).toFloat())
+        if (radius <= controls.deadZone) return BoardTilt()
+        val scale = (radius - controls.deadZone) / (1.0 - controls.deadZone) / radius
+        val outputX = filteredX * scale * if (filteredX >= 0) controls.right else controls.left
+        val outputY = filteredY * scale * if (filteredY >= 0) controls.up else controls.down
+        val limit = max(1.0, hypot(outputX, outputY))
+        return BoardTilt((outputX / limit).toFloat(), (-outputY / limit).toFloat())
     }
     companion object {
         private fun dot(a: DoubleArray, b: DoubleArray) = a.indices.sumOf { a[it] * b[it] }
