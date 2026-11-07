@@ -22,7 +22,7 @@ const TRACTOR_MAX_PULL_RATIO := 0.30
 const TRACTOR_PULL_BASE_SCALE := 0.85
 const TRACTOR_PULL_TAPER := 0.15
 const TRACTOR_DEFAULT_STRENGTH := 0.45
-const TRACTOR_DEBUG_SEQUENCE := ["back", "reset", "pause", "close"]
+const TRACTOR_DEBUG_SEQUENCE := ["back", "reset", "pause", "exit"]
 const TRACTOR_DEBUG_SEQUENCE_TIMEOUT_MS := 1100
 const RESCUE_APPROACH_SPEED := 260.0
 const RESCUE_TOW_SPEED_FACTOR := 0.70
@@ -61,7 +61,7 @@ const TRACTOR_POWER_LABEL := "POWER"
 const BACK_BUTTON := Rect2(704.0, 16.0, 128.0, 50.0)
 const RESET_BUTTON := Rect2(840.0, 16.0, 128.0, 50.0)
 const PAUSE_BUTTON := Rect2(976.0, 16.0, 128.0, 50.0)
-const CLOSE_BUTTON := Rect2(1112.0, 16.0, 128.0, 50.0)
+const EXIT_BUTTON := Rect2(1112.0, 16.0, 128.0, 50.0)
 const TRACTOR_BEAM_BUTTON := Rect2(18.0, 92.0, 260.0, 34.0)
 const TRACTOR_SLIDER_TRACK := Rect2(390.0, 103.0, 360.0, 12.0)
 const TRACTOR_SLIDER_HIT := Rect2(370.0, 84.0, 400.0, 48.0)
@@ -901,6 +901,10 @@ func _best_tractor_candidate(course_direction: Vector2) -> Dictionary:
 
 
 func _input(event: InputEvent) -> void:
+	# Godot GUI controls need emulated mouse events on touchscreens. The game
+	# already handles the original touch, so only GUI receives its mouse copy.
+	if event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
 	if state == GameState.MENU and event is InputEventKey and board_sidebar != null:
 		var focused := get_viewport().gui_get_focus_owner()
 		if focused != null and board_sidebar.is_ancestor_of(focused):
@@ -1070,12 +1074,12 @@ func _handle_mouse_pointer(position: Vector2, pressed: bool) -> void:
 func _handle_system_button(position: Vector2) -> bool:
 	if state != GameState.MENU and _handle_board_hud_button(position):
 		return true
-	if state == GameState.BOARD_TEST and not CLOSE_BUTTON.has_point(position) and not BACK_BUTTON.has_point(position):
+	if state == GameState.BOARD_TEST and not _back_button_rect().has_point(position):
 		return false
 	var button := ""
-	if CLOSE_BUTTON.has_point(position):
-		button = "close"
-	elif state != GameState.MENU and BACK_BUTTON.has_point(position):
+	if EXIT_BUTTON.has_point(position):
+		button = "exit"
+	elif state != GameState.MENU and _back_button_rect().has_point(position):
 		button = "back"
 	elif state != GameState.MENU and RESET_BUTTON.has_point(position):
 		button = "reset"
@@ -1093,7 +1097,7 @@ func _handle_system_button(position: Vector2) -> bool:
 		return true
 
 	match button:
-		"close":
+		"exit":
 			_play_ui_click()
 			get_tree().quit()
 		"back":
@@ -1108,7 +1112,7 @@ func _handle_system_button(position: Vector2) -> bool:
 
 
 func _handle_tractor_debug_sequence(button: String) -> bool:
-	# The hidden Back -> Reset -> Pause -> Close sequence exposes the diagnostic
+	# The hidden Back -> Reset -> Pause -> Exit sequence exposes the diagnostic
 	# field without adding a normal-player control. Back waits briefly so a lone
 	# press still returns to the menu; a completed sequence consumes all presses.
 	var now := Time.get_ticks_msec()
@@ -1580,7 +1584,7 @@ func _draw_menu() -> void:
 	_draw_brand_title(78.0, 60, Color("f4f8ff"))
 	_draw_space_subtitle(MENU_SUBTITLE, 115.0, 24, accent.lightened(0.18))
 	_center_text(MENU_TAGLINE, 145.0, 18, Color("c1cbea"))
-	_button(CLOSE_BUTTON, "EXIT", Color("ff657a"))
+	_button(EXIT_BUTTON, "EXIT", Color("ff657a"))
 	_section_label(SHIP_LABEL, "SHIP")
 	_arrow_button(SHIP_LEFT_BUTTON, -1.0, palette[selected_color_index])
 	_arrow_button(SHIP_RIGHT_BUTTON, 1.0, palette[selected_color_index])
@@ -1625,7 +1629,7 @@ func _draw_game_hud() -> void:
 	_button(RESET_BUTTON, "RESET", Color("ffc857"))
 	var can_pause := state in [GameState.COUNTDOWN, GameState.PLAYING, GameState.PAUSED]
 	_button(PAUSE_BUTTON, "RESUME" if state == GameState.PAUSED else "PAUSE", palette[selected_color_index], can_pause)
-	_button(CLOSE_BUTTON, "CLOSE", Color("ff657a"))
+	_button(EXIT_BUTTON, "EXIT", Color("ff657a"))
 	var can_adjust := _can_adjust_tractor_beam()
 	var beam_color: Color = palette[selected_color_index] if tractor_beam_enabled else Color("ff657a")
 	_button(TRACTOR_BEAM_BUTTON, _tractor_button_label(), beam_color, can_adjust)
@@ -1724,18 +1728,45 @@ func _begin_board_test() -> void:
 func _handle_board_hud_button(position: Vector2) -> bool:
 	if not board_input.is_supported():
 		return false
-	if BOARD_HUD_CONNECT.has_point(position):
-		_connect_board()
+	if _board_hud_connect_rect().has_point(position):
+		if board_input.can_connect_board():
+			_connect_board()
 		return true
-	if BOARD_HUD_DISCONNECT.has_point(position):
+	if _board_hud_disconnect_rect().has_point(position):
 		_disconnect_board()
 		return true
 	return false
 
 
 func _draw_board_hud_controls() -> void:
-	_button(BOARD_HUD_CONNECT, "CONNECT BOBO", Color("41f4c6"), not board_input.requested)
-	_button(BOARD_HUD_DISCONNECT, "DISCONNECT BOBO", Color("ffc857"), board_input.status not in ["disconnected", "releasing"])
+	_button(_board_hud_connect_rect(), "CONNECT BOBO", Color("41f4c6"), board_input.can_connect_board())
+	_button(_board_hud_disconnect_rect(), "DISCONNECT BOBO", Color("ffc857"), board_input.status not in ["disconnected", "releasing"])
+
+
+func _board_hud_connect_rect() -> Rect2:
+	return _board_test_header_rects()[1] if state == GameState.BOARD_TEST else BOARD_HUD_CONNECT
+
+
+func _board_hud_disconnect_rect() -> Rect2:
+	return _board_test_header_rects()[2] if state == GameState.BOARD_TEST else BOARD_HUD_DISCONNECT
+
+
+func _back_button_rect() -> Rect2:
+	return _board_test_header_rects()[0] if state == GameState.BOARD_TEST else BACK_BUTTON
+
+
+func _board_test_header_rects() -> Array[Rect2]:
+	# Measure the same labels/font used by _button so the layout itself prevents
+	# clipped text while preserving the Back button's height and right margin.
+	var widths := [BACK_BUTTON.size.x]
+	for label in ["CONNECT BOBO", "DISCONNECT BOBO"]:
+		widths.append(ceilf(font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x) + 32.0)
+	var left: float = EXIT_BUTTON.end.x - widths[0] - widths[1] - widths[2] - 24.0
+	var rectangles: Array[Rect2] = []
+	for width: float in widths:
+		rectangles.append(Rect2(left, BACK_BUTTON.position.y, width, BACK_BUTTON.size.y))
+		left += width + 12.0
+	return rectangles
 
 
 func _draw_board_test() -> void:
@@ -1743,8 +1774,7 @@ func _draw_board_test() -> void:
 	draw_string(font, Vector2(24.0, 49.0), "BOBO BOARD TEST", HORIZONTAL_ALIGNMENT_LEFT, 650.0, 28, Color("41f4c6"))
 	draw_string(font, Vector2(24.0, 99.0), "Tilt the board to move the ship. No mission is running.", HORIZONTAL_ALIGNMENT_LEFT, 760.0, 18, Color.WHITE)
 	draw_string(font, Vector2(24.0, 130.0), board_input.message, HORIZONTAL_ALIGNMENT_LEFT, 1200.0, 17, Color("c1cbea"))
-	_button(BACK_BUTTON, "BACK", Color("8291b9"))
-	_button(CLOSE_BUTTON, "CLOSE", Color("ff657a"))
+	_button(_back_button_rect(), "BACK", Color("8291b9"))
 	_draw_board_hud_controls()
 
 

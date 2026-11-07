@@ -195,7 +195,7 @@ The tractor beam selects at most one visible, uncaptured target whose bearing is
 eligible for its course-aligned pear-shaped field. It moves that body toward
 the ship; it never changes ship heading. The persisted Power setting controls
 both range and pull, with diminishing strength growth. Its diagnostic outline
-is hidden. Back, Reset, Pause/Resume, and Close in that order within the unlock
+is hidden. Back, Reset, Pause/Resume, and Exit in that order within the unlock
 window toggles the outline and consumes the sequence; an unmatched Back is
 resolved to its normal menu action after the short window.
 
@@ -319,8 +319,17 @@ board. Four WobblePad-style direction sensitivities (50–200%) and center dead 
 (0–30%) use module-owned metadata and mapping. A live preview uses draft controls
 without moving the game ship. Separate Save sensitivity preserves accepted poses
 and pending captures; Save calibration includes new poses and draft controls.
+Save Center fits the new neutral samples with the existing directional poses
+and persists the resulting profile with the saved sensitivity values.
 Changing controls reuses fitted geometry. Cancel discards unsaved changes,
 capture freezes edits, and Restore resets both poses and controls.
+The imported poses are already usable: sensitivity saving needs no pose capture.
+The module applies the radial dead zone to calibrated tilt before directional
+sensitivity and clears smoothing history on entry, giving exact neutral input
+even immediately after a large tilt. Godot mouse emulation delivers touch to
+the standard GUI controls; the game skips those mouse copies of raw touch.
+Board testing uses a single top row of Back, Connect BoBo and Disconnect BoBo,
+all 50 pixels tall. Exit appears on the menu and mission screens.
 Android AtomicFile owns complete replacement and recovery under the
 application-private `filesDir/bobo_board/calibrations` directory, with one
 current file per board named by an address digest. The store serializes clients

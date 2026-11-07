@@ -67,6 +67,11 @@ func save_calibration() -> void:
         backend.call("saveBoardCalibration")
 
 
+func save_center() -> void:
+    if backend != null and calibration.get("can_save_center", false) and has_live_packets():
+        backend.call("saveBoardCenter")
+
+
 func set_sensitivity_percent(control: String, percent: int) -> void:
     if backend != null and calibration.get("active", false) and has_live_packets():
         backend.call("setBoardSensitivityPercent", control, percent)
@@ -291,7 +296,7 @@ class BoardSidebar extends Control:
         test_button = BoboBoardInput.make_action_button("TEST BOARD", Color("46a8ff"))
         test_button.pressed.connect(func() -> void: test_requested.emit())
         column.add_child(test_button)
-        calibrate_button = BoboBoardInput.make_action_button("CALIBRATE BOARD", Color("a879ff"))
+        calibrate_button = BoboBoardInput.make_action_button("BOARD SETTINGS", Color("a879ff"))
         calibrate_button.pressed.connect(func() -> void: calibration_requested.emit())
         column.add_child(calibrate_button)
         disconnect_button = BoboBoardInput.make_action_button("DISCONNECT BOBO", Color("ffc857"))
@@ -377,12 +382,12 @@ class BoardCalibrationPanel extends PanelContainer:
         size = Vector2(1144, 0)
         var column := BoboBoardInput.make_panel_margin(self, 16)
         var title := Label.new()
-        title.text = "CALIBRATE BOBO BOARD"
+        title.text = "BOBO CALIBRATION & SENSITIVITY"
         title.add_theme_font_size_override("font_size", 28)
         title.add_theme_color_override("font_color", Color("41f4c6"))
         column.add_child(title)
         var explanation := Label.new()
-        explanation.text = "Adjust sensitivity, capture five poses, or both. Changes apply only when you save."
+        explanation.text = "If the board drifts at rest, hold it level, capture Center and choose Save Center."
         explanation.add_theme_font_size_override("font_size", 17)
         column.add_child(explanation)
         var body := HBoxContainer.new()
@@ -504,7 +509,10 @@ class BoardCalibrationPanel extends PanelContainer:
 
     func _save() -> void:
         _awaiting_completion = true
-        board.save_calibration()
+        if board.calibration.get("can_save_center", false):
+            board.save_center()
+        else:
+            board.save_calibration()
 
     func _restore() -> void:
         _awaiting_completion = true
@@ -542,12 +550,14 @@ class BoardCalibrationPanel extends PanelContainer:
         preview_label.text = "LIVE PREVIEW\nX %+.2f   Y %+.2f" % [preview.tilt.x, preview.tilt.y] if live else "PREVIEW\nWaiting for live tilt"
         capture_button.disabled = capturing or not live
         capture_button.text = ("HOLD STILL  %.1fs" % (float(state.get("remaining_ms", 0)) / 1000.0)) if capturing else ("CAPTURE " + NAMES[index].to_upper() if active else "START CALIBRATION")
-        save_button.disabled = not active or capturing or not live or not state.get("can_save", false)
+        var can_save_center: bool = state.get("can_save_center", false)
+        save_button.text = "SAVE CENTER" if can_save_center else "SAVE CALIBRATION"
+        save_button.disabled = not active or capturing or not live or not (can_save_center or state.get("can_save", false))
         restore_button.disabled = not live or capturing
         progress.value = 3000 - int(state.get("remaining_ms", 3000)) if capturing else 0
         if _awaiting_completion and event in ["save_failed", "restore_failed"]:
             _awaiting_completion = false
-        if _awaiting_completion and not active and event in ["saved", "restored"]:
+        if _awaiting_completion and not active and event in ["saved", "center_saved", "restored"]:
             _awaiting_completion = false
             closed.emit()
 

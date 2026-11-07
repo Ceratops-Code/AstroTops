@@ -78,27 +78,35 @@ client, so WobblePad does not have to be installed to obtain it.
 
 The profile was measured on one physical board and is not a universal calibration
 claim for every hardware revision. The menu preview should be used to check a
-different board. Calibrate board guides Center, Left, Right, Forward and Backward
+different board. Board settings guides Center, Left, Right, Forward and Backward
 poses. Each capture takes three seconds of live notifications. Pose buttons can
-recapture individual steps. Save becomes available only after every pose and the
-complete fit pass; the current mapper stays unchanged until that explicit Save.
+recapture individual steps. Save calibration requires all five new poses to
+pass. After a center-only capture passes with the existing direction poses,
+Save Center updates just the neutral samples and keeps the saved sensitivity.
+Both saves keep the active mapper until storage succeeds.
 Cancel, backgrounding, lost tilt, or disconnect discards unsaved captures.
 Restore imported default replaces only the connected board's saved override.
 
 The same screen exposes WobblePad's four directional sensitivity controls
 (50–200%) and center dead zone (0–30%), initially 143% and 11% from the import.
-Higher sensitivity reaches full input with less tilt; dead zone suppresses small
-movements near level. The live dot and X/Y values use the module's mapper, while
+Higher sensitivity reaches full input with less tilt. Dead zone measures a
+fraction of calibrated tilt before sensitivity, so increasing sensitivity cannot
+shrink the center zone. Entering the zone clears filter history and returns exact
+zero input immediately. The live dot and X/Y values use the module's mapper, while
 game movement stays zero during calibration. Sliders affect a draft until saved.
 Save sensitivity keeps the current accepted pose samples and does not require
-five new captures. It stays on the screen and preserves unfinished captures.
+any new captures. It stays on the screen and preserves unfinished captures.
+Godot hosts must enable touchscreen mouse emulation for the standard GUI sliders
+and buttons; hosts that also process raw touch must skip its emulated mouse copy
+in their gameplay handler to avoid performing one action twice.
 Save calibration saves all five accepted new poses with the draft controls.
 Cancel discards only unsaved changes; a successful sensitivity save remains saved.
 Capture freezes control edits. Restore resets both poses and controls.
 
 Native hosts can call beginBoardCalibration, selectBoardCalibrationPose,
-captureBoardCalibrationPose, cancelBoardCalibration, saveBoardCalibration and
-restoreImportedBoardCalibration. setBoardSensitivityPercent accepts a control
+captureBoardCalibrationPose, cancelBoardCalibration, saveBoardCenter,
+saveBoardCalibration and restoreImportedBoardCalibration.
+setBoardSensitivityPercent accepts a control
 name (LEFT, RIGHT, UP, DOWN or DEAD_ZONE) and an integer percent;
 saveBoardSensitivity persists it for the connected board. Snapshot calibration
 data exposes the module-owned control labels, bounds, draft values, live preview,

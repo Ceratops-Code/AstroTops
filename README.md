@@ -23,21 +23,25 @@ arrows appear one second after the launch countdown ends.
   Shizuku are not required. The saved board calibration is bundled; Android
   asks for Nearby devices permission when needed. Lost tilt pauses play, and
   Connect/Disconnect remain available in the mission header.
-  **Calibrate board** guides five three-second poses and saves an acceptable
+  **Board settings** lets you adjust sensitivity immediately with the imported
+  profile, or optionally capture five three-second poses and save an acceptable
   profile for that board. Cancel or disconnect discards the draft; **Restore
   imported default** restores the original profile. The sidebar remembers its
-  open/closed state. The calibration screen also has four sensitivity sliders,
+  open/closed state. If the ship drifts while the board is level, use **Capture
+  Center** and **Save Center** to refresh the neutral position alone.
+  The calibration screen also has four sensitivity sliders,
   center dead zone, and live preview. **Save sensitivity** keeps the existing
-  poses, so changing the feel does not require recapturing them. The main-menu
-  **Exit** button closes the game.
+  poses, so changing the feel does not require recapturing them. The menu and mission
+  **Exit** buttons leave the game. The test screen has Back, Connect BoBo and
+  Disconnect BoBo together in its top row, with no Exit button.
 
 Choose **Launch Mission**, then press any keyboard key, gamepad button, or tap to
 start the animated `5` to `1` countdown. The in-game header also provides Back,
-Reset, Pause/Resume, Close, and tractor-beam controls. The beam pulls at most
+Reset, Pause/Resume, Exit, and tractor-beam controls. The beam pulls at most
 one uncaptured, currently visible target inside a course-aligned pear-shaped
 field. The field is wider close to the ship and tapers over its shortened
 range. Its diagnostic outline is hidden by default; pressing Back, Reset,
-Pause/Resume, then Close in sequence toggles it without performing those four
+Pause/Resume, then Exit in sequence toggles it without performing those four
 actions. The slider controls both pull strength and range, with pull strength
 rising on a gentler curve; its value and on/off
 state are saved between runs. Captured names use the device's English

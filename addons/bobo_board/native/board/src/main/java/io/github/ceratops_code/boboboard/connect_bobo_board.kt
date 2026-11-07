@@ -37,6 +37,7 @@ class BoboBoardClient(context: Context, changed: (BoardSnapshot) -> Unit) {
     fun beginBoardCalibration() { session.beginBoardCalibration() }
     fun selectBoardCalibrationPose(pose: String) { session.selectBoardCalibrationPose(BoardPose.valueOf(pose)) }
     fun captureBoardCalibrationPose() { session.captureBoardCalibrationPose() }
+    fun saveBoardCenter() { session.saveBoardCenter() }
     fun cancelBoardCalibration() { session.cancelBoardCalibration() }
     fun saveBoardCalibration() { session.saveBoardCalibration() }
     fun setBoardSensitivityPercent(control: String, percent: Int) { session.setBoardSensitivityPercent(BoardSensitivityControl.valueOf(control), percent) }

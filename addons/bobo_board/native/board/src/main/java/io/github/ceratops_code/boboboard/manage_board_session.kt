@@ -29,7 +29,7 @@ data class BoardCalibrationStatus(
     val capturing: Boolean = false, val remainingMs: Long = 0, val canSave: Boolean = false,
     val message: String = "", val event: String = "",
     val sensitivity: BoardSensitivity = BoardSensitivity(), val canSaveSensitivity: Boolean = false,
-    val previewTilt: BoardTilt = BoardTilt(),
+    val previewTilt: BoardTilt = BoardTilt(), val canSaveCenter: Boolean = false,
 )
 data class BoardSnapshot(
     val status: String = "disconnected", val message: String = "BoBo disconnected",
@@ -45,7 +45,7 @@ data class BoardSnapshot(
             .put("captured", JSONArray(calibration.captured)).put("capturing", calibration.capturing)
             .put("remaining_ms", calibration.remainingMs).put("can_save", calibration.canSave)
             .put("message", calibration.message).put("event", calibration.event)
-            .put("can_save_sensitivity", calibration.canSaveSensitivity)
+            .put("can_save_sensitivity", calibration.canSaveSensitivity).put("can_save_center", calibration.canSaveCenter)
             .put("preview_x", calibration.previewTilt.x).put("preview_y", calibration.previewTilt.y)
             .put("sensitivity_controls", JSONArray(BoardSensitivityControl.entries.map { control ->
                 JSONObject().put("id", control.name).put("label", control.label)
@@ -170,13 +170,14 @@ class BoboBoardSession(
     }
     private fun liveTilt() = lastPacket >= 0 && nowMs() - lastPacket <= 1000
     private fun calibrationStatus(event: String? = null, message: String? = null): BoardCalibrationStatus {
-        val capture = pendingCalibration ?: return snapshot.calibration.copy(
+        val capture = pendingCalibration ?: return BoardCalibrationStatus(
+            sensitivity = activeProfile.sensitivity,
             event = event ?: snapshot.calibration.event, message = message ?: snapshot.calibration.message)
         if (message != null) capture.reportActionFailure(message)
         return BoardCalibrationStatus(true, capture.pose.name, capture.captured.map { it.name }, capture.capturing,
-            capture.remainingMs(nowMs()), capture.acceptedProfile != null && !capture.capturing,
+            capture.remainingMs(nowMs()), capture.canSaveCalibration,
             message ?: capture.message, event ?: snapshot.calibration.event, capture.sensitivity,
-            capture.sensitivity != activeProfile.sensitivity && !capture.capturing, previewTilt)
+            capture.sensitivity != activeProfile.sensitivity && !capture.capturing, previewTilt, capture.canSaveCenter)
     }
     fun beginBoardCalibration() {
         if (pendingCalibration != null) return
@@ -184,7 +185,7 @@ class BoboBoardSession(
             publish(snapshot.copy(message = "Connect and wait for live tilt before calibrating.")); return
         }
         mapper.reset()
-        pendingCalibration = BoardCalibrationCapture(activeProfile.sensitivity)
+        pendingCalibration = BoardCalibrationCapture(activeProfile.sensitivity, activeProfile)
         previewMapper = mapper.withSensitivity(activeProfile.sensitivity); previewTilt = BoardTilt()
         publish(snapshot.copy(status = "calibrating", message = "BoBo calibration active", tilt = BoardTilt(), calibration = calibrationStatus("started")))
     }
@@ -241,9 +242,21 @@ class BoboBoardSession(
         val capture = pendingCalibration ?: return
         val candidate = capture.acceptedProfile
         val fitted = capture.acceptedMapper
-        if (candidate == null || fitted == null || capture.capturing || !liveTilt()) {
+        if (candidate == null || fitted == null || !capture.canSaveCalibration || !liveTilt()) {
             publish(snapshot.copy(calibration = calibrationStatus("save_failed", "Capture five acceptable poses with live tilt before saving."))); return
         }
+        saveCalibrationProfile(candidate, fitted, "saved", "BoBo calibration saved")
+    }
+    /** Save only the measured center and keep the existing directional poses and controls. */
+    fun saveBoardCenter() {
+        val capture = pendingCalibration ?: return
+        if (!capture.canSaveCenter || !liveTilt()) return
+        val settings = activeProfile.sensitivity
+        val candidate = capture.acceptedProfile?.copy(sensitivity = settings) ?: return
+        val fitted = capture.acceptedMapper?.withSensitivity(settings) ?: return
+        saveCalibrationProfile(candidate, fitted, "center_saved", "BoBo center saved")
+    }
+    private fun saveCalibrationProfile(candidate: BoardCalibration, fitted: BoardTiltMapper, event: String, message: String) {
         val address = boardAddress ?: return
         try { store?.saveBoardCalibration(address, candidate) }
         catch (error: Exception) {
@@ -251,9 +264,9 @@ class BoboBoardSession(
         }
         activeProfile = candidate; mapper = fitted; pendingCalibration = null; previewMapper = null; previewTilt = BoardTilt()
         lastPacket = -1; deadline = nowMs() + 5000
-        publish(snapshot.copy(status = "waiting", message = "BoBo calibration saved", tilt = BoardTilt(), fresh = false,
+        publish(snapshot.copy(status = "waiting", message = message, tilt = BoardTilt(), fresh = false,
             calibrationSource = if (store == null) "Custom calibration (session)" else "Saved for this board",
-            calibration = BoardCalibrationStatus(event = "saved", message = "Calibration saved.")))
+            calibration = BoardCalibrationStatus(event = event, message = message)))
     }
     fun restoreImportedBoardCalibration() {
         val address = boardAddress ?: return

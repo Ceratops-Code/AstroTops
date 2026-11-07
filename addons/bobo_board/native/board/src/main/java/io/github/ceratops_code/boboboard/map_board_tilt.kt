@@ -95,7 +95,7 @@ data class BoardCalibration(
  * the mapper that passed the geometry/noise checks, so Save does not refit it.
  * Capture buffers are bounded and exist only in memory until an explicit Save.
  */
-class BoardCalibrationCapture(sensitivity: BoardSensitivity) {
+class BoardCalibrationCapture(sensitivity: BoardSensitivity, private val baseProfile: BoardCalibration? = null) {
     var sensitivity = sensitivity; private set
     var pose = BoardPose.CENTER; private set
     val captured: Set<BoardPose> get() = samples.keys.toSet()
@@ -103,6 +103,8 @@ class BoardCalibrationCapture(sensitivity: BoardSensitivity) {
     var acceptedProfile: BoardCalibration? = null; private set
     var acceptedMapper: BoardTiltMapper? = null; private set
     private val samples = linkedMapOf<BoardPose, List<DoubleArray>>()
+    val canSaveCenter get() = acceptedProfile != null && samples.size == 1 && BoardPose.CENTER in samples
+    val canSaveCalibration get() = acceptedProfile != null && samples.size == BoardPose.entries.size
     private val current = mutableListOf<DoubleArray>()
     private var captureUntil: Long? = null
     val capturing get() = captureUntil != null
@@ -141,15 +143,22 @@ class BoardCalibrationCapture(sensitivity: BoardSensitivity) {
         }
         samples[pose] = current.map { it.copyOf() }; current.clear()
         val missing = BoardPose.entries.firstOrNull { it !in samples }
-        if (missing != null) {
+        val centerBase = baseProfile?.takeIf { samples.size == 1 && BoardPose.CENTER in samples }
+        if (missing != null && centerBase == null) {
             pose = missing
             message = "Pose captured. Move to the highlighted pose."
         } else {
-            val candidate = BoardCalibration(samples.mapValues { (_, rows) -> rows.map { it.copyOf() } }, sensitivity)
+            val poses = if (centerBase != null) centerBase.samples + samples else samples
+            val candidate = BoardCalibration(poses.mapValues { (_, rows) -> rows.map { it.copyOf() } }, sensitivity)
             try {
                 val fitted = BoardTiltMapper.fromCalibration(candidate)
                 acceptedProfile = candidate; acceptedMapper = fitted
-                message = "All five poses passed. Save, or select a pose to capture it again."
+                if (centerBase != null) {
+                    pose = BoardPose.LEFT
+                    message = "Center captured. Save Center keeps your saved sensitivity and four direction poses. You can also continue a full calibration."
+                } else {
+                    message = "All five poses passed. Save, or select a pose to capture it again."
+                }
             } catch (error: IllegalArgumentException) {
                 message = (error.message ?: "The poses did not pass.") + " Select a pose to capture it again."
             }
@@ -190,17 +199,25 @@ class BoardTiltMapper private constructor(
     }
     fun update(values: DoubleArray, nowNanos: Long): BoardTilt {
         val (px, py) = project(values)
-        val x = px / gains[if (px >= 0) 0 else 1] * if (px >= 0) controls.right else controls.left
-        val y = py / gains[if (py >= 0) 2 else 3] * if (py >= 0) controls.up else controls.down
+        val x = px / gains[if (px >= 0) 0 else 1]
+        val y = py / gains[if (py >= 0) 2 else 3]
+        // The dead zone is a fraction of calibrated tilt, independent of gain.
+        // Entering it also clears filter history so old tilt cannot keep steering.
+        if (hypot(x, y) <= controls.deadZone) {
+            reset()
+            return BoardTilt()
+        }
         val previous = lastNanos
         val alpha = if (previous == null) 1.0 else 1 - exp(-max(0L, nowNanos - previous) / 60_000_000.0)
         filteredX += alpha * (x - filteredX); filteredY += alpha * (y - filteredY)
         lastNanos = nowNanos
         val radius = hypot(filteredX, filteredY)
-        val scale = if (radius <= controls.deadZone) 0.0 else
-            min(1.0, (radius - controls.deadZone) / (1.0 - controls.deadZone)) / radius
-        if (scale == 0.0) return BoardTilt()
-        return BoardTilt((filteredX * scale).toFloat(), (-filteredY * scale).toFloat())
+        if (radius <= controls.deadZone) return BoardTilt()
+        val scale = (radius - controls.deadZone) / (1.0 - controls.deadZone) / radius
+        val outputX = filteredX * scale * if (filteredX >= 0) controls.right else controls.left
+        val outputY = filteredY * scale * if (filteredY >= 0) controls.up else controls.down
+        val limit = max(1.0, hypot(outputX, outputY))
+        return BoardTilt((outputX / limit).toFloat(), (-outputY / limit).toFloat())
     }
     companion object {
         private fun dot(a: DoubleArray, b: DoubleArray) = a.indices.sumOf { a[it] * b[it] }
