@@ -280,6 +280,7 @@ class BoardBackend extends RefCounted:
 	var calibration_source := "Imported default"
 	var capture_requests := 0
 	var save_requests := 0
+	var save_center_requests := 0
 	var restore_requests := 0
 	var sensitivity_save_requests := 0
 	var sensitivity_percent := {"LEFT": 143, "RIGHT": 143, "UP": 143, "DOWN": 143, "DEAD_ZONE": 11}
@@ -351,6 +352,7 @@ class BoardBackend extends RefCounted:
 		calibration["capturing"] = true
 		calibration["remaining_ms"] = 3000
 		calibration["can_save"] = false
+		calibration["can_save_center"] = false
 		calibration["message"] = "Hold still for three seconds."
 		_publish_state("calibrating")
 
@@ -366,6 +368,7 @@ class BoardBackend extends RefCounted:
 		calibration["capturing"] = false
 		calibration["remaining_ms"] = 0
 		calibration["can_save"] = captured.size() == 5
+		calibration["can_save_center"] = captured == ["CENTER"]
 		calibration["message"] = "All five poses passed. Save, or select a pose to capture it again." if captured.size() == 5 else "Pose captured. Move to the highlighted pose."
 		send_tilt(Vector2.ZERO)
 
@@ -389,6 +392,12 @@ class BoardBackend extends RefCounted:
 		calibration_source = "Imported default"
 		sensitivity_percent = {"LEFT": 143, "RIGHT": 143, "UP": 143, "DOWN": 143, "DEAD_ZONE": 11}
 		calibration = {"event": "restored"}
+		_publish_state("waiting")
+
+	func saveBoardCenter() -> void:
+		save_center_requests += 1
+		calibration_source = "Saved for this board"
+		calibration = {"event": "center_saved"}
 		_publish_state("waiting")
 
 
@@ -1209,9 +1218,12 @@ func _test_board_ui() -> void:
 func _send_screen_touch(point: Vector2, pressed: bool) -> void:
 	var event := InputEventScreenTouch.new()
 	event.index = 0
-	event.position = point
+	# Screen events enter the window before Godot applies its viewport stretch.
+	event.position = root.get_final_transform() * point
+	event.window_id = root.get_window_id()
 	event.pressed = pressed
 	Input.parse_input_event(event)
+	Input.flush_buffered_events()
 	await process_frame
 
 
@@ -1226,12 +1238,18 @@ func _test_board_touch_controls() -> void:
 	var backend := BoardBackend.new()
 	var main: Variant = await _new_main(root, "board-touch-settings.cfg", backend)
 	await _tap_screen(main.board_sidebar.toggle_button.get_global_rect().get_center())
-	_assert_true("BOBO-TOUCH/sidebar-opens", main.board_sidebar.panel.visible, main.board_sidebar.expanded)
+	_assert_true("BOBO-TOUCH/sidebar-opens", main.board_sidebar.panel.visible, {"expanded": main.board_sidebar.expanded, "window": root.size, "transform": root.get_final_transform()})
+	if not main.board_sidebar.panel.visible:
+		main.queue_free()
+		return
 	await _tap_screen(main.board_sidebar.connect_button.get_global_rect().get_center())
 	_assert_equal("BOBO-TOUCH/connect-fires-once", backend.connects, 1)
 	backend.send_tilt(Vector2.ZERO)
 	await _tap_screen(main.board_sidebar.calibrate_button.get_global_rect().get_center())
 	_assert_equal("BOBO-TOUCH/settings-opens", main.state, main.GameState.BOARD_CALIBRATION)
+	if main.state != main.GameState.BOARD_CALIBRATION:
+		main.queue_free()
+		return
 	var panel: Variant = main.board_calibration_panel
 	var slider: HSlider = panel.sensitivity_sliders["RIGHT"]
 	var slider_rect := slider.get_global_rect()
@@ -1240,9 +1258,12 @@ func _test_board_touch_controls() -> void:
 	await _send_screen_touch(start, true)
 	var drag := InputEventScreenDrag.new()
 	drag.index = 0
-	drag.position = finish
-	drag.relative = finish - start
+	drag.window_id = root.get_window_id()
+	var window_transform := root.get_final_transform()
+	drag.position = window_transform * finish
+	drag.relative = drag.position - window_transform * start
 	Input.parse_input_event(drag)
+	Input.flush_buffered_events()
 	await process_frame
 	await _send_screen_touch(finish, false)
 	var edited := roundi(slider.value)
@@ -1357,6 +1378,14 @@ func _test_board_calibration_ui(viewport: SubViewport, main: Variant, backend: B
 	_assert_equal("BOBO-CAL/lost-board-can-exit", main.state, main.GameState.MENU)
 	main._connect_board()
 	backend.send_tilt(Vector2.ZERO)
+	main.board_sidebar.calibrate_button.pressed.emit()
+	panel.capture_button.pressed.emit()
+	backend.finish_pose()
+	_assert_equal("BOBO-CAL/center-only-save-label", panel.save_button.text, "SAVE CENTER")
+	_assert_true("BOBO-CAL/center-only-save-enabled", not panel.save_button.disabled, panel.save_button.disabled)
+	panel.save_button.pressed.emit()
+	_assert_equal("BOBO-CAL/center-only-save-calls-module", backend.save_center_requests, 1)
+	_assert_equal("BOBO-CAL/center-only-save-returns-menu", main.state, main.GameState.MENU)
 
 
 func _test_rendered_ui() -> void:

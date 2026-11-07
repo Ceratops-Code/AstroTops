@@ -319,6 +319,8 @@ board. Four WobblePad-style direction sensitivities (50–200%) and center dead 
 (0–30%) use module-owned metadata and mapping. A live preview uses draft controls
 without moving the game ship. Separate Save sensitivity preserves accepted poses
 and pending captures; Save calibration includes new poses and draft controls.
+Save Center fits the new neutral samples with the existing directional poses
+and persists the resulting profile with the saved sensitivity values.
 Changing controls reuses fitted geometry. Cancel discards unsaved changes,
 capture freezes edits, and Restore resets both poses and controls.
 The imported poses are already usable: sensitivity saving needs no pose capture.

@@ -73,6 +73,7 @@ class BoboBoardPlugin(godot: Godot) : GodotPlugin(godot) {
     @UsedByGodot fun captureBoardCalibrationPose() = calibrationAction { it.captureBoardCalibrationPose() }
     @UsedByGodot fun cancelBoardCalibration() = calibrationAction { it.cancelBoardCalibration() }
     @UsedByGodot fun saveBoardCalibration() = calibrationAction { it.saveBoardCalibration() }
+    @UsedByGodot fun saveBoardCenter() = calibrationAction { it.saveBoardCenter() }
     @UsedByGodot fun setBoardSensitivityPercent(control: String, percent: Int) = calibrationAction { it.setBoardSensitivityPercent(control, percent) }
     @UsedByGodot fun saveBoardSensitivity() = calibrationAction { it.saveBoardSensitivity() }
     @UsedByGodot fun restoreImportedBoardCalibration() = calibrationAction { it.restoreImportedBoardCalibration() }

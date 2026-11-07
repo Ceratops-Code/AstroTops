@@ -95,7 +95,7 @@ data class BoardCalibration(
  * the mapper that passed the geometry/noise checks, so Save does not refit it.
  * Capture buffers are bounded and exist only in memory until an explicit Save.
  */
-class BoardCalibrationCapture(sensitivity: BoardSensitivity) {
+class BoardCalibrationCapture(sensitivity: BoardSensitivity, private val baseProfile: BoardCalibration? = null) {
     var sensitivity = sensitivity; private set
     var pose = BoardPose.CENTER; private set
     val captured: Set<BoardPose> get() = samples.keys.toSet()
@@ -103,6 +103,8 @@ class BoardCalibrationCapture(sensitivity: BoardSensitivity) {
     var acceptedProfile: BoardCalibration? = null; private set
     var acceptedMapper: BoardTiltMapper? = null; private set
     private val samples = linkedMapOf<BoardPose, List<DoubleArray>>()
+    val canSaveCenter get() = acceptedProfile != null && samples.size == 1 && BoardPose.CENTER in samples
+    val canSaveCalibration get() = acceptedProfile != null && samples.size == BoardPose.entries.size
     private val current = mutableListOf<DoubleArray>()
     private var captureUntil: Long? = null
     val capturing get() = captureUntil != null
@@ -141,15 +143,22 @@ class BoardCalibrationCapture(sensitivity: BoardSensitivity) {
         }
         samples[pose] = current.map { it.copyOf() }; current.clear()
         val missing = BoardPose.entries.firstOrNull { it !in samples }
-        if (missing != null) {
+        val centerBase = baseProfile?.takeIf { samples.size == 1 && BoardPose.CENTER in samples }
+        if (missing != null && centerBase == null) {
             pose = missing
             message = "Pose captured. Move to the highlighted pose."
         } else {
-            val candidate = BoardCalibration(samples.mapValues { (_, rows) -> rows.map { it.copyOf() } }, sensitivity)
+            val poses = if (centerBase != null) centerBase.samples + samples else samples
+            val candidate = BoardCalibration(poses.mapValues { (_, rows) -> rows.map { it.copyOf() } }, sensitivity)
             try {
                 val fitted = BoardTiltMapper.fromCalibration(candidate)
                 acceptedProfile = candidate; acceptedMapper = fitted
-                message = "All five poses passed. Save, or select a pose to capture it again."
+                if (centerBase != null) {
+                    pose = BoardPose.LEFT
+                    message = "Center captured. Save Center keeps your saved sensitivity and four direction poses. You can also continue a full calibration."
+                } else {
+                    message = "All five poses passed. Save, or select a pose to capture it again."
+                }
             } catch (error: IllegalArgumentException) {
                 message = (error.message ?: "The poses did not pass.") + " Select a pose to capture it again."
             }

@@ -324,6 +324,52 @@ class BoardBehaviorTest {
         assertEquals(1f, other.session.snapshot.tilt.x, 0.0001f)
         assertEquals(1, profiles.writes)
     }
+    @Test fun centerOnlySaveStopsRestDriftAndRetainsDirectionsAndControls() {
+        val original = calibration().copy(sensitivity = BoardSensitivity(right = 1.43, down = 1.44, deadZone = 0.12))
+        for (after in listOf(false, true)) {
+            val profiles = Profiles().apply { values["test-board"] = original; values["other-board"] = original }
+            val h = Harness(store = profiles); h.ready(); h.tilt(13, 8)
+            assertTrue(h.session.snapshot.tilt.x > 0f)
+            h.session.beginBoardCalibration()
+            h.session.saveBoardCenter()
+            assertEquals(0, profiles.writes)
+            h.capturePose(BoardPose.CENTER, 13, 8)
+            h.session.setBoardSensitivityPercent(BoardSensitivityControl.DEAD_ZONE, 0)
+            h.clock += 200; h.tilt(13, 8)
+            assertTrue(h.session.snapshot.calibration.canSaveCenter)
+            assertFalse(h.session.snapshot.calibration.canSave)
+            assertEquals(BoardTilt(), h.session.snapshot.calibration.previewTilt)
+            h.session.saveBoardCalibration()
+            assertEquals(0, profiles.writes)
+            profiles.interruptBefore = !after; profiles.interruptAfter = after
+            h.session.saveBoardCenter()
+            assertEquals("save_failed", h.session.snapshot.calibration.event)
+            assertTrue(h.session.snapshot.calibration.canSaveCenter)
+            profiles.interruptBefore = false; profiles.interruptAfter = false
+            repeat(2) { h.session.saveBoardCenter() }
+            assertEquals("center_saved", h.session.snapshot.calibration.event)
+            assertEquals(1, profiles.writes)
+            val saved = profiles.values.getValue("test-board")
+            assertTrue(saved.copy(samples = saved.samples + (BoardPose.CENTER to original.samples.getValue(BoardPose.CENTER))).hasSameValues(original))
+            assertTrue(profiles.values.getValue("other-board").hasSameValues(original))
+            val fresh = Harness(store = profiles); fresh.ready(); fresh.tilt(13, 8)
+            assertEquals(BoardTilt(), fresh.session.snapshot.tilt)
+            fresh.clock += 200; fresh.tilt(18, 9)
+            assertEquals(BoardTilt(), fresh.session.snapshot.tilt)
+            fresh.clock += 200; fresh.tilt(40, 8)
+            assertTrue(fresh.session.snapshot.tilt.x > 0f)
+        }
+    }
+    @Test fun centerOutsideUsableRangeCannotBeSaved() {
+        val profiles = Profiles()
+        val h = Harness(store = profiles); h.ready(); h.tilt()
+        h.session.beginBoardCalibration()
+        h.capturePose(BoardPose.CENTER, 95, 0)
+        assertFalse(h.session.snapshot.calibration.canSaveCenter)
+        assertTrue(h.session.snapshot.calibration.message.contains("Center must lie"))
+        h.session.saveBoardCenter()
+        assertEquals(0, profiles.writes)
+    }
     @Test fun cancellingOrDisconnectingAtEveryCaptureBoundaryKeepsTheSavedProfile() {
         for (disconnect in listOf(false, true)) for (boundary in 0..3) {
             val profiles = Profiles().apply { values["test-board"] = calibration() }

@@ -27,7 +27,9 @@ arrows appear one second after the launch countdown ends.
   profile, or optionally capture five three-second poses and save an acceptable
   profile for that board. Cancel or disconnect discards the draft; **Restore
   imported default** restores the original profile. The sidebar remembers its
-  open/closed state. The calibration screen also has four sensitivity sliders,
+  open/closed state. If the ship drifts while the board is level, use **Capture
+  Center** and **Save Center** to refresh the neutral position alone.
+  The calibration screen also has four sensitivity sliders,
   center dead zone, and live preview. **Save sensitivity** keeps the existing
   poses, so changing the feel does not require recapturing them. The menu and mission
   **Exit** buttons leave the game. The test screen has Back, Connect BoBo and

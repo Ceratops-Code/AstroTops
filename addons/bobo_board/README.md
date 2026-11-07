@@ -80,8 +80,10 @@ The profile was measured on one physical board and is not a universal calibratio
 claim for every hardware revision. The menu preview should be used to check a
 different board. Board settings guides Center, Left, Right, Forward and Backward
 poses. Each capture takes three seconds of live notifications. Pose buttons can
-recapture individual steps. Save becomes available only after every pose and the
-complete fit pass; the current mapper stays unchanged until that explicit Save.
+recapture individual steps. Save calibration requires all five new poses to
+pass. After a center-only capture passes with the existing direction poses,
+Save Center updates just the neutral samples and keeps the saved sensitivity.
+Both saves keep the active mapper until storage succeeds.
 Cancel, backgrounding, lost tilt, or disconnect discards unsaved captures.
 Restore imported default replaces only the connected board's saved override.
 
@@ -102,7 +104,7 @@ Cancel discards only unsaved changes; a successful sensitivity save remains save
 Capture freezes control edits. Restore resets both poses and controls.
 
 Native hosts can call beginBoardCalibration, selectBoardCalibrationPose,
-captureBoardCalibrationPose, cancelBoardCalibration, saveBoardCalibration and
+captureBoardCalibrationPose, cancelBoardCalibration, saveBoardCenter, saveBoardCalibration and
 restoreImportedBoardCalibration. setBoardSensitivityPercent accepts a control
 name (LEFT, RIGHT, UP, DOWN or DEAD_ZONE) and an integer percent;
 saveBoardSensitivity persists it for the connected board. Snapshot calibration
