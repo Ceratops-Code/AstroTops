@@ -1232,20 +1232,26 @@ func _tap_screen(point: Vector2) -> void:
 	await _send_screen_touch(point, false)
 
 
+func _tap_control(control: Control) -> void:
+	# Visibility and status text can queue a container layout after a touch.
+	await _wait_frames(2)
+	await _tap_screen(control.get_global_rect().get_center())
+
+
 func _test_board_touch_controls() -> void:
 	# Use the real window input path: direct slider assignment and pressed.emit()
 	# cannot show whether Android touches reach Godot's standard GUI controls.
 	var backend := BoardBackend.new()
 	var main: Variant = await _new_main(root, "board-touch-settings.cfg", backend)
-	await _tap_screen(main.board_sidebar.toggle_button.get_global_rect().get_center())
+	await _tap_control(main.board_sidebar.toggle_button)
 	_assert_true("BOBO-TOUCH/sidebar-opens", main.board_sidebar.panel.visible, {"expanded": main.board_sidebar.expanded, "window": root.size, "transform": root.get_final_transform()})
 	if not main.board_sidebar.panel.visible:
 		main.queue_free()
 		return
-	await _tap_screen(main.board_sidebar.connect_button.get_global_rect().get_center())
+	await _tap_control(main.board_sidebar.connect_button)
 	_assert_equal("BOBO-TOUCH/connect-fires-once", backend.connects, 1)
 	backend.send_tilt(Vector2.ZERO)
-	await _tap_screen(main.board_sidebar.calibrate_button.get_global_rect().get_center())
+	await _tap_control(main.board_sidebar.calibrate_button)
 	_assert_equal("BOBO-TOUCH/settings-opens", main.state, main.GameState.BOARD_CALIBRATION)
 	if main.state != main.GameState.BOARD_CALIBRATION:
 		main.queue_free()
@@ -1271,14 +1277,14 @@ func _test_board_touch_controls() -> void:
 	_assert_equal("BOBO-TOUCH/drag-reaches-module", backend.calibration["sensitivity_controls"][1]["percent"], edited)
 	_assert_equal("BOBO-TOUCH/no-calibration-required", backend.capture_requests, 0)
 	_assert_true("BOBO-TOUCH/save-enabled-without-poses", not panel.sensitivity_save_button.disabled and panel.save_button.disabled, panel.sensitivity_save_button.disabled)
-	await _tap_screen(panel.sensitivity_save_button.get_global_rect().get_center())
-	await _tap_screen(panel.sensitivity_save_button.get_global_rect().get_center())
+	await _tap_control(panel.sensitivity_save_button)
+	await _tap_control(panel.sensitivity_save_button)
 	_assert_equal("BOBO-TOUCH/sensitivity-saved-once", backend.sensitivity_save_requests, 1)
 	_assert_equal("BOBO-TOUCH/saved-touch-value", backend.sensitivity_percent["RIGHT"], edited)
-	await _tap_screen(panel.cancel_button.get_global_rect().get_center())
+	await _tap_control(panel.cancel_button)
 	_assert_equal("BOBO-TOUCH/cancel-returns-menu", main.state, main.GameState.MENU)
 	backend.send_tilt(Vector2.ZERO)
-	await _tap_screen(main.board_sidebar.test_button.get_global_rect().get_center())
+	await _tap_control(main.board_sidebar.test_button)
 	_assert_equal("BOBO-TOUCH/test-opens-without-mission", main.state, main.GameState.BOARD_TEST)
 	await _tap_screen(main._board_hud_disconnect_rect().get_center())
 	_assert_equal("BOBO-TOUCH/disconnect-fires-once", backend.disconnects, 1)
