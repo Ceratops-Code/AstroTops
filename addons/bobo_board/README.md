@@ -104,8 +104,9 @@ Cancel discards only unsaved changes; a successful sensitivity save remains save
 Capture freezes control edits. Restore resets both poses and controls.
 
 Native hosts can call beginBoardCalibration, selectBoardCalibrationPose,
-captureBoardCalibrationPose, cancelBoardCalibration, saveBoardCenter, saveBoardCalibration and
-restoreImportedBoardCalibration. setBoardSensitivityPercent accepts a control
+captureBoardCalibrationPose, cancelBoardCalibration, saveBoardCenter,
+saveBoardCalibration and restoreImportedBoardCalibration.
+setBoardSensitivityPercent accepts a control
 name (LEFT, RIGHT, UP, DOWN or DEAD_ZONE) and an integer percent;
 saveBoardSensitivity persists it for the connected board. Snapshot calibration
 data exposes the module-owned control labels, bounds, draft values, live preview,
