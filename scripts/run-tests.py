@@ -1014,7 +1014,7 @@ def shared_current_attempt_checks(temporary_root: pathlib.Path) -> list[str]:
     root.mkdir()
     subprocess.run(["git", "init", "--quiet", str(root)], check=True, capture_output=True)
     store = CurrentCheckResults(root)
-    target = {"operation": "repository.actions.test", "cwd": "."}
+    target = {"operation": "repository.actions.pre-build-checks.check-groups.tests", "cwd": "."}
     context = {
         "schema": CHECK_CONTEXT_SCHEMA, "group": "probe", "scope": {
             **target, "inputRules": {"product-inputs": ["product.txt"], "check-inputs": ["check.txt"]}},

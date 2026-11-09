@@ -1,4 +1,4 @@
-version: 4
+version: 5
 kind: ceratops-sdlc
 repository:
   capabilities:
@@ -32,121 +32,123 @@ repository:
             - --locked
             - scripts/run-tests.py
             - --prepare-godot
-    validate:
-      check-results:
-        product-inputs:
-          - project.godot
-          - export_presets.cfg
-          - main.tscn
-          - assets/**
-          - addons/bobo_board/**
-        check-inputs:
-          - "*.md"
-          - .gitignore
-          - THIRD_PARTY_NOTICES.txt
-          - scripts/**
-          - docs/**
-          - sdlc/sdlc.yml
-          - .github/**
-        dependencies:
-          - scripts/uv.lock
-          - scripts/package-lock.json
-        environment:
-          - JAVA_HOME
-          - ANDROID_HOME
-          - ANDROID_SDK_ROOT
-          - GITHUB_EVENT_NAME
-          - GITHUB_EVENT_PATH
-        tools:
-          - python
-          - git
-          - npm
-          - uv
-      requires:
-        capabilities:
-          - uv
-      steps:
-        - run:
-            - uv
-            - run
-            - --project
-            - scripts
-            - --locked
-            - python
-            - scripts/validate-repository.py
-            - --no-record
-    test:
-      check-results:
-        product-inputs: &android-product-inputs
-          - project.godot
-          - export_presets.cfg
-          - main.tscn
-          - assets/**
-          - scripts/main.gd
-          - scripts/audio_controller.gd
-          - scripts/space_target.gd
-          - scripts/player_ship.gd
-          - scripts/planet.gd
-          - scripts/traxy.gd
-          - scripts/meteor.gd
-          - scripts/godot_toolchain.py
-          - scripts/build_board_module.py
-          - addons/bobo_board/*.gd
-          - addons/bobo_board/plugin.cfg
-          - addons/bobo_board/native/*.kts
-          - addons/bobo_board/native/*.properties
-          - addons/bobo_board/native/gradlew*
-          - addons/bobo_board/native/gradle/**
-          - addons/bobo_board/native/board/build.gradle.kts
-          - addons/bobo_board/native/godot/build.gradle.kts
-          - addons/bobo_board/native/board/src/main/**
-          - addons/bobo_board/native/godot/src/main/**
-        check-inputs:
-          - scripts/run-tests.py
-          - scripts/regression_tests.gd
-          - scripts/result_records.py
-          - docs/feature-acceptance.json
-          - sdlc/sdlc.yml
-          - addons/bobo_board/native/board/src/test/**
-        dependencies:
-          - scripts/uv.lock
-          - scripts/package-lock.json
-        environment:
-          - JAVA_HOME
-          - ANDROID_HOME
-          - ANDROID_SDK_ROOT
-          - JAVA_TOOL_OPTIONS
-          - GRADLE_OPTS
-          - DISPLAY
-          - LANG
-          - LC_ALL
-          - TZ
-        tools:
-          - python
-          - git
-          - java
-          - adb
-          - uv
-      requires:
-        capabilities:
-          - uv
-      steps:
-        - run:
-            - uv
-            - run
-            - --project
-            - scripts
-            - --locked
-            - python
-            - scripts/run-tests.py
-            - --no-record
-            - --scope
-            - repository
+    pre-build-checks:
+      check-groups:
+        source:
+          check-results:
+            product-inputs:
+              - project.godot
+              - export_presets.cfg
+              - main.tscn
+              - assets/**
+              - addons/bobo_board/**
+            check-inputs:
+              - "*.md"
+              - .gitignore
+              - THIRD_PARTY_NOTICES.txt
+              - scripts/**
+              - docs/**
+              - sdlc/sdlc.yml
+              - .github/**
+            dependencies:
+              - scripts/uv.lock
+              - scripts/package-lock.json
+            environment:
+              - JAVA_HOME
+              - ANDROID_HOME
+              - ANDROID_SDK_ROOT
+              - GITHUB_EVENT_NAME
+              - GITHUB_EVENT_PATH
+            tools:
+              - python
+              - git
+              - npm
+              - uv
+          requires:
+            capabilities:
+              - uv
+          steps:
+            - run:
+                - uv
+                - run
+                - --project
+                - scripts
+                - --locked
+                - python
+                - scripts/validate-repository.py
+                - --no-record
+        tests:
+          check-results:
+            product-inputs: &android-product-inputs
+              - project.godot
+              - export_presets.cfg
+              - main.tscn
+              - assets/**
+              - scripts/main.gd
+              - scripts/audio_controller.gd
+              - scripts/space_target.gd
+              - scripts/player_ship.gd
+              - scripts/planet.gd
+              - scripts/traxy.gd
+              - scripts/meteor.gd
+              - scripts/godot_toolchain.py
+              - scripts/build_board_module.py
+              - addons/bobo_board/*.gd
+              - addons/bobo_board/plugin.cfg
+              - addons/bobo_board/native/*.kts
+              - addons/bobo_board/native/*.properties
+              - addons/bobo_board/native/gradlew*
+              - addons/bobo_board/native/gradle/**
+              - addons/bobo_board/native/board/build.gradle.kts
+              - addons/bobo_board/native/godot/build.gradle.kts
+              - addons/bobo_board/native/board/src/main/**
+              - addons/bobo_board/native/godot/src/main/**
+            check-inputs:
+              - scripts/run-tests.py
+              - scripts/regression_tests.gd
+              - scripts/result_records.py
+              - docs/feature-acceptance.json
+              - sdlc/sdlc.yml
+              - addons/bobo_board/native/board/src/test/**
+            dependencies:
+              - scripts/uv.lock
+              - scripts/package-lock.json
+            environment:
+              - JAVA_HOME
+              - ANDROID_HOME
+              - ANDROID_SDK_ROOT
+              - JAVA_TOOL_OPTIONS
+              - GRADLE_OPTS
+              - DISPLAY
+              - LANG
+              - LC_ALL
+              - TZ
+            tools:
+              - python
+              - git
+              - java
+              - adb
+              - uv
+          requires:
+            capabilities:
+              - uv
+          steps:
+            - run:
+                - uv
+                - run
+                - --project
+                - scripts
+                - --locked
+                - python
+                - scripts/run-tests.py
+                - --no-record
+                - --scope
+                - repository
 deliverables:
   packages:
     astrotops-android-apk:
-      source: .
-      prerequisites: []
+      root-dir: .
+      build-after: []
       artifact:
         type: android-apk
         output-directory: .build/artifacts/android
@@ -183,56 +185,58 @@ deliverables:
                 - android-apk
   apps:
     astrotops:
-      source: .
+      root-dir: .
       manifest: export_presets.cfg
-      prerequisites:
-        - astrotops-android-apk
+      build-after:
+        - deliverables.packages.astrotops-android-apk
       actions:
-        validate:
-          check-results:
-            product-inputs: *android-product-inputs
-            check-inputs:
-              - scripts/run-tests.py
-              - scripts/result_records.py
-              - sdlc/sdlc.yml
-            dependencies:
-              - scripts/uv.lock
-            environment:
-              - JAVA_HOME
-              - ANDROID_HOME
-              - ANDROID_SDK_ROOT
-              - JAVA_TOOL_OPTIONS
-              - GRADLE_OPTS
-              - GODOT_EXECUTABLE
-              - ASTROTOPS_TOOL_CACHE
-              - ASTROTOPS_ANDROID_SOURCE_TEMPLATE
-            tools:
-              - python
-              - git
-              - java
-              - adb
-              - uv
-          requires:
-            capabilities:
-              - android-sdk
-              - jdk
-              - uv
-          validation-capabilities:
-            - android-build
-            - android-lint
-          steps:
-            - run:
-                - uv
-                - run
-                - --project
-                - scripts
-                - --locked
-                - scripts/run-tests.py
-                - --validate-android-build
-        test:
-          requires:
-            capabilities: []
-          no-op: Repository tests own the grouped gameplay and rendered-app qualification.
+        pre-build-checks:
+          check-groups:
+            source:
+              check-results:
+                product-inputs: *android-product-inputs
+                check-inputs:
+                  - scripts/run-tests.py
+                  - scripts/result_records.py
+                  - sdlc/sdlc.yml
+                dependencies:
+                  - scripts/uv.lock
+                environment:
+                  - JAVA_HOME
+                  - ANDROID_HOME
+                  - ANDROID_SDK_ROOT
+                  - JAVA_TOOL_OPTIONS
+                  - GRADLE_OPTS
+                  - GODOT_EXECUTABLE
+                  - ASTROTOPS_TOOL_CACHE
+                  - ASTROTOPS_ANDROID_SOURCE_TEMPLATE
+                tools:
+                  - python
+                  - git
+                  - java
+                  - adb
+                  - uv
+              requires:
+                capabilities:
+                  - android-sdk
+                  - jdk
+                  - uv
+              validation-capabilities:
+                - android-build
+                - android-lint
+              steps:
+                - run:
+                    - uv
+                    - run
+                    - --project
+                    - scripts
+                    - --locked
+                    - scripts/run-tests.py
+                    - --validate-android-build
+            tests:
+              requires:
+                capabilities: []
+              no-op: Repository tests own the grouped gameplay and rendered-app qualification.
         install:
           requires:
             capabilities:
