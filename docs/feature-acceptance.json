@@ -59,7 +59,7 @@
       "scripts/godot_toolchain.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui"],
       "scripts/run-tests.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
       "scripts/result_records.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
-      "scripts/validate-repository.py": ["delivery-lifecycle"],
+      "scripts/check-repository-contract.py": ["delivery-lifecycle"],
       "scripts/pyproject.toml": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
       "scripts/uv.lock": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
       "sdlc/sdlc.yml": ["delivery-lifecycle"],

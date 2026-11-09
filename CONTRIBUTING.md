@@ -23,7 +23,11 @@ Before opening a pull request, run:
 ```powershell
 npm --prefix scripts ci
 uv sync --project scripts --locked
-uv run --locked scripts/validate-repository.py
+uv run --project scripts --locked python scripts/check-repository-contract.py
+npm --prefix scripts run lint:markdown
+uv run --project scripts --locked python -m ruff check . --config scripts/pyproject.toml
+uv run --project scripts --locked python -m mypy --config-file scripts/pyproject.toml
+uv run --project scripts --locked python scripts/run-actionlint.py
 uv run --locked scripts/run-tests.py --fresh
 ```
 

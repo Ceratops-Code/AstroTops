@@ -6,7 +6,7 @@
 
 - [ ] `npm --prefix scripts ci`
 - [ ] `uv sync --project scripts --locked`
-- [ ] `uv run --project scripts --locked python scripts/validate-repository.py`
+- [ ] Repository source checks in `sdlc/sdlc.yml` passed.
 - [ ] Godot project parses without errors
 - [ ] Changed keyboard, gamepad, and touch behavior was exercised
 

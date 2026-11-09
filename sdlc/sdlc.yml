@@ -1,7 +1,7 @@
 version: 5
 kind: ceratops-sdlc
 repository:
-  capabilities:
+  tools:
     adb:
       executable: adb
       platforms:
@@ -12,71 +12,193 @@ repository:
       executable: java
     uv:
       executable: uv
+    python:
+      executable: python
+      version-from:
+        file: scripts/pyproject.toml
+        key: project.requires-python
+    node:
+      executable: node
+      version-from:
+        file: scripts/package.json
+        key: engines.node
+    git:
+      executable: git
+    npm:
+      executable: npm
   actions:
     bootstrap:
       requires:
-        capabilities:
+        tools:
           - uv
+          - node
+          - npm
       steps:
-        - run:
-            - uv
-            - sync
-            - --project
-            - scripts
-            - --locked
-        - run:
-            - uv
-            - run
-            - --project
-            - scripts
-            - --locked
-            - scripts/run-tests.py
-            - --prepare-godot
+        - run: [uv, sync, --project, scripts, --locked]
+        - run: [uv, run, --project, scripts, --locked, scripts/run-tests.py, --prepare-godot]
+        - run: [npm, ci, --prefix, scripts]
     pre-build-checks:
       check-groups:
-        source:
-          check-results:
-            product-inputs:
-              - project.godot
-              - export_presets.cfg
-              - main.tscn
-              - assets/**
-              - addons/bobo_board/**
-            check-inputs:
-              - "*.md"
-              - .gitignore
-              - THIRD_PARTY_NOTICES.txt
-              - scripts/**
-              - docs/**
-              - sdlc/sdlc.yml
-              - .github/**
-            dependencies:
-              - scripts/uv.lock
-              - scripts/package-lock.json
-            environment:
-              - JAVA_HOME
-              - ANDROID_HOME
-              - ANDROID_SDK_ROOT
-              - GITHUB_EVENT_NAME
-              - GITHUB_EVENT_PATH
+        repository-contract:
+          requires:
             tools:
+              - uv
               - python
               - git
-              - npm
+          validation-tools:
+            - repository-contract
+          check-results:
+            result-owner: operation
+            product-inputs:
+              - export_presets.cfg
+              - docs/feature-acceptance.json
+              - .markdownlint.json
+              - .ruff.toml
+              - eslint.config.js
+              - mypy.ini
+              - package-lock.json
+              - package.json
+              - project.toml
+              - pyproject.toml
+              - ruff.toml
+              - uv.lock
+              - .test-results/tests.json
+              - .test-results/validation.json
+            check-inputs:
+              - sdlc/sdlc.yml
+              - scripts/pyproject.toml
+              - scripts/check-repository-contract.py
+              - .gitignore
+              - .build/README.md
+              - scripts/regression_tests.gd
+              - scripts/result_records.py
+              - scripts/run-tests.py
+            dependencies:
+              - scripts/uv.lock
+            environment:
+              - UV_OFFLINE
+              - UV_PYTHON
+              - UV_PYTHON_PREFERENCE
+            tools:
               - uv
-          requires:
-            capabilities:
-              - uv
+              - python
+              - git
           steps:
-            - run:
-                - uv
-                - run
-                - --project
-                - scripts
-                - --locked
-                - python
-                - scripts/validate-repository.py
-                - --no-record
+            - run: [uv, run, --project, scripts, --locked, python, scripts/check-repository-contract.py]
+        npm-markdown-lint:
+          requires:
+            tools:
+              - node
+              - npm
+          validation-tools:
+            - npm-markdown-lint
+          check-results:
+            result-owner: operation
+            product-inputs:
+              - '**/*.md'
+            check-inputs:
+              - sdlc/sdlc.yml
+              - scripts/package.json
+              - scripts/.markdownlint.json
+            dependencies:
+              - scripts/package-lock.json
+            tools:
+              - node
+              - npm
+          steps:
+            - run: [npm, --prefix, scripts, run, lint:markdown]
+        ruff:
+          requires:
+            tools:
+              - uv
+              - python
+          validation-tools:
+            - ruff
+          check-results:
+            result-owner: operation
+            product-inputs:
+              - '**/*.py'
+              - '**/*.pyi'
+              - '**/*.ipynb'
+            check-inputs:
+              - sdlc/sdlc.yml
+              - scripts/pyproject.toml
+              - .gitignore
+              - '**/.gitignore'
+            dependencies:
+              - scripts/uv.lock
+            environment:
+              - UV_OFFLINE
+              - UV_PYTHON
+              - UV_PYTHON_PREFERENCE
+            tools:
+              - uv
+              - python
+          steps:
+            - run: [uv, run, --project, scripts, --locked, python, -m, ruff, check, ., --config, scripts/pyproject.toml]
+        mypy:
+          requires:
+            tools:
+              - uv
+              - python
+          validation-tools:
+            - mypy
+          check-results:
+            result-owner: operation
+            product-inputs:
+              - '**/*.py'
+              - '**/*.pyi'
+              - '**/*.ipynb'
+            check-inputs:
+              - sdlc/sdlc.yml
+              - scripts/pyproject.toml
+              - .gitignore
+              - '**/.gitignore'
+            dependencies:
+              - scripts/uv.lock
+            environment:
+              - UV_OFFLINE
+              - UV_PYTHON
+              - UV_PYTHON_PREFERENCE
+              - MYPYPATH
+            tools:
+              - uv
+              - python
+          steps:
+            - run: [uv, run, --project, scripts, --locked, python, -m, mypy, --config-file, scripts/pyproject.toml]
+        actionlint:
+          requires:
+            tools:
+              - uv
+              - python
+          validation-tools:
+            - actionlint
+          check-results:
+            result-owner: operation
+            product-inputs:
+              - .github/workflows/*.yml
+              - .github/workflows/*.yaml
+              - .github/actions/**
+            check-inputs:
+              - sdlc/sdlc.yml
+              - scripts/pyproject.toml
+              - scripts/run-actionlint.py
+              - .github/actionlint.yaml
+              - .github/actionlint.yml
+            dependencies:
+              - scripts/uv.lock
+            environment:
+              - UV_OFFLINE
+              - UV_PYTHON
+              - UV_PYTHON_PREFERENCE
+              - GITHUB_EVENT_NAME
+              - GITHUB_EVENT_PATH
+              - GITHUB_ACTIONS
+            tools:
+              - uv
+              - python
+          steps:
+            - run: [uv, run, --project, scripts, --locked, python, scripts/run-actionlint.py]
         tests:
           check-results:
             product-inputs: &android-product-inputs
@@ -130,20 +252,10 @@ repository:
               - adb
               - uv
           requires:
-            capabilities:
+            tools:
               - uv
           steps:
-            - run:
-                - uv
-                - run
-                - --project
-                - scripts
-                - --locked
-                - python
-                - scripts/run-tests.py
-                - --no-record
-                - --scope
-                - repository
+            - run: [uv, run, --project, scripts, --locked, python, scripts/run-tests.py, --no-record, --scope, repository]
 deliverables:
   packages:
     astrotops-android-apk:
@@ -156,7 +268,7 @@ deliverables:
       actions:
         build:
           requires:
-            capabilities:
+            tools:
               - android-sdk
               - jdk
               - uv
@@ -217,29 +329,22 @@ deliverables:
                   - adb
                   - uv
               requires:
-                capabilities:
+                tools:
                   - android-sdk
                   - jdk
                   - uv
-              validation-capabilities:
+              validation-tools:
                 - android-build
                 - android-lint
               steps:
-                - run:
-                    - uv
-                    - run
-                    - --project
-                    - scripts
-                    - --locked
-                    - scripts/run-tests.py
-                    - --validate-android-build
+                - run: [uv, run, --project, scripts, --locked, scripts/run-tests.py, --validate-android-build]
             tests:
               requires:
-                capabilities: []
+                tools: []
               no-op: Repository tests own the grouped gameplay and rendered-app qualification.
         install:
           requires:
-            capabilities:
+            tools:
               - adb
               - uv
           parameters:
@@ -256,9 +361,9 @@ deliverables:
                 - scripts/result_records.py
                 - android-deploy
                 - --adb-executable
-                - "{adb_executable}"
+                - '{adb_executable}'
                 - --device
-                - "{device}"
+                - '{device}'
                 - --package
                 - com.ceratopscode.astrotops
                 - --activity
