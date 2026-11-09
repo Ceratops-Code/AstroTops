@@ -36,7 +36,7 @@ repository:
       steps:
         - run: [uv, sync, --project, scripts, --locked]
         - run: [uv, run, --project, scripts, --locked, scripts/run-tests.py, --prepare-godot]
-        - run: [npm, ci, --prefix, scripts]
+        - run: [uv, run, --project, scripts, --locked, python, -c, "import shutil, subprocess, sys; tool = shutil.which(sys.argv[1]); sys.exit(subprocess.call([tool, *sys.argv[2:]]) if tool else f'{sys.argv[1]} is not on PATH')", npm, ci, --prefix, scripts]
     pre-build-checks:
       check-groups:
         repository-contract:
