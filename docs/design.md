@@ -157,8 +157,8 @@ bounded evidence, artifact identity, and deterministic Android deployment.
   Android toolchain preflight, export, and Gradle lint commands.
 - [`scripts/run-tests.py`](../scripts/run-tests.py) selects test groups, isolates
   settings, exercises the shipping lifecycle, and assembles applicable results.
-- [`scripts/validate-repository.py`](../scripts/validate-repository.py) checks
-  repository structure and contracts independently from gameplay tests.
+- [`scripts/check-repository-contract.py`](../scripts/check-repository-contract.py)
+  checks repository structure and contracts independently from gameplay tests.
 - [`scripts/result_records.py`](../scripts/result_records.py) is the only
   storage owner for portable result records and bounded ignored evidence.
 - [`sdlc/sdlc.yml`](../sdlc/sdlc.yml) declares bootstrap, validation, testing,
@@ -249,10 +249,10 @@ save. Tests replace the path with an isolated runner-owned file. There is no
 cloud synchronization, backup contract, or legacy-score migration; changing
 the storage identity intentionally starts a distinct store.
 
-Tracked `.test-results/groups/*.json`, `.test-results/tests.json`, and
-`.test-results/validation.json` describe the exact source and environment they
-tested. The runner also owns one current outcome per group in its worktree's Git
-metadata through the shared Ceratops file at
+Tracked `.test-results/groups/*.json` and `.test-results/tests.json` describe the
+source and environment tested. SDLC records each current source check in Git
+metadata. The tracked `.test-results/validation.json` retains earlier results.
+The runner owns one current outcome per group in the Git metadata file
 `<git-common-dir>/ceratops/results/repository-checks/<worktree-id>/check_results.json`,
 capped at 64 MiB. Repository-check results also obey the shared executor's
 per-record limit. This includes dirty candidate inputs and leaves portable records
