@@ -267,9 +267,10 @@ from the maintained Ceratops reference and shares the exact current-store envelo
 Original work/check versions and execution identities survive reuse. The reported
 outcome remains `status: passed`; `execution: reused` says this call used that
 original pass. Build completion can therefore consume it as a passing check.
-The declared check-only input list separates check versions from product versions; both must
-match for current-candidate reuse. A check edit does not rewrite historical
-artifact acceptance. Current failed/running outcomes block an older pass.
+The declared check-only input list separates check versions from product
+versions; both must match for current-candidate reuse. A check edit does not
+rewrite historical artifact acceptance. Current failed/running outcomes block
+an older pass.
 Each shared runner writes its running attempt before calling the check, so an
 interrupted worker cannot leave a previous pass current throughout execution.
 SDLC declares product/check inputs, dependency files, tools and environment.
