@@ -229,8 +229,10 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     assertions = 0
 
     def portable(value: object) -> object:
-        """Replace this isolated run's root in retained assertion evidence."""
+        """Render assertion evidence as JSON without this run's scratch path."""
 
+        if isinstance(value, bytes):
+            return {"bytesHex": value.hex()}
         if isinstance(value, str):
             return value.replace(str(temporary_root), "{temp}")
         if isinstance(value, list):
