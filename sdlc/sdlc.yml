@@ -259,6 +259,41 @@ repository:
 deliverables:
   packages:
     astrotops-android-apk:
+      version: &astrotops-android-apk-version
+        read:
+          - "{python}"
+          - "-c"
+          - |
+              import pathlib,re,sys
+              p=pathlib.Path(sys.argv[1])
+              matches=list(re.finditer(sys.argv[2],p.read_bytes().decode('utf-8'),re.M))
+              if len(matches)!=1: raise ValueError('Expected one native version declaration')
+              print(matches[0][1])
+          - "export_presets.cfg"
+          - "^version/name=\"([^\"\\r\\n]+)\"\\r?$"
+        write:
+          - "{python}"
+          - "-c"
+          - |
+              import os,pathlib,re,sys
+              p=pathlib.Path(sys.argv[1]); text=p.read_bytes().decode('utf-8')
+              matches=list(re.finditer(sys.argv[2],text,re.M))
+              if len(matches)!=1: raise ValueError('Expected one native version declaration')
+              version=sys.argv[4]
+              if not re.fullmatch(sys.argv[3],version): raise ValueError('Version does not match the native format')
+              temporary=p.with_name('.'+p.name+'.in_process')
+              temporary.unlink(missing_ok=True)
+              if matches[0][1]!=version:
+                  start,end=matches[0].span(1)
+                  with temporary.open('xb') as stream:
+                      stream.write((text[:start]+version+text[end:]).encode('utf-8')); stream.flush(); os.fsync(stream.fileno())
+                  os.replace(temporary,p)
+          - "export_presets.cfg"
+          - "^version/name=\"([^\"\\r\\n]+)\"\\r?$"
+          - "[0-9]+(?:\\.[0-9]+){2}(?:(?:a|b|rc)[1-9][0-9]*)?"
+          - "{version}"
+        files:
+          - "export_presets.cfg"
       root-dir: .
       build-after: []
       artifact:
@@ -297,6 +332,7 @@ deliverables:
                 - android-apk
   apps:
     astrotops:
+      version: *astrotops-android-apk-version
       root-dir: .
       manifest: export_presets.cfg
       build-after:
