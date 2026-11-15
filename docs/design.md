@@ -264,8 +264,10 @@ capped at 64 MiB. Repository-check results also obey the shared executor's
 per-record limit. This includes dirty candidate inputs and leaves portable records
 untouched with `--no-record`. The repository-owned writer is deliberately adopted
 from the maintained Ceratops reference and shares the exact current-store envelope.
-Original work/check versions and execution identities survive reuse. The declared
-check-only input list separates check versions from product versions; both must
+Original work/check versions and execution identities survive reuse. The reported
+outcome remains `status: passed`; `execution: reused` says this call used that
+original pass. Build completion can therefore consume it as a passing check.
+The declared check-only input list separates check versions from product versions; both must
 match for current-candidate reuse. A check edit does not rewrite historical
 artifact acceptance. Current failed/running outcomes block an older pass.
 Each shared runner writes its running attempt before calling the check, so an

@@ -963,6 +963,8 @@ def current_result_lifecycle_checks(temporary_root: pathlib.Path) -> list[str]:
     twice = reused_result(reused_result(passed, {"commit": "later"}), {"commit": "latest"})
     assert twice["source"] == passed["source"] and twice["originalRunId"] == passed["runId"]
     assert twice["checkVersion"] == passed["checkVersion"]
+    assert twice["status"] == twice["outcome"] == "passed"
+    assert twice["execution"] == "reused" and twice["exitCode"] == 0
     assert applicable_group_pass(CurrentCheckResults(root).records(kind, target=target)[0], fingerprint, None)
     assert not applicable_group_pass(passed, fingerprint, None, "beta")
     assert applicable_group_pass({**passed, "qualificationLevel": "final"}, fingerprint, None, "beta")
@@ -1555,9 +1557,10 @@ def load_group_result(path: pathlib.Path) -> dict[str, object] | None:
 def reused_result(
     previous: dict[str, object], source: dict[str, object]
 ) -> dict[str, object]:
+    """Keep the passing outcome distinct from whether this call executed it."""
     result = dict(previous)
     result.update(
-        status="reused",
+        status="passed",
         outcome="passed",
         execution="reused",
         exitCode=0,
