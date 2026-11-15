@@ -926,11 +926,14 @@ def read_build_check_summary(root: pathlib.Path, tag: str, receipt_path: str) ->
     raw = _build_blob(root, commit, receipt_path, 1024 * 1024)
     receipt = json.loads(raw)
     identity = receipt["identity"]
-    expected_tag = identity["releaseUnit"] + "/" + identity["version"]
-    parent = f'.build/{identity["releaseUnit"]}/{identity["version"]}'
+    key = identity.get("storageKey") or identity.get("releaseBundle")
+    if not isinstance(key, str) or not re.fullmatch(r"(?:[a-z][a-z0-9_-]*|members/[a-z][a-z0-9_-]*/[a-z][a-z0-9_-]*|bundles/[a-z][a-z0-9_-]*)", key):
+        raise ValueError("Build receipt has an invalid storage key.")
+    expected_tag = key + "/" + identity["version"]
+    parent = f'.build/{key}/{identity["version"]}'
     expected_paths = {parent + "/build_receipt.json",
                       parent + "/" + identity["target"] + "/build_receipt.json"}
-    if (receipt.get("schema") != "ceratops-build-result.v3" or receipt.get("status") != "passed"
+    if (receipt.get("schema") != "ceratops-build-result.v4" or receipt.get("status") != "passed"
             or receipt.get("receiptPath") != receipt_path or receipt_path not in expected_paths
             or tag != expected_tag or receipt.get("tag", tag) != tag):
         raise ValueError("Build tag, identity and committed receipt path disagree.")
@@ -970,7 +973,9 @@ def select_build_check_summaries(
     if not history.is_dir():
         return []
     candidates: list[tuple[Any, str, str, pathlib.Path, str]] = []
-    for pattern in ("*/*/build_receipt.json", "*/*/*/build_receipt.json"):
+    for pattern in ("*/*/build_receipt.json", "*/*/*/build_receipt.json",
+                    "members/*/*/*/build_receipt.json", "members/*/*/*/*/build_receipt.json",
+                    "bundles/*/*/build_receipt.json", "bundles/*/*/*/build_receipt.json"):
         for path in history.glob(pattern):
             if any(parent.is_symlink() or parent.is_junction() for parent in (path, *path.parents)):
                 raise ValueError("Build history cannot traverse directory links.")
@@ -978,8 +983,13 @@ def select_build_check_summaries(
                 raise ValueError("Local build receipt exceeds its size limit.")
             try:
                 receipt = json.loads(path.read_bytes())
+                if receipt.get("schema") != "ceratops-build-result.v4":
+                    continue
                 identity = receipt["identity"]
-                name, destination, version = identity["releaseUnit"], identity["target"], identity["version"]
+                name = identity.get("storageKey") or identity.get("releaseBundle")
+                if not isinstance(name, str):
+                    continue
+                destination, version = identity["target"], identity["version"]
                 level = build_qualification(version)
                 if (unit is not None and name != unit) or (target is not None and destination != target):
                     continue
@@ -1001,7 +1011,7 @@ def select_build_check_summaries(
             continue
         selected = read_build_check_summary(root, tag, path.relative_to(root).as_posix())
         identity = selected["receipt"]["identity"]
-        if (identity["releaseUnit"], identity["target"]) != (name, destination):
+        if (identity.get("storageKey") or identity.get("releaseBundle"), identity["target"]) != (name, destination):
             raise ValueError("Local build selector differs from the tagged identity.")
         chosen[(name, destination)] = selected
     return [chosen[key] for key in sorted(chosen)]

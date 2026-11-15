@@ -20,6 +20,7 @@ import json
 import os
 import pathlib
 import platform
+import runpy
 import shutil
 import subprocess
 import sys
@@ -27,6 +28,7 @@ import tempfile
 import time
 import zipfile
 from datetime import UTC, datetime
+from functools import partial
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -64,14 +66,17 @@ from result_records import (  # noqa: E402
     check_result_context,
     describe_result_contract,
     group_fingerprint,
+    read_build_check_summary,
     record_completed_android_export,
     require_current_android_export,
     resolve_artifact_identity,
     resolve_source_identity,
     result_path,
     run_recorded_check,
+    select_build_check_summaries,
     write_result,
 )
+from result_records import main as record_result_command  # noqa: E402
 
 INVENTORY_SCHEMA = "astrotops-test-inventory.v1"
 GODOT_RESULT_PREFIX = "ASTROTOPS_TEST_RESULT="
@@ -450,6 +455,88 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
               require_current_android_export(fake_repo, artifact, "android-apk")["sha256"])
     artifact.write_bytes(original_bytes)
     record_completed_android_export(fake_repo, artifact, source_before_export)
+
+    output_directory = temporary_root / "_allocated-build"
+    output_directory.mkdir()
+    output_apk = output_directory / artifact.name
+    pending_copy = output_directory / ("." + artifact.name + ".in_process")
+    builder_arguments = ["result_records.py", "build-result", "--artifact", str(artifact),
+                         "--type", "android-apk", "--output-directory", str(output_directory)]
+    builder_output = {"schema": "ceratops-builder-output", "status": "passed",
+                      "artifacts": [{"type": "android-apk", "path": artifact.name}],
+                      "installationArtifactPath": artifact.name}
+    with patch("result_records.__file__", str(fake_repo / "scripts" / "result_records.py")), \
+            patch.object(sys, "argv", builder_arguments):
+        for _ in range(2):
+            builder_stdout = io.StringIO()
+            with contextlib.redirect_stdout(builder_stdout):
+                code = record_result_command()
+            check("builder-output-current-format", (0, builder_output), (code, json.loads(builder_stdout.getvalue())))
+            check("builder-output-exact-copy", original_bytes, output_apk.read_bytes())
+            check("builder-preserves-native-export", original_bytes, artifact.read_bytes())
+        for after in (False, True):
+            replacement = original_bytes + str(after).encode()
+            artifact.write_bytes(replacement)
+            record_completed_android_export(fake_repo, artifact, source_before_export)
+            before = output_apk.read_bytes()
+            builder_stdout, builder_stderr = io.StringIO(), io.StringIO()
+            with patch("result_records.os.replace", side_effect=partial(interrupt_record, after=after)), \
+                    contextlib.redirect_stdout(builder_stdout), contextlib.redirect_stderr(builder_stderr):
+                code = record_result_command()
+            check("builder-interruption-not-success", (1, "", True),
+                  (code, builder_stdout.getvalue(), "export record interrupted" in builder_stderr.getvalue()))
+            check("builder-interruption-keeps-complete-file", replacement if after else before, output_apk.read_bytes())
+            check("builder-cleans-in-process-file", False, pending_copy.exists())
+            pending_copy.write_bytes(b"unfinished-copy")
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = record_result_command()
+            check("builder-retry-publishes-current-copy", (0, replacement, False),
+                  (code, output_apk.read_bytes(), pending_copy.exists()))
+        artifact.write_bytes(b"not-a-completed-export")
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            code = record_result_command()
+        check("builder-rejects-unrecorded-bytes", (1, replacement), (code, output_apk.read_bytes()))
+        artifact.write_bytes(original_bytes)
+        record_completed_android_export(fake_repo, artifact, source_before_export)
+        with patch("result_records.shutil.copyfileobj", side_effect=OSError("copy interrupted")), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            code = record_result_command()
+        check("builder-copy-interruption-keeps-complete-file", (1, replacement, False),
+              (code, output_apk.read_bytes(), pending_copy.exists()))
+
+    # Tagged summaries use the current member/bundle folders. No package bytes
+    # or other checkout history are needed to recover their saved check outcomes.
+    expected_tags = []
+    for key in ("members/packages/astrotops-android-apk", "bundles/astrotops"):
+        tag = key + "/0.1.0a1"
+        directory = fake_repo / ".build" / key / "0.1.0a1" / "android"
+        directory.mkdir(parents=True)
+        summary = {"schema": "ceratops-check-summary.v1", "inputGroups": {}, "checkGroups": {},
+                   "checks": [{"kind": "test", "id": "delivery-lifecycle", "status": "passed", "result_id": "saved-pass"}]}
+        summary_bytes = json.dumps(summary).encode()
+        summary_path = directory / "check_summary.json"
+        summary_path.write_bytes(summary_bytes)
+        receipt_path = directory / "build_receipt.json"
+        receipt = {"schema": "ceratops-build-result.v4", "status": "passed", "tag": tag,
+                   "identity": {"storageKey": key, "version": "0.1.0a1", "target": "android"},
+                   "receiptPath": receipt_path.relative_to(fake_repo).as_posix(),
+                   "committedResultPaths": [summary_path.relative_to(fake_repo).as_posix()],
+                   "checkSummary": {"root": "git", "path": summary_path.relative_to(fake_repo).as_posix(),
+                                    "size": len(summary_bytes), "sha256": hashlib.sha256(summary_bytes).hexdigest()}}
+        receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+        for arguments in (["add", ".build"], ["-c", "user.name=AstroTops Tests", "-c", "user.email=tests@astrotops.invalid",
+                          "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "Completed build fixture"], ["tag", tag]):
+            completed = subprocess.run(["git", "-C", str(fake_repo), *arguments], capture_output=True, text=True, check=False)
+            assert completed.returncode == 0, (arguments, completed.stdout, completed.stderr)
+        expected_tags.append(tag)
+        saved = read_build_check_summary(fake_repo, tag, receipt_path.relative_to(fake_repo).as_posix())
+        check("current-build-summary-preserves-pass", summary, saved["summary"])
+    summaries = select_build_check_summaries(fake_repo, target="android")
+    check("current-member-and-bundle-history", sorted(expected_tags), sorted(item["tag"] for item in summaries))
+    check("higher-qualification-does-not-borrow-alpha", [], select_build_check_summaries(fake_repo, qualification_level="beta"))
+    template = runpy.run_path(str(_SCRIPT_DIRECTORY.parent / "docs" / "result_records.py.tmpl"))
+    template_summaries = template["select_build_check_summaries"](fake_repo, target="android")
+    check("template-reads-current-build-summaries", summaries, template_summaries)
 
     import_calls: list[tuple[list[str], dict[str, object]]] = []
 

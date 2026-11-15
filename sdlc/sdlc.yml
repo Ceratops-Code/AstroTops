@@ -229,6 +229,7 @@ repository:
               - scripts/run-tests.py
               - scripts/regression_tests.gd
               - scripts/result_records.py
+              - docs/result_records.py.tmpl
               - docs/feature-acceptance.json
               - sdlc/sdlc.yml
               - addons/bobo_board/native/board/src/test/**
@@ -307,7 +308,11 @@ deliverables:
               - android-sdk
               - jdk
               - uv
-          result-schema: ceratops-build-result.v1
+          parameters:
+            - version
+            - target
+            - artifact_directory
+          result-schema: ceratops-builder-output
           steps:
             - run:
                 - uv
@@ -315,6 +320,7 @@ deliverables:
                 - --project
                 - scripts
                 - --locked
+                - python
                 - scripts/run-tests.py
                 - --export-debug
                 - .build/artifacts/android/AstroTops.apk
@@ -324,12 +330,15 @@ deliverables:
                 - --project
                 - scripts
                 - --locked
+                - python
                 - scripts/result_records.py
                 - build-result
                 - --artifact
                 - .build/artifacts/android/AstroTops.apk
                 - --type
                 - android-apk
+                - --output-directory
+                - '{artifact_directory}'
   apps:
     astrotops:
       version: *astrotops-android-apk-version

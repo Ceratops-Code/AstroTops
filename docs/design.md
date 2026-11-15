@@ -219,6 +219,11 @@ after the face, so the ring visibly wraps around rather than sitting behind it.
 Desktop development runs the project directly in Godot. Android packaging
 produces `.build/artifacts/android/AstroTops.apk`; the current export identity,
 source digest and APK descriptor live in the shared current-results store.
+The build-result command copies the completed APK into Ceratops' supplied attempt
+directory. It publishes the copy by replacing one flushed `.in_process` file,
+then returns `ceratops-builder-output` with relative file names. Ceratops owns
+that directory's cleanup, completed receipt and tag; the local APK remains the
+input to AstroTops' existing ADB installer.
 `.build/builds/` retains historical source-tag reports. The Gradle export
 uses separate adaptive background, foreground, and monochrome launcher layers.
 Every SDLC step that needs Godot calls the repository helper, which honors an
@@ -503,11 +508,11 @@ camera behavior remain explicit verification gaps.
 The Ceratops design draft's methodology informs independent owners, declared
 affected inputs, original result identity, bounded outputs, and fresh calls after
 interruptions. Shared check-result production, the current-results envelope,
-qualification levels and SDLC scheduling are connected. Public artifact-receipt
-Build/Deploy routing remains planned in the installed Kit. AstroTops package
-production and installation use their repository-owned completed-export guard
-with shared SDLC check outcomes. A shared source-check receipt or native export
-record is not a completed versioned artifact receipt.
+qualification levels and SDLC scheduling are implemented. AstroTops supplies the
+current builder-output format to Ceratops Build and reads current tagged member
+and bundle check summaries. Its ADB installation still consumes the native export
+and the repository-owned completed-export record, with shared SDLC check outcomes.
+A native export record is not a completed versioned artifact receipt.
 
 ## 14 Ownership and maintenance
 

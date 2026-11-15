@@ -369,12 +369,12 @@ def group_fingerprint(
     return _digest_json(payload)
 
 
-def build_result(
+def describe_exported_artifact(
     repo_root: pathlib.Path,
     artifact: pathlib.Path,
     artifact_type: str,
 ) -> dict[str, object]:
-    """Describe exact completed package bytes in the Ceratops build schema."""
+    """Describe the native APK for the worktree's export and ADB records."""
 
     if not _ARTIFACT_TYPE.fullmatch(artifact_type):
         raise ValueError("artifact type must use lower-case kebab syntax")
@@ -388,14 +388,10 @@ def build_result(
     if artifact.stat().st_size < 1:
         raise ValueError("build artifact is empty")
     return {
-        "schema": "ceratops-build-result.v1",
-        "status": "passed",
-        "artifact": {
-            "type": artifact_type,
-            "path": f".build/artifacts/{relative}",
-            "sha256": _sha256(artifact),
-            "size": artifact.stat().st_size,
-        },
+        "type": artifact_type,
+        "path": f".build/artifacts/{relative}",
+        "sha256": _sha256(artifact),
+        "size": artifact.stat().st_size,
     }
 
 
@@ -412,7 +408,7 @@ def record_completed_android_export(
     current = resolve_source_identity(repo_root)
     if current.digest != source_before_export.digest:
         raise ValueError("Record Android export: source changed while building " + str(artifact))
-    descriptor = build_result(repo_root, artifact, "android-apk")["artifact"]
+    descriptor = describe_exported_artifact(repo_root, artifact, "android-apk")
     store = CurrentCheckResults(repo_root)
     target = {"type": "android-apk"}
     previous = next(iter(store.records("astrotops-android-export", target=target)), None)
@@ -429,7 +425,7 @@ def record_completed_android_export(
 
 def require_current_android_export(repo_root: pathlib.Path, artifact: pathlib.Path, artifact_type: str) -> dict[str, Any]:
     """Read the completed export and reject changed APK bytes or source before ADB."""
-    actual = build_result(repo_root, artifact, artifact_type)["artifact"]
+    actual = describe_exported_artifact(repo_root, artifact, artifact_type)
     record = next(iter(CurrentCheckResults(repo_root).records("astrotops-android-export", target={"type": "android-apk"})), None)
     if (record is None or record.get("schema") != "astrotops-android-export.v1" or record.get("status") != "passed"
             or record.get("artifact") != actual or not isinstance(record.get("source"), dict)
@@ -1194,11 +1190,14 @@ def read_build_check_summary(root: pathlib.Path, tag: str, receipt_path: str) ->
     raw = _build_blob(root, commit, receipt_path, 1024 * 1024)
     receipt = json.loads(raw)
     identity = receipt["identity"]
-    expected_tag = identity["releaseUnit"] + "/" + identity["version"]
-    parent = f'.build/{identity["releaseUnit"]}/{identity["version"]}'
+    key = identity.get("storageKey") or identity.get("releaseBundle")
+    if not isinstance(key, str) or not re.fullmatch(r"(?:[a-z][a-z0-9_-]*|members/[a-z][a-z0-9_-]*/[a-z][a-z0-9_-]*|bundles/[a-z][a-z0-9_-]*)", key):
+        raise ValueError("Build receipt has an invalid storage key.")
+    expected_tag = key + "/" + identity["version"]
+    parent = f'.build/{key}/{identity["version"]}'
     expected_paths = {parent + "/build_receipt.json",
                       parent + "/" + identity["target"] + "/build_receipt.json"}
-    if (receipt.get("schema") != "ceratops-build-result.v3" or receipt.get("status") != "passed"
+    if (receipt.get("schema") != "ceratops-build-result.v4" or receipt.get("status") != "passed"
             or receipt.get("receiptPath") != receipt_path or receipt_path not in expected_paths
             or tag != expected_tag or receipt.get("tag", tag) != tag):
         raise ValueError("Build tag, identity and committed receipt path disagree.")
@@ -1238,7 +1237,9 @@ def select_build_check_summaries(
     if not history.is_dir():
         return []
     candidates: list[tuple[Any, str, str, pathlib.Path, str]] = []
-    for pattern in ("*/*/build_receipt.json", "*/*/*/build_receipt.json"):
+    for pattern in ("*/*/build_receipt.json", "*/*/*/build_receipt.json",
+                    "members/*/*/*/build_receipt.json", "members/*/*/*/*/build_receipt.json",
+                    "bundles/*/*/build_receipt.json", "bundles/*/*/*/build_receipt.json"):
         for path in history.glob(pattern):
             if any(parent.is_symlink() or parent.is_junction() for parent in (path, *path.parents)):
                 raise ValueError("Build history cannot traverse directory links.")
@@ -1246,8 +1247,13 @@ def select_build_check_summaries(
                 raise ValueError("Local build receipt exceeds its size limit.")
             try:
                 receipt = json.loads(path.read_bytes())
+                if receipt.get("schema") != "ceratops-build-result.v4":
+                    continue
                 identity = receipt["identity"]
-                name, destination, version = identity["releaseUnit"], identity["target"], identity["version"]
+                name = identity.get("storageKey") or identity.get("releaseBundle")
+                if not isinstance(name, str):
+                    continue
+                destination, version = identity["target"], identity["version"]
                 level = build_qualification(version)
                 if (unit is not None and name != unit) or (target is not None and destination != target):
                     continue
@@ -1269,7 +1275,7 @@ def select_build_check_summaries(
             continue
         selected = read_build_check_summary(root, tag, path.relative_to(root).as_posix())
         identity = selected["receipt"]["identity"]
-        if (identity["releaseUnit"], identity["target"]) != (name, destination):
+        if (identity.get("storageKey") or identity.get("releaseBundle"), identity["target"]) != (name, destination):
             raise ValueError("Local build selector differs from the tagged identity.")
         chosen[(name, destination)] = selected
     return [chosen[key] for key in sorted(chosen)]
@@ -1439,6 +1445,7 @@ def main() -> int:
     build_parser = subparsers.add_parser("build-result")
     build_parser.add_argument("--artifact", type=pathlib.Path, required=True)
     build_parser.add_argument("--type", required=True)
+    build_parser.add_argument("--output-directory", type=pathlib.Path, required=True)
     deploy_parser = subparsers.add_parser("android-deploy")
     deploy_parser.add_argument("--adb-executable", required=True)
     deploy_parser.add_argument("--device", required=True)
@@ -1451,8 +1458,31 @@ def main() -> int:
     result: dict[str, object]
     try:
         if args.command == "build-result":
-            result = {"schema": "ceratops-build-result.v1", "status": "passed",
-                      "artifact": require_current_android_export(repo_root, args.artifact, args.type)}
+            descriptor = require_current_android_export(repo_root, args.artifact, args.type)
+            directory = args.output_directory.expanduser().resolve(strict=True)
+            if not directory.is_dir():
+                raise ValueError("Build output directory must already exist.")
+            source = (repo_root / str(descriptor["path"])).resolve(strict=True)
+            destination = directory / source.name
+            staging = directory / ("." + source.name + ".in_process")
+            if destination == source or any(path.is_symlink() or path.is_junction()
+                                            for path in (args.output_directory, destination, staging)):
+                raise ValueError("Build output must be a separate directory without linked files.")
+            # Godot owns the one current native export used by ADB. Ceratops owns
+            # this allocated attempt directory and its retention. Publish one
+            # complete copy before reporting its relative filename; an interrupted
+            # copy never exposes partial APK bytes or a successful builder result.
+            try:
+                with source.open("rb") as incoming, staging.open("wb") as outgoing:
+                    shutil.copyfileobj(incoming, outgoing)
+                    outgoing.flush()
+                    os.fsync(outgoing.fileno())
+                os.replace(staging, destination)
+            finally:
+                staging.unlink(missing_ok=True)
+            result = {"schema": "ceratops-builder-output", "status": "passed",
+                      "artifacts": [{"type": args.type, "path": destination.name}],
+                      "installationArtifactPath": destination.name}
         else:
             result = android_deploy_result(
                 repo_root,

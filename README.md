@@ -186,10 +186,12 @@ The Android build-and-lint operation has its own shared result and uses the
 same declared product inputs as gameplay checks. Applicable passes can be reused
 across promotion, deployment and shipping.
 
-Shared check receipts and qualification levels are connected. Artifact receipts
-and receipt-driven release consumption still require the Kit's planned public
-Build/Deploy routing. Current package build and installation use a repository-owned
-completed-export guard; this is separate from full artifact-receipt acceptance.
+The package builder copies its completed native APK to the directory supplied by
+Ceratops and emits `ceratops-builder-output` with relative artifact names.
+Ceratops owns the completed version's receipt and tag. The check-history reader
+uses current tagged member and bundle summaries. The native ADB installer still
+uses the local APK and its repository-owned completed-export record; it does not
+install directly from a saved Ceratops build receipt.
 
 Repository checks and gameplay checks remain separate SDLC stages. Successful
 Android export records the source digest and APK descriptor in the shared store
