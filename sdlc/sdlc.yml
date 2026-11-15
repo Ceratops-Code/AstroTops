@@ -300,7 +300,7 @@ deliverables:
       artifact:
         type: android-apk
         output-directory: .build/artifacts/android
-        filename-pattern: AstroTops.apk
+        filename-pattern: AstroTops-{version}.apk
       actions:
         build:
           requires:
@@ -339,6 +339,8 @@ deliverables:
                 - android-apk
                 - --output-directory
                 - '{artifact_directory}'
+                - --version
+                - '{version}'
   apps:
     astrotops:
       version: *astrotops-android-apk-version

@@ -1445,6 +1445,7 @@ def main() -> int:
     build_parser = subparsers.add_parser("build-result")
     build_parser.add_argument("--artifact", type=pathlib.Path, required=True)
     build_parser.add_argument("--type", required=True)
+    build_parser.add_argument("--version", required=True)
     build_parser.add_argument("--output-directory", type=pathlib.Path, required=True)
     deploy_parser = subparsers.add_parser("android-deploy")
     deploy_parser.add_argument("--adb-executable", required=True)
@@ -1463,8 +1464,10 @@ def main() -> int:
             if not directory.is_dir():
                 raise ValueError("Build output directory must already exist.")
             source = (repo_root / str(descriptor["path"])).resolve(strict=True)
-            destination = directory / source.name
-            staging = directory / ("." + source.name + ".in_process")
+            if not re.fullmatch(r"[0-9]+(?:\.[0-9]+){2}(?:(?:a|b|rc)[1-9][0-9]*)?", args.version):
+                raise ValueError("Build version must use the native Android version format.")
+            destination = directory / f"{source.stem}-{args.version}{source.suffix}"
+            staging = directory / ("." + destination.name + ".in_process")
             if destination == source or any(path.is_symlink() or path.is_junction()
                                             for path in (args.output_directory, destination, staging)):
                 raise ValueError("Build output must be a separate directory without linked files.")

@@ -460,13 +460,14 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
 
     output_directory = temporary_root / "_allocated-build"
     output_directory.mkdir()
-    output_apk = output_directory / artifact.name
-    pending_copy = output_directory / ("." + artifact.name + ".in_process")
+    output_apk = output_directory / "AstroTops-0.1.0b1.apk"
+    pending_copy = output_directory / ("." + output_apk.name + ".in_process")
     builder_arguments = ["result_records.py", "build-result", "--artifact", str(artifact),
-                         "--type", "android-apk", "--output-directory", str(output_directory)]
+                         "--type", "android-apk", "--version", "0.1.0b1",
+                         "--output-directory", str(output_directory)]
     builder_output = {"schema": "ceratops-builder-output", "status": "passed",
-                      "artifacts": [{"type": "android-apk", "path": artifact.name}],
-                      "installationArtifactPath": artifact.name}
+                      "artifacts": [{"type": "android-apk", "path": output_apk.name}],
+                      "installationArtifactPath": output_apk.name}
     with patch("result_records.__file__", str(fake_repo / "scripts" / "result_records.py")), \
             patch.object(sys, "argv", builder_arguments):
         for _ in range(2):
