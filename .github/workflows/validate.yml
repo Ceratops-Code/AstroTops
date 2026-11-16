@@ -53,21 +53,25 @@ jobs:
           include-templates: "false"
       - name: Install npm validation dependencies
         run: npm --prefix scripts ci
-      - name: Validate and test through SDLC
-        uses: Ceratops-Code/Ceratops-AI-Agents-Kit/skills/ceratops-repo-lifecycle/scripts@e8be76455f30750c67f4d5318bdef55458af5572 # revision e8be76455f30
-        with:
-          repo-root: ${{ github.workspace }}
-          evidence-file: ${{ runner.temp }}/repository-validation.log
-          operations: |
-            repository.actions.pre-build-checks.check-groups.repository-contract
-            repository.actions.pre-build-checks.check-groups.npm-markdown-lint
-            repository.actions.pre-build-checks.check-groups.ruff
-            repository.actions.pre-build-checks.check-groups.mypy
-            repository.actions.pre-build-checks.check-groups.actionlint
-            deliverables.apps.astrotops.actions.pre-build-checks.check-groups.source
-            repository.actions.pre-build-checks.check-groups.tests
-            deliverables.apps.astrotops.actions.pre-build-checks.check-groups.tests
-
+      - name: Run repository checks and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          # repository.actions.pre-build-checks.check-groups.repository-contract
+          uv run --project scripts --locked python scripts/check-repository-contract.py 2>&1 | tee -a "${RUNNER_TEMP}/repository-validation.log"
+          # repository.actions.pre-build-checks.check-groups.npm-markdown-lint
+          npm --prefix scripts run lint:markdown 2>&1 | tee -a "${RUNNER_TEMP}/repository-validation.log"
+          # repository.actions.pre-build-checks.check-groups.ruff
+          uv run --project scripts --locked python -m ruff check . --config scripts/pyproject.toml 2>&1 | tee -a "${RUNNER_TEMP}/repository-validation.log"
+          # repository.actions.pre-build-checks.check-groups.mypy
+          uv run --project scripts --locked python -m mypy --config-file scripts/pyproject.toml 2>&1 | tee -a "${RUNNER_TEMP}/repository-validation.log"
+          # repository.actions.pre-build-checks.check-groups.actionlint
+          uv run --project scripts --locked python scripts/run-actionlint.py 2>&1 | tee -a "${RUNNER_TEMP}/repository-validation.log"
+          # deliverables.apps.astrotops.actions.pre-build-checks.check-groups.source
+          uv run --project scripts --locked scripts/run-tests.py --validate-android-build 2>&1 | tee -a "${RUNNER_TEMP}/repository-validation.log"
+          # repository.actions.pre-build-checks.check-groups.tests
+          uv run --project scripts --locked python scripts/run-tests.py --no-record --scope repository 2>&1 | tee -a "${RUNNER_TEMP}/repository-validation.log"
+          # deliverables.apps.astrotops.actions.pre-build-checks.check-groups.tests: Repository tests own the grouped gameplay and rendered-app qualification.
       - name: Upload validation evidence
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
