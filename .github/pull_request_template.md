@@ -6,7 +6,7 @@
 
 - [ ] `npm --prefix scripts ci`
 - [ ] `uv sync --project scripts --locked`
-- [ ] Repository source checks in `sdlc/sdlc.yml` passed.
+- [ ] Repository source checks in `.ceratops/sdlc/sdlc.yml` passed.
 - [ ] Godot project parses without errors
 - [ ] Changed keyboard, gamepad, and touch behavior was exercised
 

@@ -16,7 +16,7 @@
     {"path": "scripts/planet.gd", "role": "Implemented celestial-body rendering, capture, collision extent, and explosion behavior"},
     {"path": "scripts/meteor.gd", "role": "Implemented meteor-flight and impact behavior"},
     {"path": "export_presets.cfg", "role": "Android package identity, architecture, and launcher-icon export configuration"},
-    {"path": "sdlc/sdlc.yml", "role": "Repository build, validation, delivery, and Android installation workflow"},
+    {"path": ".ceratops/sdlc/sdlc.yml", "role": "Repository build, validation, delivery, and Android installation workflow"},
     {"path": "docs/feature-acceptance.json", "role": "Current requirement-to-observable-test contract"},
     {"path": "scripts/godot_toolchain.py", "role": "Pinned Godot editor and Android source-template provisioning, project-template installation, JDK and SDK preflight, validation, export, and Gradle lint"},
     {"path": "scripts/run-tests.py", "role": "Grouped regression orchestration and shipping-lifecycle acceptance tests"},
@@ -161,7 +161,7 @@ bounded evidence, artifact identity, and deterministic Android deployment.
   checks repository structure and contracts independently from gameplay tests.
 - [`scripts/result_records.py`](../scripts/result_records.py) is the only
   storage owner for portable result records and bounded ignored evidence.
-- [`sdlc/sdlc.yml`](../sdlc/sdlc.yml) declares bootstrap, validation, testing,
+- [`.ceratops/sdlc/sdlc.yml`](../.ceratops/sdlc/sdlc.yml) declares bootstrap, validation, testing,
   packaging, delivery verification, and ADB installation.
 
 ## 6 Runtime behavior
@@ -225,7 +225,7 @@ It publishes the copy by replacing one flushed `.in_process` file,
 then returns `ceratops-builder-output` with relative file names. Ceratops owns
 that directory's cleanup, completed receipt and tag; the local APK remains the
 input to AstroTops' existing ADB installer.
-`.build/builds/` retains historical source-tag reports. The Gradle export
+`.ceratops/build/builds/` retains historical source-tag reports. The Gradle export
 uses separate adaptive background, foreground, and monochrome launcher layers.
 Every SDLC step that needs Godot calls the repository helper, which honors an
 explicit executable or a matching `PATH` installation and otherwise provisions
@@ -255,9 +255,9 @@ save. Tests replace the path with an isolated runner-owned file. There is no
 cloud synchronization, backup contract, or legacy-score migration; changing
 the storage identity intentionally starts a distinct store.
 
-Tracked `.test-results/groups/*.json` and `.test-results/tests.json` describe the
+Tracked `.ceratops/results/groups/*.json` and `.ceratops/results/tests.json` describe the
 source and environment tested. SDLC records each current source check in Git
-metadata. The tracked `.test-results/validation.json` retains earlier results.
+metadata. The tracked `.ceratops/results/validation.json` retains earlier results.
 The runner owns one current outcome per group in the Git metadata file
 `<git-common-dir>/ceratops/results/repository-checks/<worktree-id>/check_results.json`,
 capped at 64 MiB. Repository-check results also obey the shared executor's
@@ -356,7 +356,7 @@ Traxy's capture waits only for its generated poof to finish. Missing voice
 support still degrades to silent names without
 blocking capture. `ConfigFile` is the local persistence interface.
 
-The SDLC contract is [`sdlc/sdlc.yml`](../sdlc/sdlc.yml). Repository helpers
+The SDLC contract is [`.ceratops/sdlc/sdlc.yml`](../.ceratops/sdlc/sdlc.yml). Repository helpers
 use subprocess argument arrays rather than shell strings. The Android install
 interface accepts an ADB executable, device, package, activity, and artifact;
 it returns the declared structured receipt or a bounded error.

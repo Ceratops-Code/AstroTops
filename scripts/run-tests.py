@@ -512,7 +512,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     expected_tags = []
     for key in ("members/packages/astrotops-android-apk", "bundles/astrotops"):
         tag = key + "/0.1.0a1"
-        directory = fake_repo / ".build" / key / "0.1.0a1" / "android"
+        directory = fake_repo / ".ceratops/build" / key / "0.1.0a1" / "android"
         directory.mkdir(parents=True)
         summary = {"schema": "ceratops-check-summary.v1", "inputGroups": {}, "checkGroups": {},
                    "checks": [{"kind": "test", "id": "delivery-lifecycle", "status": "passed", "result_id": "saved-pass"}]}
@@ -527,7 +527,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
                    "checkSummary": {"root": "git", "path": summary_path.relative_to(fake_repo).as_posix(),
                                     "size": len(summary_bytes), "sha256": hashlib.sha256(summary_bytes).hexdigest()}}
         receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
-        for arguments in (["add", ".build"], ["-c", "user.name=AstroTops Tests", "-c", "user.email=tests@astrotops.invalid",
+        for arguments in (["add", ".ceratops/build"], ["-c", "user.name=AstroTops Tests", "-c", "user.email=tests@astrotops.invalid",
                           "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "Completed build fixture"], ["tag", tag]):
             completed = subprocess.run(["git", "-C", str(fake_repo), *arguments], capture_output=True, text=True, check=False)
             assert completed.returncode == 0, (arguments, completed.stdout, completed.stderr)
