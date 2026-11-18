@@ -10,7 +10,7 @@ keyboard, gamepad, or touch input.
   planet designs.
 - Keep keyboard, gamepad, and touch behavior aligned when changing controls.
 - Do not commit generated `.godot`, `android`, `.build/artifacts`, or
-  `.test-results/evidence` directories.
+  `.ceratops/results/evidence` directories.
 - Do not commit signing keys, credentials, or user-specific absolute paths.
 - Record the source and license of every third-party asset.
 - Keep Python and Node tooling under `scripts`; do not add package, lock, lint,
@@ -40,10 +40,10 @@ recalculates the repository outcome.
 ## Results and delivery
 
 `.ceratops/results/` contains the latest tracked validation and test records.
-`.test-results/evidence/` contains ignored, bounded screenshots and logs for
+`.ceratops/results/evidence/` contains ignored, bounded screenshots and logs for
 those records. `.build/artifacts/` contains ignored packages, while
-`.ceratops/build/builds/` contains tracked package identity and approval metadata. The
-runner retains the current evidence run and at most two predecessors.
+`.ceratops/build/builds/` contains tracked package identity and approval
+metadata. The runner retains the current evidence run and at most two predecessors.
 
 Candidate qualification supplies both an immutable source tag and a package:
 

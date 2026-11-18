@@ -3,4 +3,4 @@ android/
 .*.tmp
 /scripts/node_modules/
 /.build/artifacts/
-/.test-results/evidence/
+/.ceratops/results/evidence/

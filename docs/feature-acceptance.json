@@ -58,7 +58,12 @@
       "scripts/regression_tests.gd.uid": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "rendered-ui"],
       "scripts/godot_toolchain.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui"],
       "scripts/run-tests.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
+      "scripts/write_check_results.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
+      "scripts/testing/read_check_environment.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
+      "scripts/testing/reuse_test_results.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
+      "scripts/testing/select_test_groups.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
       "scripts/result_records.py": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
+      "docs/result_records.py.tmpl": ["delivery-lifecycle"],
       "scripts/check-repository-contract.py": ["delivery-lifecycle"],
       "scripts/pyproject.toml": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
       "scripts/uv.lock": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
@@ -89,7 +94,7 @@
       "addons/bobo_board/read_board_input.gd.uid": ["controls-countdown", "rendered-ui", "board-ui"],
       "addons/bobo_board/export_board_plugin.gd.uid": ["board-module"]
     },
-    "checkInputs": ["scripts/regression_tests.gd", "scripts/regression_tests.gd.uid", "scripts/run-tests.py", "scripts/result_records.py", "docs/feature-acceptance.json", "addons/bobo_board/native/board/src/test/java/io/github/ceratops_code/boboboard/check_board_behavior.kt"],
+    "checkInputs": ["scripts/regression_tests.gd", "scripts/regression_tests.gd.uid", "scripts/run-tests.py", "scripts/result_records.py", "docs/result_records.py.tmpl", "docs/feature-acceptance.json", "addons/bobo_board/native/board/src/test/java/io/github/ceratops_code/boboboard/check_board_behavior.kt"],
     "fixtures": [
       {"id": "main-scene", "owner": "scripts/regression_tests.gd", "observation": "A fresh main scene uses an isolated settings file under the runner-owned temporary root."},
       {"id": "tractor-candidates", "owner": "scripts/regression_tests.gd", "observation": "Visible, hidden, captured, aligned, close off-axis, and Traxy targets exercise shared target selection."},
@@ -97,6 +102,7 @@
     ]
   },
   "requirements": [
+    {"id": "DELIVERY-07", "acceptance": "The builder reports current builder-output JSON only after publishing a complete APK copy in Ceratops' allocated directory. Repeated calls converge, interrupted copies preserve complete output, and current member and bundle receipts supply their tagged test summaries.", "groups": ["delivery-lifecycle"], "observations": ["builder-output-current-format", "builder-output-exact-copy", "builder-preserves-native-export", "builder-interruption-not-success", "builder-interruption-keeps-complete-file", "builder-cleans-in-process-file", "builder-retry-publishes-current-copy", "builder-rejects-unrecorded-bytes", "builder-copy-interruption-keeps-complete-file", "current-build-summary-preserves-pass", "current-member-and-bundle-history", "higher-qualification-does-not-borrow-alpha", "template-reads-current-build-summaries"], "evidence": "Isolated builder command, interrupted replacement and tagged Git summary cases"},
     {"id": "DELIVERY-06", "acceptance": "Successful Android export retains one current source- and APK-bound record in the shared store. Identical exports keep their original identity. Missing records or changed source/bytes stop installation before device effects, and interrupted record replacement converges on complete current content.", "groups": ["delivery-lifecycle"], "observations": ["missing-export-record-blocks", "export-repeat-keeps-original-identity", "changed-apk-blocks-before-device-effects", "changed-source-cannot-install-or-publish", "export-record-interruption-reported", "export-record-retry-keeps-complete-identity", "export-record-retry-matches-actual-bytes"], "evidence": "Controlled export-record and fake-ADB behavior including interrupted replacement"},
     {"id": "MENU-01", "acceptance": "The game and Android package use the AstroTops identity, and the main screen says SPACE RUSH.", "groups": ["menu-ui"], "observations": ["project-name", "package-id", "brand", "subtitle"], "evidence": "structured runtime state"},
     {"id": "MENU-02", "acceptance": "The enlarged menu ship does not overlap the aligned SHIP, COLOR, PILOT, and MODE selector rows.", "groups": ["menu-ui", "rendered-ui"], "observations": ["ship-does-not-overlap-selector", "label-sizes", "menu.png"], "evidence": "runtime geometry and rendered image"},

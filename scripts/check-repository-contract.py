@@ -77,7 +77,7 @@ def repository_contract(repo_root: pathlib.Path) -> list[str]:
     ignored_probes = (
         ".build/artifacts/probe.apk",
         ".godot/probe",
-        ".test-results/evidence/probe.log",
+        ".ceratops/results/evidence/probe.log",
         "android/probe",
         "scripts/.venv/probe",
         "scripts/__pycache__/probe.pyc",

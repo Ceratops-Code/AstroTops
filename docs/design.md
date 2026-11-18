@@ -161,7 +161,8 @@ bounded evidence, artifact identity, and deterministic Android deployment.
   checks repository structure and contracts independently from gameplay tests.
 - [`scripts/result_records.py`](../scripts/result_records.py) is the only
   storage owner for portable result records and bounded ignored evidence.
-- [`.ceratops/sdlc/sdlc.yml`](../.ceratops/sdlc/sdlc.yml) declares bootstrap, validation, testing,
+- [`.ceratops/sdlc/sdlc.yml`](../.ceratops/sdlc/sdlc.yml) declares
+  bootstrap, validation, testing,
   packaging, delivery verification, and ADB installation.
 
 ## 6 Runtime behavior
@@ -219,6 +220,12 @@ after the face, so the ring visibly wraps around rather than sitting behind it.
 Desktop development runs the project directly in Godot. Android packaging
 produces `.build/artifacts/android/AstroTops.apk`; the current export identity,
 source digest and APK descriptor live in the shared current-results store.
+The build-result command copies the completed APK into Ceratops' supplied attempt
+directory as `AstroTops-<version>.apk`, using the full version supplied by SDLC.
+It publishes the copy by replacing one flushed `.in_process` file,
+then returns `ceratops-builder-output` with relative file names. Ceratops owns
+that directory's cleanup, completed receipt and tag; the local APK remains the
+input to AstroTops' existing ADB installer.
 `.ceratops/build/builds/` retains historical source-tag reports. The Gradle export
 uses separate adaptive background, foreground, and monochrome launcher layers.
 Every SDLC step that needs Godot calls the repository helper, which honors an
@@ -249,7 +256,8 @@ save. Tests replace the path with an isolated runner-owned file. There is no
 cloud synchronization, backup contract, or legacy-score migration; changing
 the storage identity intentionally starts a distinct store.
 
-Tracked `.ceratops/results/groups/*.json` and `.ceratops/results/tests.json` describe the
+Tracked `.ceratops/results/groups/*.json` and
+`.ceratops/results/tests.json` describe the
 source and environment tested. SDLC records each current source check in Git
 metadata. The tracked `.ceratops/results/validation.json` retains earlier results.
 The runner owns one current outcome per group in the Git metadata file
@@ -271,7 +279,7 @@ levels are retained rather than promoted by reuse. Both expose the supported
 controlled-command protocol probe. Calls in one worktree are serialized; each
 replacement removes its fixed in-process file, and startup removes that orphan.
 Worktree retirement removes
-these local outcomes. Raw `.test-results/evidence/<run-id>/` content is ignored
+these local outcomes. Raw `.ceratops/results/evidence/<run-id>/` content is ignored
 and retains current group runs plus two unreferenced runs, at most fifteen
 folders with twelve groups. One `astrotops-android-export.v1` entry per worktree
 binds the completed APK to its source digest. It is published after export
@@ -347,7 +355,8 @@ Traxy's capture waits only for its generated poof to finish. Missing voice
 support still degrades to silent names without
 blocking capture. `ConfigFile` is the local persistence interface.
 
-The SDLC contract is [`.ceratops/sdlc/sdlc.yml`](../.ceratops/sdlc/sdlc.yml). Repository helpers
+The SDLC contract is [`.ceratops/sdlc/sdlc.yml`](../.ceratops/sdlc/sdlc.yml).
+Repository helpers
 use subprocess argument arrays rather than shell strings. The Android install
 interface accepts an ADB executable, device, package, activity, and artifact;
 it returns the declared structured receipt or a bounded error.
@@ -503,11 +512,11 @@ camera behavior remain explicit verification gaps.
 The Ceratops design draft's methodology informs independent owners, declared
 affected inputs, original result identity, bounded outputs, and fresh calls after
 interruptions. Shared check-result production, the current-results envelope,
-qualification levels and SDLC scheduling are connected. Public artifact-receipt
-Build/Deploy routing remains planned in the installed Kit. AstroTops package
-production and installation use their repository-owned completed-export guard
-with shared SDLC check outcomes. A shared source-check receipt or native export
-record is not a completed versioned artifact receipt.
+qualification levels and SDLC scheduling are implemented. AstroTops supplies the
+current builder-output format to Ceratops Build and reads current tagged member
+and bundle check summaries. Its ADB installation still consumes the native export
+and the repository-owned completed-export record, with shared SDLC check outcomes.
+A native export record is not a completed versioned artifact receipt.
 
 ## 14 Ownership and maintenance
 
