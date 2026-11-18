@@ -62,7 +62,7 @@
       "scripts/check-repository-contract.py": ["delivery-lifecycle"],
       "scripts/pyproject.toml": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
       "scripts/uv.lock": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
-      "sdlc/sdlc.yml": ["delivery-lifecycle"],
+      ".ceratops/sdlc/sdlc.yml": ["delivery-lifecycle"],
       "docs/feature-acceptance.json": ["menu-ui", "controls-countdown", "audio-speech", "tractor-beam", "targets", "ships-pilots", "gameplay-flow", "pause-results", "delivery-lifecycle", "rendered-ui", "board-ui", "board-module"],
       "scripts/build_board_module.py": ["board-module", "delivery-lifecycle"],
       "addons/bobo_board/read_board_input.gd": ["controls-countdown", "rendered-ui", "board-ui"],

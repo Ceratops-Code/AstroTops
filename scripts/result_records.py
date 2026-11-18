@@ -38,7 +38,8 @@ VALIDATION_SCHEMA = "astrotops-repository-validation.v1"
 RESULT_SCHEMA = "astrotops-repository-tests.v1"
 GROUP_SCHEMA = "astrotops-test-group-result.v1"
 BUILD_SCHEMA = "astrotops-build-record.v1"
-_EXCLUDED_SOURCE_PREFIXES = (".build/", ".test-results/")
+# Native build scratch and evidence are outputs, as are committed Ceratops records.
+_EXCLUDED_SOURCE_PREFIXES = (".build/", ".test-results/", ".ceratops/build/", ".ceratops/results/")
 _SAFE_TAG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 _ARTIFACT_TYPE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 _ANDROID_PACKAGE = re.compile(
@@ -177,6 +178,8 @@ def resolve_source_identity(repo_root: pathlib.Path) -> SourceIdentity:
         ".",
         ":(exclude).build/**",
         ":(exclude).test-results/**",
+        ":(exclude).ceratops/build/**",
+        ":(exclude).ceratops/results/**",
     ).stdout.strip()
     if not commit:
         raise ValueError("The repository has no source commit outside result directories.")
@@ -214,8 +217,8 @@ def resolve_artifact_identity(
             tagged_commit,
             "--",
             ".",
-            ":(exclude).build/**",
-            ":(exclude).test-results/**",
+            ":(exclude).ceratops/build/**",
+            ":(exclude).ceratops/results/**",
             check=False,
         )
         if comparison.returncode:
@@ -244,9 +247,9 @@ class ResultStore:
         self.repo_root = repo_root.resolve(strict=True)
         self.source = source
         self.record = record
-        self.result_root = self.repo_root / ".test-results"
+        self.result_root = self.repo_root / ".ceratops/results"
         self.group_root = self.result_root / "groups"
-        self.evidence_root = self.result_root / "evidence"
+        self.evidence_root = self.repo_root / ".test-results" / "evidence"
         if record and source.dirty_paths:
             rendered = ", ".join(source.dirty_paths[:8])
             suffix = " ..." if len(source.dirty_paths) > 8 else ""
@@ -338,7 +341,7 @@ class ResultStore:
         """Return the portable metadata path owned by one source-tag version."""
 
         safe_version = re.sub(r"[^A-Za-z0-9._-]", "_", artifact.version)
-        return self.repo_root / ".build" / "builds" / f"{safe_version}.json"
+        return self.repo_root / ".ceratops/build" / "builds" / f"{safe_version}.json"
 
     def write_build(self, artifact: ArtifactIdentity, source_digest: str) -> pathlib.Path:
         path = self.build_path(artifact)
@@ -1195,7 +1198,8 @@ def read_build_check_summary(root: pathlib.Path, tag: str, receipt_path: str) ->
     receipt = json.loads(raw)
     identity = receipt["identity"]
     expected_tag = identity["releaseUnit"] + "/" + identity["version"]
-    parent = f'.build/{identity["releaseUnit"]}/{identity["version"]}'
+    directory = ".build" if receipt_path.startswith(".build/") else ".ceratops/build"
+    parent = f'{directory}/{identity["releaseUnit"]}/{identity["version"]}'
     expected_paths = {parent + "/build_receipt.json",
                       parent + "/" + identity["target"] + "/build_receipt.json"}
     if (receipt.get("schema") != "ceratops-build-result.v3" or receipt.get("status") != "passed"
@@ -1222,7 +1226,7 @@ def select_build_check_summaries(
     root: pathlib.Path, *, qualification_level: str = "alpha",
     unit: str | None = None, target: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Choose the newest eligible version in this checkout's .build records.
+    """Choose the newest eligible version in this checkout's .ceratops/build records.
 
     Git tags prove completion; the checkout supplies only selection identities.
     No ancestry walk, other checkout, deployment history or artifact-store scan.
@@ -1234,10 +1238,10 @@ def select_build_check_summaries(
     levels = ("alpha", "beta", "rc", "final")
     if qualification_level not in levels:
         raise ValueError("Unsupported build qualification level.")
-    history = root / ".build"
+    history = root / ".ceratops/build"
     if not history.is_dir():
         return []
-    candidates: list[tuple[Any, str, str, pathlib.Path, str]] = []
+    candidates: list[tuple[Any, str, str, pathlib.Path, str, str]] = []
     for pattern in ("*/*/build_receipt.json", "*/*/*/build_receipt.json"):
         for path in history.glob(pattern):
             if any(parent.is_symlink() or parent.is_junction() for parent in (path, *path.parents)):
@@ -1256,18 +1260,18 @@ def select_build_check_summaries(
                 tag = name + "/" + version
                 if receipt.get("status") != "passed" or receipt.get("tag", tag) != tag:
                     continue
-                candidates.append((Version(version), name, destination, path, tag))
+                candidates.append((Version(version), name, destination, path, tag, receipt["receiptPath"]))
             except (ValueError, KeyError, TypeError, InvalidVersion):
                 continue  # Interrupted local preparation is not a completed build.
     chosen: dict[tuple[str, str], dict[str, Any]] = {}
-    for _version, name, destination, path, tag in sorted(candidates, key=lambda row: (row[0], str(row[3])), reverse=True):
+    for _version, name, destination, path, tag, recorded_path in sorted(candidates, key=lambda row: (row[0], str(row[3])), reverse=True):
         if (name, destination) in chosen:
             continue
         # An absent tag is an unfinished preparation, not an accepted baseline.
         if not _build_git(root, "rev-parse", "--verify", "--quiet", "--end-of-options",
                           "refs/tags/" + tag, missing=True):
             continue
-        selected = read_build_check_summary(root, tag, path.relative_to(root).as_posix())
+        selected = read_build_check_summary(root, tag, recorded_path)
         identity = selected["receipt"]["identity"]
         if (identity["releaseUnit"], identity["target"]) != (name, destination):
             raise ValueError("Local build selector differs from the tagged identity.")

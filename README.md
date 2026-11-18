@@ -144,7 +144,7 @@ an explicitly selected group; `--fresh` explicitly requests execution again.
 With caller-supplied result identities, a fresh run needs a new result ID/path;
 an accepted identity remains immutable.
 The runner updates affected groups, preserves applicable passing results, and recalculates
-`.test-results/tests.json`. Tracked JSON records are bound to source bytes,
+`.ceratops/results/tests.json`. Tracked JSON records are bound to source bytes,
 tools, environment, and an optional exact artifact; screenshots and raw logs
 are retained in the ignored `.test-results/evidence/` directory.
 Explicit `--source-tag` / `--artifact` calls can export historical reports.

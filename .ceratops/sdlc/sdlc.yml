@@ -62,14 +62,14 @@ repository:
               - pyproject.toml
               - ruff.toml
               - uv.lock
-              - .test-results/tests.json
-              - .test-results/validation.json
+              - .ceratops/results/tests.json
+              - .ceratops/results/validation.json
             check-inputs:
-              - sdlc/sdlc.yml
+              - .ceratops/sdlc/sdlc.yml
               - scripts/pyproject.toml
               - scripts/check-repository-contract.py
               - .gitignore
-              - .build/README.md
+              - .ceratops/build/README.md
               - scripts/regression_tests.gd
               - scripts/result_records.py
               - scripts/run-tests.py
@@ -97,7 +97,7 @@ repository:
             product-inputs:
               - '**/*.md'
             check-inputs:
-              - sdlc/sdlc.yml
+              - .ceratops/sdlc/sdlc.yml
               - scripts/package.json
               - scripts/.markdownlint.json
             dependencies:
@@ -121,7 +121,7 @@ repository:
               - '**/*.pyi'
               - '**/*.ipynb'
             check-inputs:
-              - sdlc/sdlc.yml
+              - .ceratops/sdlc/sdlc.yml
               - scripts/pyproject.toml
               - .gitignore
               - '**/.gitignore'
@@ -150,7 +150,7 @@ repository:
               - '**/*.pyi'
               - '**/*.ipynb'
             check-inputs:
-              - sdlc/sdlc.yml
+              - .ceratops/sdlc/sdlc.yml
               - scripts/pyproject.toml
               - .gitignore
               - '**/.gitignore'
@@ -180,7 +180,7 @@ repository:
               - .github/workflows/*.yaml
               - .github/actions/**
             check-inputs:
-              - sdlc/sdlc.yml
+              - .ceratops/sdlc/sdlc.yml
               - scripts/pyproject.toml
               - scripts/run-actionlint.py
               - .github/actionlint.yaml
@@ -230,7 +230,7 @@ repository:
               - scripts/regression_tests.gd
               - scripts/result_records.py
               - docs/feature-acceptance.json
-              - sdlc/sdlc.yml
+              - .ceratops/sdlc/sdlc.yml
               - addons/bobo_board/native/board/src/test/**
             dependencies:
               - scripts/uv.lock
@@ -310,7 +310,7 @@ deliverables:
                 check-inputs:
                   - scripts/run-tests.py
                   - scripts/result_records.py
-                  - sdlc/sdlc.yml
+                  - .ceratops/sdlc/sdlc.yml
                 dependencies:
                   - scripts/uv.lock
                 environment:
