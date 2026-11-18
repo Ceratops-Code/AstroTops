@@ -15,7 +15,7 @@ def repository_contract(repo_root: pathlib.Path) -> list[str]:
 
     problems: list[str] = []
     required = (
-        ".build/README.md",
+        ".ceratops/build/README.md",
         "docs/feature-acceptance.json",
         "scripts/regression_tests.gd",
         "scripts/result_records.py",
@@ -84,9 +84,9 @@ def repository_contract(repo_root: pathlib.Path) -> list[str]:
         "scripts/node_modules/probe",
     )
     tracked_probes = (
-        ".build/README.md",
-        ".test-results/tests.json",
-        ".test-results/validation.json",
+        ".ceratops/build/README.md",
+        ".ceratops/results/tests.json",
+        ".ceratops/results/validation.json",
     )
     for relative in ignored_probes:
         result = subprocess.run(
