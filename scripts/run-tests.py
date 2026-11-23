@@ -1633,7 +1633,7 @@ def main() -> int:
     mode.add_argument(
         "--export-debug",
         type=pathlib.Path,
-        help="Export the Android debug artifact to a repository-relative path and stop.",
+        help="Write the Android debug APK to the path supplied by the caller.",
     )
     parser.add_argument("--source-tag")
     parser.add_argument("--artifact", type=pathlib.Path)
