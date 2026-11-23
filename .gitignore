@@ -2,6 +2,5 @@
 android/
 .*.tmp
 /scripts/node_modules/
-/.build/artifacts/
 /.test-results/evidence/
-/.ceratops/results/test-diagnostics/
+/.test-diagnostics/

@@ -75,7 +75,7 @@ def repository_contract(repo_root: pathlib.Path) -> list[str]:
         problems.append(f"feature-map={error}")
 
     ignored_probes = (
-        ".build/artifacts/probe.apk",
+        ".test-diagnostics/pytest-failure.json",
         ".godot/probe",
         ".test-results/evidence/probe.log",
         "android/probe",
@@ -84,6 +84,7 @@ def repository_contract(repo_root: pathlib.Path) -> list[str]:
         "scripts/node_modules/probe",
     )
     tracked_probes = (
+        ".build/artifacts/probe.apk",
         ".ceratops/build/README.md",
         ".ceratops/results/tests.json",
         ".ceratops/results/validation.json",
