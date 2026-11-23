@@ -221,8 +221,8 @@ Desktop development runs the project directly in Godot. During a Ceratops
 package build, Godot writes `AstroTops-<version>.apk` to the allocated artifact
 directory. The package command reports that filename to Ceratops. Once its checks
 pass, Ceratops keeps the APK in Git's common artifact store and commits the build
-receipt and check summary. The app install command takes that accepted APK as
-its ADB input, including when a different checkout performs the installation.
+receipt and check summary. The same package’s install action passes its accepted
+APK to ADB, including when a different checkout performs the installation.
 A standalone Godot export writes to the requested path.
 `.ceratops/build/builds/` retains historical source-tag reports. The Gradle export
 uses separate adaptive background, foreground, and monochrome launcher layers.
@@ -230,7 +230,7 @@ Every SDLC step that needs Godot calls the repository helper, which honors an
 explicit executable or a matching `PATH` installation and otherwise provisions
 the pinned official x86_64 archive before the step runs. It never installs a
 system package or changes persistent `PATH` state.
-The app validation action declares its JDK and Android SDK prerequisites,
+The Android package’s pre-build source check declares its JDK and Android SDK,
 rejects an incomplete toolchain before export, performs a real disposable debug
 export, and runs Gradle lint through the installed source template.
 

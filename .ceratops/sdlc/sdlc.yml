@@ -268,7 +268,7 @@ repository:
 deliverables:
   packages:
     astrotops-android-apk:
-      version: &astrotops-android-apk-version
+      version:
         read:
           - "{python}"
           - "-c"
@@ -310,41 +310,6 @@ deliverables:
         # Standalone output. The build action below uses its allocated artifact_directory.
         output-directory: build/artifacts/android
         filename-pattern: AstroTops-{version}.apk
-      actions:
-        build:
-          requires:
-            tools:
-              - android-sdk
-              - jdk
-              - uv
-          parameters:
-            - version
-            - target
-            - artifact_directory
-          result-schema: ceratops-builder-output
-          steps:
-            - run:
-                - uv
-                - run
-                - --project
-                - scripts
-                - --locked
-                - python
-                - scripts/result_records.py
-                - build-result
-                - --output-directory
-                - '{artifact_directory}'
-                - --version
-                - '{version}'
-                - --receipt-file
-                - '{build_receipt}'
-  apps:
-    astrotops:
-      version: *astrotops-android-apk-version
-      root-dir: .
-      manifest: export_presets.cfg
-      build-after:
-        - deliverables.packages.astrotops-android-apk
       actions:
         pre-build-checks:
           check-groups:
@@ -390,6 +355,33 @@ deliverables:
               requires:
                 tools: []
               no-op: Repository tests own the grouped gameplay and rendered-app qualification.
+        build:
+          requires:
+            tools:
+              - android-sdk
+              - jdk
+              - uv
+          parameters:
+            - version
+            - target
+            - artifact_directory
+          result-schema: ceratops-builder-output
+          steps:
+            - run:
+                - uv
+                - run
+                - --project
+                - scripts
+                - --locked
+                - python
+                - scripts/result_records.py
+                - build-result
+                - --output-directory
+                - '{artifact_directory}'
+                - --version
+                - '{version}'
+                - --receipt-file
+                - '{build_receipt}'
         install:
           requires:
             tools:

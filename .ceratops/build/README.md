@@ -5,8 +5,9 @@ Ceratops supplies as `{artifact_directory}`. Godot writes the APK there directly
 After export succeeds, `scripts/result_records.py build-result` writes the relative APK
 name to `{build_receipt}`. Ceratops keeps the accepted APK in Git's common
 `ceratops/artifacts/` store and commits the receipt and check summary under
-`.ceratops/build/`. The app's install action passes the accepted APK to ADB. It
-compares the device's APK with that file and installs it if the bytes differ.
+`.ceratops/build/`. To install that APK, request
+`deliverables.packages.astrotops-android-apk.actions.install`. It passes the
+accepted file to ADB and installs it if the device has different bytes.
 
 For a standalone export, pass the desired path to `scripts/run-tests.py --export-debug`.
 That command records the checkout source and the APK digest for later standalone installation.
