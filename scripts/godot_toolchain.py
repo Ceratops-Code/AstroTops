@@ -896,17 +896,12 @@ def export_debug_project(
 ) -> pathlib.Path:
     """Install prerequisites and create one fresh Android debug artifact."""
 
-    resolved = (
-        output.expanduser().resolve()
-        if output.is_absolute()
-        else (repo_root / output).resolve()
-    )
-    try:
-        resolved.relative_to(repo_root)
-    except ValueError as error:
-        raise RuntimeError(
-            f"Godot export must stay inside {repo_root}: {resolved}"
-        ) from error
+    requested = repo_root / output.expanduser()
+    resolved = requested.resolve()
+    if requested.is_symlink() or ".git" in {part.lower() for part in resolved.parts}:
+        raise RuntimeError(f"Android export requires an ordinary output file: {requested}")
+    if resolved.suffix.lower() != ".apk":
+        raise RuntimeError(f"Android export requires an APK output path: {resolved}")
     ensure_android_build_template(repo_root, template_provider=template_provider)
     board_builder(repo_root)
     resolved.parent.mkdir(parents=True, exist_ok=True)

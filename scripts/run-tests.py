@@ -483,6 +483,10 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
             check("builder-output-current-format", (0, builder_output), (code, json.loads(builder_stdout.getvalue())))
             check("builder-output-exact-copy", original_bytes, output_apk.read_bytes())
             check("builder-preserves-native-export", original_bytes, artifact.read_bytes())
+        report = temporary_root / "build-report.json"
+        with patch.object(sys, "argv", [*builder_arguments, "--receipt-file", str(report)]), contextlib.redirect_stdout(io.StringIO()):
+            code = record_result_command()
+        check("builder-writes-to-caller-receipt", (0, builder_output), (code, json.loads(report.read_text(encoding="utf-8"))))
         for after in (False, True):
             replacement = original_bytes + str(after).encode()
             artifact.write_bytes(replacement)
@@ -1032,7 +1036,8 @@ def shared_result_protocol_checks(temporary_root: pathlib.Path) -> list[str]:
                                   check_id="protocol", check_version="observed-checks", repair_unaccepted_result=False,
                                   probe_command=None)
 
-    with patch.dict(os.environ, clean_environment, clear=True), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+    # Keep fixture writes inside its checkout and leave native Git's process environment intact.
+    with contextlib.chdir(root), patch.object(os, "environ", clean_environment), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
         args = request("original")
         assert run_recorded_check(callback, args, invocation) == 0
         accepted = args.result_file.read_bytes()
@@ -1134,7 +1139,7 @@ def shared_current_attempt_checks(temporary_root: pathlib.Path) -> list[str]:
         return 0
 
     save_record = CurrentCheckResults.put
-    with patch.dict(os.environ, {CHECK_CONTEXT_ENV: json.dumps(context)}), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+    with patch.object(os, "environ", {**os.environ, CHECK_CONTEXT_ENV: json.dumps(context)}), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
         for boundary in range(2):
             assert run_recorded_check(callback, request("accepted-" + str(boundary)), invocation, repo_root=root) == 0
             writes = 0
@@ -1682,7 +1687,7 @@ def execute_test_request(args: argparse.Namespace, parser: argparse.ArgumentPars
             elif args.validate_project:
                 validate_godot_project(repo_root, godot)
             elif args.export_debug is not None:
-                source_before_export = resolve_source_identity(repo_root)
+                source_before_export = resolve_source_identity(repo_root, export_path=args.export_debug)
                 export_debug_project(repo_root, godot, args.export_debug)
                 record_completed_android_export(repo_root, args.export_debug, source_before_export)
         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:

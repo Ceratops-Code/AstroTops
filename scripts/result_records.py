@@ -90,7 +90,7 @@ def _portable_files(repo_root: pathlib.Path) -> list[str]:
 
 
 def _source_digest(repo_root: pathlib.Path, relative_paths: Iterable[str] | None = None) -> str:
-    paths = sorted(set(relative_paths or _portable_files(repo_root)))
+    paths = sorted(set(_portable_files(repo_root) if relative_paths is None else relative_paths))
     digest = hashlib.sha256()
     for relative in paths:
         normalized = relative.replace("\\", "/")
@@ -161,7 +161,7 @@ class ArtifactIdentity:
         }
 
 
-def resolve_source_identity(repo_root: pathlib.Path) -> SourceIdentity:
+def resolve_source_identity(repo_root: pathlib.Path, *, export_path: pathlib.Path | None = None) -> SourceIdentity:
     """Resolve current bytes, latest source commit, exact tags, and dirtiness."""
 
     repo_root = repo_root.resolve(strict=True)
@@ -182,11 +182,14 @@ def resolve_source_identity(repo_root: pathlib.Path) -> SourceIdentity:
     tags = tuple(
         sorted(filter(None, _git(repo_root, "tag", "--points-at", commit).stdout.splitlines()))
     )
+    export = (repo_root / export_path).resolve() if export_path is not None else None
+    excluded = export.relative_to(repo_root).as_posix() if export and export.is_relative_to(repo_root) else None
+    inputs = [name for name in _portable_files(repo_root) if name != excluded]
     return SourceIdentity(
         commit=commit,
-        digest=_source_digest(repo_root),
+        digest=_source_digest(repo_root, inputs),
         exact_tags=tags,
-        dirty_paths=tuple(_source_dirty_paths(repo_root)),
+        dirty_paths=tuple(name for name in _source_dirty_paths(repo_root) if name != excluded),
     )
 
 
@@ -221,16 +224,12 @@ def resolve_artifact_identity(
             raise ValueError(
                 f"Source tag {source_tag!r} resolves to {tagged_commit}, and current source bytes differ."
             )
-    artifact = artifact.expanduser().resolve(strict=True)
-    artifact_root = (repo_root / ".build" / "artifacts").resolve()
-    try:
-        relative = artifact.relative_to(artifact_root).as_posix()
-    except ValueError as error:
-        raise ValueError("Candidate artifacts must be stored under .build/artifacts.") from error
+    artifact = (repo_root / artifact.expanduser()).resolve(strict=True)
+    relative = artifact.relative_to(repo_root).as_posix() if artifact.is_relative_to(repo_root) else artifact.name
     return ArtifactIdentity(
         version=source_tag,
         source_commit=tagged_commit,
-        path=f".build/artifacts/{relative}",
+        path=relative,
         sha256=_sha256(artifact),
         length=artifact.stat().st_size,
     )
@@ -378,17 +377,13 @@ def describe_exported_artifact(
     if not _ARTIFACT_TYPE.fullmatch(artifact_type):
         raise ValueError("artifact type must use lower-case kebab syntax")
     repo_root = repo_root.resolve(strict=True)
-    artifact = artifact.expanduser().resolve(strict=True)
-    artifact_root = (repo_root / ".build" / "artifacts").resolve(strict=True)
-    try:
-        relative = artifact.relative_to(artifact_root).as_posix()
-    except ValueError as error:
-        raise ValueError("build artifacts must remain under .build/artifacts") from error
+    artifact = (repo_root / artifact.expanduser()).resolve(strict=True)
+    relative = artifact.relative_to(repo_root).as_posix() if artifact.is_relative_to(repo_root) else artifact.name
     if artifact.stat().st_size < 1:
         raise ValueError("build artifact is empty")
     return {
         "type": artifact_type,
-        "path": f".build/artifacts/{relative}",
+        "path": relative,
         "sha256": _sha256(artifact),
         "size": artifact.stat().st_size,
     }
@@ -404,7 +399,7 @@ def record_completed_android_export(
     replacement cannot bless a different file; a fresh export inspects current
     source, bytes and the current record rather than resuming saved steps.
     """
-    current = resolve_source_identity(repo_root)
+    current = resolve_source_identity(repo_root, export_path=artifact)
     if current.digest != source_before_export.digest:
         raise ValueError("Record Android export: source changed while building " + str(artifact))
     descriptor = describe_exported_artifact(repo_root, artifact, "android-apk")
@@ -428,7 +423,7 @@ def require_current_android_export(repo_root: pathlib.Path, artifact: pathlib.Pa
     record = next(iter(CurrentCheckResults(repo_root).records("astrotops-android-export", target={"type": "android-apk"})), None)
     if (record is None or record.get("schema") != "astrotops-android-export.v1" or record.get("status") != "passed"
             or record.get("artifact") != actual or not isinstance(record.get("source"), dict)
-            or record["source"].get("digest") != resolve_source_identity(repo_root).digest):
+            or record["source"].get("digest") != resolve_source_identity(repo_root, export_path=artifact).digest):
         raise ValueError("Install Android package: APK or source differs from the completed export: "
                          + str(artifact) + ". Run the declared Android package build.")
     if not isinstance(actual, dict):
@@ -652,6 +647,7 @@ def main() -> int:
     build_parser.add_argument("--artifact", type=pathlib.Path, required=True)
     build_parser.add_argument("--type", required=True)
     build_parser.add_argument("--version", required=True)
+    build_parser.add_argument("--receipt-file", type=pathlib.Path)
     build_parser.add_argument("--output-directory", type=pathlib.Path, required=True)
     deploy_parser = subparsers.add_parser("android-deploy")
     deploy_parser.add_argument("--adb-executable", required=True)
@@ -665,11 +661,11 @@ def main() -> int:
     result: dict[str, object]
     try:
         if args.command == "build-result":
-            descriptor = require_current_android_export(repo_root, args.artifact, args.type)
+            require_current_android_export(repo_root, args.artifact, args.type)
             directory = args.output_directory.expanduser().resolve(strict=True)
             if not directory.is_dir():
                 raise ValueError("Build output directory must already exist.")
-            source = (repo_root / str(descriptor["path"])).resolve(strict=True)
+            source = (repo_root / args.artifact).resolve(strict=True)
             if not re.fullmatch(r"[0-9]+(?:\.[0-9]+){2}(?:(?:a|b|rc)[1-9][0-9]*)?", args.version):
                 raise ValueError("Build version must use the native Android version format.")
             destination = directory / f"{source.stem}-{args.version}{source.suffix}"
@@ -692,6 +688,10 @@ def main() -> int:
             result = {"schema": "ceratops-builder-output", "status": "passed",
                       "artifacts": [{"type": args.type, "path": destination.name}],
                       "installationArtifactPath": destination.name}
+            if args.receipt_file:
+                args.receipt_file.write_text(json.dumps(result) + "\n", encoding="utf-8")
+                print("OK")
+                return 0
         else:
             result = android_deploy_result(
                 repo_root,

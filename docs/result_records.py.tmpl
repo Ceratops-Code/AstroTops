@@ -11,7 +11,7 @@ Repository runners may import this helper after copying the template to
 source bytes and the latest commit that changed non-result files. Raw evidence
 is ignored and bounded to the current run plus two predecessors. Candidate
 build records use an immutable source tag as the version and bind the exact
-artifact bytes stored under ``.build/artifacts``.
+artifact bytes at the native builder’s chosen output path.
 """
 
 from __future__ import annotations
@@ -212,16 +212,12 @@ def resolve_artifact_identity(
         )
         if comparison.returncode:
             raise ValueError("current source bytes differ from the source tag")
-    artifact = artifact.expanduser().resolve(strict=True)
-    artifact_root = (repo_root / ".build" / "artifacts").resolve()
-    try:
-        relative = artifact.relative_to(artifact_root).as_posix()
-    except ValueError as error:
-        raise ValueError("artifact must be stored under .build/artifacts") from error
+    artifact = (repo_root / artifact.expanduser()).resolve(strict=True)
+    relative = artifact.relative_to(repo_root).as_posix() if artifact.is_relative_to(repo_root) else artifact.name
     return ArtifactIdentity(
         version=source_tag,
         source_commit=tagged_commit,
-        path=f".build/artifacts/{relative}",
+        path=relative,
         sha256=_sha256(artifact),
         length=artifact.stat().st_size,
     )

@@ -349,6 +349,8 @@ deliverables:
                 - '{artifact_directory}'
                 - --version
                 - '{version}'
+                - --receipt-file
+                - '{build_receipt}'
   apps:
     astrotops:
       version: *astrotops-android-apk-version
