@@ -978,7 +978,7 @@ def validate_android_build(
 
     root = repo_root.expanduser().resolve(strict=True)
     environment = _android_build_environment(environ)
-    validation_directory = root / ".build" / "artifacts" / "android" / ".validation"
+    validation_directory = root / "build" / "artifacts" / "android" / ".validation"
     validation_apk = validation_directory / "AstroTops.apk"
     try:
         validate_godot_project(root, godot, run=run)

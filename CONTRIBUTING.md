@@ -9,7 +9,7 @@ keyboard, gamepad, or touch input.
 - Preserve the compressed celestial-target size hierarchy and recognizable
   planet designs.
 - Keep keyboard, gamepad, and touch behavior aligned when changing controls.
-- Do not commit generated `.godot`, `android`, `.build/artifacts`, or
+- Do not commit generated `.godot`, `android`, `build/artifacts`, or
   `.test-results/evidence` directories.
 - Do not commit signing keys, credentials, or user-specific absolute paths.
 - Record the source and license of every third-party asset.
@@ -41,7 +41,8 @@ recalculates the repository outcome.
 
 `.ceratops/results/` contains the latest tracked validation and test records.
 `.test-results/evidence/` contains ignored, bounded screenshots and logs for
-those records. `.build/artifacts/` contains ignored packages, while
+those records. Both export presets exclude `build/artifacts/` so a later export
+cannot package a previous build. This directory contains ignored packages, while
 `.ceratops/build/builds/` contains tracked package identity and approval
 metadata. The
 runner retains the current evidence run and at most two predecessors.
@@ -49,7 +50,7 @@ runner retains the current evidence run and at most two predecessors.
 Candidate qualification supplies both an immutable source tag and a package:
 
 ```powershell
-uv run --locked scripts/run-tests.py --fresh --source-tag <tag> --artifact .build/artifacts/android/AstroTops.apk
+uv run --locked scripts/run-tests.py --fresh --source-tag <tag> --artifact build/artifacts/android/AstroTops.apk
 ```
 
 The tag is the build version; its resolved commit is traceability metadata.

@@ -204,7 +204,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     """Exercise deployment resumption without contacting or modifying a device."""
 
     fake_repo = temporary_root / "repo"
-    artifact = fake_repo / ".build" / "artifacts" / "android" / "AstroTops.apk"
+    artifact = fake_repo / "build" / "artifacts" / "android" / "AstroTops.apk"
     artifact.parent.mkdir(parents=True)
     artifact.write_bytes(b"qualified-astrotops-apk")
     (fake_repo / "project.godot").write_text("config_version=5\n", encoding="utf-8")
@@ -842,7 +842,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     exported = export_debug_project(
         fake_repo,
         operation_console,
-        pathlib.Path(".build/artifacts/android/provisioned.apk"),
+        pathlib.Path("build/artifacts/android/provisioned.apk"),
         run=fake_godot_run,
         template_provider=lambda: repaired_android_source,
         board_builder=lambda _root: None,
@@ -906,7 +906,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         False,
         (
             fake_repo
-            / ".build"
+            / "build"
             / "artifacts"
             / "android"
             / ".validation"

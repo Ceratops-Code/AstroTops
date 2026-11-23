@@ -307,7 +307,7 @@ deliverables:
       build-after: []
       artifact:
         type: android-apk
-        output-directory: .build/artifacts/android
+        output-directory: build/artifacts/android
         filename-pattern: AstroTops-{version}.apk
       actions:
         build:
@@ -331,7 +331,7 @@ deliverables:
                 - python
                 - scripts/run-tests.py
                 - --export-debug
-                - .build/artifacts/android/AstroTops.apk
+                - build/artifacts/android/AstroTops.apk
             - run:
                 - uv
                 - run
@@ -342,7 +342,7 @@ deliverables:
                 - scripts/result_records.py
                 - build-result
                 - --artifact
-                - .build/artifacts/android/AstroTops.apk
+                - build/artifacts/android/AstroTops.apk
                 - --type
                 - android-apk
                 - --output-directory
@@ -430,6 +430,6 @@ deliverables:
                 - --activity
                 - com.ceratopscode.astrotops/com.godot.game.GodotAppLauncher
                 - --artifact
-                - .build/artifacts/android/AstroTops.apk
+                - build/artifacts/android/AstroTops.apk
                 - --type
                 - android-apk

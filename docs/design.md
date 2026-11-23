@@ -218,7 +218,7 @@ after the face, so the ring visibly wraps around rather than sitting behind it.
 ## 7 Deployment and operations
 
 Desktop development runs the project directly in Godot. Android packaging
-produces `.build/artifacts/android/AstroTops.apk`; the current export identity,
+produces `build/artifacts/android/AstroTops.apk`; the current export identity,
 source digest and APK descriptor live in the shared current-results store.
 The build-result command copies the completed APK into Ceratops' supplied attempt
 directory as `AstroTops-<version>.apk`, using the full version supplied by SDLC.
@@ -299,9 +299,9 @@ remove. The ignored project `android` directory is created only when absent;
 valid matching content is reused, while unexpected existing content is
 preserved and blocks export.
 The same helper owns the fixed validation-only APK under
-`.build/artifacts/android/.validation`; it replaces that file at validation
+`build/artifacts/android/.validation`; it replaces that file at validation
 start and deletes it at the end, including failure paths. The package build owns
-the separate retained `.build/artifacts/android/AstroTops.apk`.
+the separate retained `build/artifacts/android/AstroTops.apk`.
 
 ### 8.2 APIs and integrations
 

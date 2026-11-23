@@ -1,6 +1,6 @@
 # Build records
 
-`.build/artifacts/android/AstroTops.apk` is Godot's one current native export
+`build/artifacts/android/AstroTops.apk` is Godot's one current native export
 for this checkout's ADB installer. Each export replaces that file. Ceratops supplies
 a separate attempt directory through the build action's `artifact_directory`
 parameter and owns that directory's unfinished-attempt cleanup and retention.
@@ -13,7 +13,7 @@ succeeds with unchanged source. There is one current Android export per worktree
 with atomic replacement and no separate history file. Repeating identical source
 and bytes preserves the original identity. Worktree retirement removes the entry.
 The Android package operation finishes with `scripts/result_records.py build-result
---artifact .build/artifacts/android/AstroTops.apk --type android-apk
+--artifact build/artifacts/android/AstroTops.apk --type android-apk
 --version <full-version> --output-directory <allocated-directory>`. It checks
 source and bytes against that record, then copies the APK into the supplied
 directory. It writes one `.AstroTops-<version>.apk.in_process` file and replaces

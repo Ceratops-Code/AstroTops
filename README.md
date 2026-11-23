@@ -85,8 +85,8 @@ cropped, and dimmed by the game at runtime.
 
 ## Prototype builds
 
-- Windows: `.build/artifacts/windows/AstroTops.exe`
-- Android: `.build/artifacts/android/AstroTops.apk`
+- Windows: `build/artifacts/windows/AstroTops.exe`
+- Android: `build/artifacts/android/AstroTops.apk`
 
 The repository provisions its pinned Godot 4.7.2 editor automatically for
 validation, tests, and export when no matching `GODOT_EXECUTABLE` or `godot` on

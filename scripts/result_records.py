@@ -35,7 +35,7 @@ RESULT_SCHEMA = "astrotops-repository-tests.v1"
 GROUP_SCHEMA = "astrotops-test-group-result.v1"
 BUILD_SCHEMA = "astrotops-build-record.v1"
 # Native build scratch and evidence are outputs, as are committed Ceratops records.
-_EXCLUDED_SOURCE_PREFIXES = (".build/", ".test-results/", ".ceratops/build/", ".ceratops/results/")
+_EXCLUDED_SOURCE_PREFIXES = ("build/artifacts/", ".test-results/", ".ceratops/build/", ".ceratops/results/")
 _SAFE_TAG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 _ARTIFACT_TYPE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 _ANDROID_PACKAGE = re.compile(
@@ -172,7 +172,7 @@ def resolve_source_identity(repo_root: pathlib.Path, *, export_path: pathlib.Pat
         "--format=%H",
         "--",
         ".",
-        ":(exclude).build/**",
+        ":(exclude)build/artifacts/**",
         ":(exclude).test-results/**",
         ":(exclude).ceratops/build/**",
         ":(exclude).ceratops/results/**",
