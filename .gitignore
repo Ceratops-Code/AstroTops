@@ -4,3 +4,4 @@ android/
 /scripts/node_modules/
 /.build/artifacts/
 /.test-results/evidence/
+/.ceratops/results/test-diagnostics/
