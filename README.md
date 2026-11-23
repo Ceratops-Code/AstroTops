@@ -85,8 +85,11 @@ cropped, and dimmed by the game at runtime.
 
 ## Prototype builds
 
-- Windows: `build/artifacts/windows/AstroTops.exe`
-- Android: `build/artifacts/android/AstroTops.apk`
+Ceratops stores the accepted Android APK in Git’s common `ceratops/artifacts/`
+directory. Its receipt and check summary are under `.ceratops/build/`. A
+standalone Godot export uses the path supplied on the command line. The editor
+presets default to `build/artifacts/windows/AstroTops.exe` and
+`build/artifacts/android/AstroTops.apk`.
 
 The repository provisions its pinned Godot 4.7.2 editor automatically for
 validation, tests, and export when no matching `GODOT_EXECUTABLE` or `godot` on

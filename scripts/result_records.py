@@ -16,7 +16,6 @@ import argparse
 import datetime
 import hashlib
 import json
-import os
 import pathlib
 import re
 import shutil
@@ -569,6 +568,7 @@ def android_deploy_result(
     artifact: pathlib.Path,
     artifact_type: str,
     run: CommandRunner = _run_command,
+    accepted: bool = False,
 ) -> dict[str, object]:
     """Install only changed APK bytes, launch them, and emit one deployment receipt.
 
@@ -584,7 +584,8 @@ def android_deploy_result(
         raise ValueError("package must be a dotted Android identifier")
     if not _ANDROID_COMPONENT.fullmatch(activity) or not activity.startswith(package + "/"):
         raise ValueError("activity must be a component inside the selected package")
-    descriptor = require_current_android_export(repo_root, artifact, artifact_type)
+    descriptor = (describe_exported_artifact(repo_root, artifact, artifact_type) if accepted
+                  else require_current_android_export(repo_root, artifact, artifact_type))
 
     active_target = _ready_adb_target(adb_executable, device, run)
 
@@ -644,8 +645,6 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     build_parser = subparsers.add_parser("build-result")
-    build_parser.add_argument("--artifact", type=pathlib.Path, required=True)
-    build_parser.add_argument("--type", required=True)
     build_parser.add_argument("--version", required=True)
     build_parser.add_argument("--receipt-file", type=pathlib.Path)
     build_parser.add_argument("--output-directory", type=pathlib.Path, required=True)
@@ -654,45 +653,38 @@ def main() -> int:
     deploy_parser.add_argument("--device", required=True)
     deploy_parser.add_argument("--package", required=True)
     deploy_parser.add_argument("--activity", required=True)
-    deploy_parser.add_argument("--artifact", type=pathlib.Path, required=True)
+    source = deploy_parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--artifact", type=pathlib.Path)
+    source.add_argument("--accepted-artifacts")
     deploy_parser.add_argument("--type", required=True)
     args = parser.parse_args()
     repo_root = pathlib.Path(__file__).resolve().parents[1]
     result: dict[str, object]
     try:
         if args.command == "build-result":
-            require_current_android_export(repo_root, args.artifact, args.type)
-            directory = args.output_directory.expanduser().resolve(strict=True)
-            if not directory.is_dir():
-                raise ValueError("Build output directory must already exist.")
-            source = (repo_root / args.artifact).resolve(strict=True)
+            from godot_toolchain import export_debug_project, resolve_godot
+
+            directory = args.output_directory.resolve(strict=True)
             if not re.fullmatch(r"[0-9]+(?:\.[0-9]+){2}(?:(?:a|b|rc)[1-9][0-9]*)?", args.version):
                 raise ValueError("Build version must use the native Android version format.")
-            destination = directory / f"{source.stem}-{args.version}{source.suffix}"
-            staging = directory / ("." + destination.name + ".in_process")
-            if destination == source or any(path.is_symlink() or path.is_junction()
-                                            for path in (args.output_directory, destination, staging)):
-                raise ValueError("Build output must be a separate directory without linked files.")
-            # Godot owns the one current native export used by ADB. Ceratops owns
-            # this allocated attempt directory and its retention. Publish one
-            # complete copy before reporting its relative filename; an interrupted
-            # copy never exposes partial APK bytes or a successful builder result.
-            try:
-                with source.open("rb") as incoming, staging.open("wb") as outgoing:
-                    shutil.copyfileobj(incoming, outgoing)
-                    outgoing.flush()
-                    os.fsync(outgoing.fileno())
-                os.replace(staging, destination)
-            finally:
-                staging.unlink(missing_ok=True)
+            destination = directory / f"AstroTops-{args.version}.apk"
+            export_debug_project(repo_root, resolve_godot(None), destination)
             result = {"schema": "ceratops-builder-output", "status": "passed",
-                      "artifacts": [{"type": args.type, "path": destination.name}],
+                      "artifacts": [{"type": "android-apk", "path": destination.name}],
                       "installationArtifactPath": destination.name}
             if args.receipt_file:
                 args.receipt_file.write_text(json.dumps(result) + "\n", encoding="utf-8")
                 print("OK")
                 return 0
         else:
+            if args.accepted_artifacts is not None:
+                mapping = json.loads(args.accepted_artifacts)
+                paths = mapping.get("deliverables.packages.astrotops-android-apk", []) if isinstance(mapping, dict) else []
+                if not isinstance(paths, list) or len(paths) != 1 or not isinstance(paths[0], str):
+                    raise ValueError("Android installation requires the accepted AstroTops APK.")
+                args.artifact = pathlib.Path(paths[0])
+                if not args.artifact.is_absolute() or args.artifact.suffix.lower() != ".apk":
+                    raise ValueError("Expected the absolute path of the accepted Android APK.")
             result = android_deploy_result(
                 repo_root,
                 adb_executable=args.adb_executable,
@@ -701,8 +693,9 @@ def main() -> int:
                 activity=args.activity,
                 artifact=args.artifact,
                 artifact_type=args.type,
+                accepted=args.accepted_artifacts is not None,
             )
-    except (OSError, ValueError, subprocess.SubprocessError) as error:
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         print(str(error), file=sys.stderr)
         return 1
     print(json.dumps(result, separators=(",", ":")))

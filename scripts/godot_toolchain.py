@@ -898,7 +898,15 @@ def export_debug_project(
 
     requested = repo_root / output.expanduser()
     resolved = requested.resolve()
-    if requested.is_symlink() or ".git" in {part.lower() for part in resolved.parts}:
+    # The build service allocates an attempt directory inside Git's common
+    # directory. All Git metadata and completed package directories stay protected.
+    git_parts = [part.lower() for part in resolved.parts]
+    if ".git" in git_parts:
+        relative = git_parts[git_parts.index(".git") + 1:]
+        if (relative[:3] != ["ceratops", "artifacts", "worktrees"] or len(relative) < 6
+                or relative[4] != "_in-test"):
+            raise RuntimeError(f"Android export cannot overwrite Git metadata or accepted files: {requested}")
+    if requested.is_symlink():
         raise RuntimeError(f"Android export requires an ordinary output file: {requested}")
     if resolved.suffix.lower() != ".apk":
         raise RuntimeError(f"Android export requires an APK output path: {resolved}")

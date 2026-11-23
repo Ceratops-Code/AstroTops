@@ -307,6 +307,7 @@ deliverables:
       build-after: []
       artifact:
         type: android-apk
+        # Standalone output. The build action below uses its allocated artifact_directory.
         output-directory: build/artifacts/android
         filename-pattern: AstroTops-{version}.apk
       actions:
@@ -329,22 +330,8 @@ deliverables:
                 - scripts
                 - --locked
                 - python
-                - scripts/run-tests.py
-                - --export-debug
-                - build/artifacts/android/AstroTops.apk
-            - run:
-                - uv
-                - run
-                - --project
-                - scripts
-                - --locked
-                - python
                 - scripts/result_records.py
                 - build-result
-                - --artifact
-                - build/artifacts/android/AstroTops.apk
-                - --type
-                - android-apk
                 - --output-directory
                 - '{artifact_directory}'
                 - --version
@@ -429,7 +416,7 @@ deliverables:
                 - com.ceratopscode.astrotops
                 - --activity
                 - com.ceratopscode.astrotops/com.godot.game.GodotAppLauncher
-                - --artifact
-                - build/artifacts/android/AstroTops.apk
+                - --accepted-artifacts
+                - '{artifacts}'
                 - --type
                 - android-apk

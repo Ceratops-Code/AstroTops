@@ -217,15 +217,13 @@ after the face, so the ring visibly wraps around rather than sitting behind it.
 
 ## 7 Deployment and operations
 
-Desktop development runs the project directly in Godot. Android packaging
-produces `build/artifacts/android/AstroTops.apk`; the current export identity,
-source digest and APK descriptor live in the shared current-results store.
-The build-result command copies the completed APK into Ceratops' supplied attempt
-directory as `AstroTops-<version>.apk`, using the full version supplied by SDLC.
-It publishes the copy by replacing one flushed `.in_process` file,
-then returns `ceratops-builder-output` with relative file names. Ceratops owns
-that directory's cleanup, completed receipt and tag; the local APK remains the
-input to AstroTops' existing ADB installer.
+Desktop development runs the project directly in Godot. During a Ceratops
+package build, Godot writes `AstroTops-<version>.apk` to the allocated artifact
+directory. The package command reports that filename to Ceratops. Once its checks
+pass, Ceratops keeps the APK in Git's common artifact store and commits the build
+receipt and check summary. The app install command takes that accepted APK as
+its ADB input, including when a different checkout performs the installation.
+A standalone Godot export writes to the requested path.
 `.ceratops/build/builds/` retains historical source-tag reports. The Gradle export
 uses separate adaptive background, foreground, and monochrome launcher layers.
 Every SDLC step that needs Godot calls the repository helper, which honors an

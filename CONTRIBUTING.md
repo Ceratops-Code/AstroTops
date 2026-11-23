@@ -41,11 +41,10 @@ recalculates the repository outcome.
 
 `.ceratops/results/` contains the latest tracked validation and test records.
 `.test-results/evidence/` contains ignored, bounded screenshots and logs for
-those records. Both export presets exclude `build/artifacts/` so a later export
-cannot package a previous build. This directory contains ignored packages, while
-`.ceratops/build/builds/` contains tracked package identity and approval
-metadata. The
-runner retains the current evidence run and at most two predecessors.
+those records. The editor presets exclude `build/artifacts/` from standalone
+exports. A Ceratops build writes the APK to the allocated artifact directory
+and commits its receipt and check summary under `.ceratops/build/`. The runner
+retains the current evidence run and at most two predecessors.
 
 Candidate qualification supplies both an immutable source tag and a package:
 
