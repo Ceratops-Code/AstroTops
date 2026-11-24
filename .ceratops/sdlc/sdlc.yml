@@ -72,6 +72,10 @@ repository:
               - .ceratops/build/README.md
               - scripts/regression_tests.gd
               - scripts/result_records.py
+              - scripts/write_check_results.py
+              - scripts/testing/read_check_environment.py
+              - scripts/testing/reuse_test_results.py
+              - scripts/testing/select_test_groups.py
               - scripts/run-tests.py
             dependencies:
               - scripts/uv.lock
@@ -229,6 +233,10 @@ repository:
               - scripts/run-tests.py
               - scripts/regression_tests.gd
               - scripts/result_records.py
+              - scripts/write_check_results.py
+              - scripts/testing/read_check_environment.py
+              - scripts/testing/reuse_test_results.py
+              - scripts/testing/select_test_groups.py
               - docs/result_records.py.tmpl
               - docs/feature-acceptance.json
               - .ceratops/sdlc/sdlc.yml
@@ -260,7 +268,7 @@ repository:
 deliverables:
   packages:
     astrotops-android-apk:
-      version: &astrotops-android-apk-version
+      version:
         read:
           - "{python}"
           - "-c"
@@ -299,55 +307,9 @@ deliverables:
       build-after: []
       artifact:
         type: android-apk
-        output-directory: .build/artifacts/android
+        # Standalone output. The build action below uses its allocated artifact_directory.
+        output-directory: build/artifacts/android
         filename-pattern: AstroTops-{version}.apk
-      actions:
-        build:
-          requires:
-            tools:
-              - android-sdk
-              - jdk
-              - uv
-          parameters:
-            - version
-            - target
-            - artifact_directory
-          result-schema: ceratops-builder-output
-          steps:
-            - run:
-                - uv
-                - run
-                - --project
-                - scripts
-                - --locked
-                - python
-                - scripts/run-tests.py
-                - --export-debug
-                - .build/artifacts/android/AstroTops.apk
-            - run:
-                - uv
-                - run
-                - --project
-                - scripts
-                - --locked
-                - python
-                - scripts/result_records.py
-                - build-result
-                - --artifact
-                - .build/artifacts/android/AstroTops.apk
-                - --type
-                - android-apk
-                - --output-directory
-                - '{artifact_directory}'
-                - --version
-                - '{version}'
-  apps:
-    astrotops:
-      version: *astrotops-android-apk-version
-      root-dir: .
-      manifest: export_presets.cfg
-      build-after:
-        - deliverables.packages.astrotops-android-apk
       actions:
         pre-build-checks:
           check-groups:
@@ -357,6 +319,10 @@ deliverables:
                 check-inputs:
                   - scripts/run-tests.py
                   - scripts/result_records.py
+                  - scripts/write_check_results.py
+                  - scripts/testing/read_check_environment.py
+                  - scripts/testing/reuse_test_results.py
+                  - scripts/testing/select_test_groups.py
                   - .ceratops/sdlc/sdlc.yml
                 dependencies:
                   - scripts/uv.lock
@@ -389,6 +355,33 @@ deliverables:
               requires:
                 tools: []
               no-op: Repository tests own the grouped gameplay and rendered-app qualification.
+        build:
+          requires:
+            tools:
+              - android-sdk
+              - jdk
+              - uv
+          parameters:
+            - version
+            - target
+            - artifact_directory
+          result-schema: ceratops-builder-output
+          steps:
+            - run:
+                - uv
+                - run
+                - --project
+                - scripts
+                - --locked
+                - python
+                - scripts/result_records.py
+                - build-result
+                - --output-directory
+                - '{artifact_directory}'
+                - --version
+                - '{version}'
+                - --receipt-file
+                - '{build_receipt}'
         install:
           requires:
             tools:
@@ -415,7 +408,7 @@ deliverables:
                 - com.ceratopscode.astrotops
                 - --activity
                 - com.ceratopscode.astrotops/com.godot.game.GodotAppLauncher
-                - --artifact
-                - .build/artifacts/android/AstroTops.apk
+                - --accepted-artifacts
+                - '{artifacts}'
                 - --type
                 - android-apk

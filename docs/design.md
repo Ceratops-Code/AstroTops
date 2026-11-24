@@ -161,7 +161,8 @@ bounded evidence, artifact identity, and deterministic Android deployment.
   checks repository structure and contracts independently from gameplay tests.
 - [`scripts/result_records.py`](../scripts/result_records.py) is the only
   storage owner for portable result records and bounded ignored evidence.
-- [`.ceratops/sdlc/sdlc.yml`](../.ceratops/sdlc/sdlc.yml) declares bootstrap, validation, testing,
+- [`.ceratops/sdlc/sdlc.yml`](../.ceratops/sdlc/sdlc.yml) declares
+  bootstrap, validation, testing,
   packaging, delivery verification, and ADB installation.
 
 ## 6 Runtime behavior
@@ -216,22 +217,20 @@ after the face, so the ring visibly wraps around rather than sitting behind it.
 
 ## 7 Deployment and operations
 
-Desktop development runs the project directly in Godot. Android packaging
-produces `.build/artifacts/android/AstroTops.apk`; the current export identity,
-source digest and APK descriptor live in the shared current-results store.
-The build-result command copies the completed APK into Ceratops' supplied attempt
-directory as `AstroTops-<version>.apk`, using the full version supplied by SDLC.
-It publishes the copy by replacing one flushed `.in_process` file,
-then returns `ceratops-builder-output` with relative file names. Ceratops owns
-that directory's cleanup, completed receipt and tag; the local APK remains the
-input to AstroTops' existing ADB installer.
+Desktop development runs the project directly in Godot. During a Ceratops
+package build, Godot writes `AstroTops-<version>.apk` to the allocated artifact
+directory. The package command reports that filename to Ceratops. Once its checks
+pass, Ceratops keeps the APK in Git's common artifact store and commits the build
+receipt and check summary. The same package’s install action passes its accepted
+APK to ADB, including when a different checkout performs the installation.
+A standalone Godot export writes to the requested path.
 `.ceratops/build/builds/` retains historical source-tag reports. The Gradle export
 uses separate adaptive background, foreground, and monochrome launcher layers.
 Every SDLC step that needs Godot calls the repository helper, which honors an
 explicit executable or a matching `PATH` installation and otherwise provisions
 the pinned official x86_64 archive before the step runs. It never installs a
 system package or changes persistent `PATH` state.
-The app validation action declares its JDK and Android SDK prerequisites,
+The Android package’s pre-build source check declares its JDK and Android SDK,
 rejects an incomplete toolchain before export, performs a real disposable debug
 export, and runs Gradle lint through the installed source template.
 
@@ -255,7 +254,8 @@ save. Tests replace the path with an isolated runner-owned file. There is no
 cloud synchronization, backup contract, or legacy-score migration; changing
 the storage identity intentionally starts a distinct store.
 
-Tracked `.ceratops/results/groups/*.json` and `.ceratops/results/tests.json` describe the
+Tracked `.ceratops/results/groups/*.json` and
+`.ceratops/results/tests.json` describe the
 source and environment tested. SDLC records each current source check in Git
 metadata. The tracked `.ceratops/results/validation.json` retains earlier results.
 The runner owns one current outcome per group in the Git metadata file
@@ -300,9 +300,9 @@ remove. The ignored project `android` directory is created only when absent;
 valid matching content is reused, while unexpected existing content is
 preserved and blocks export.
 The same helper owns the fixed validation-only APK under
-`.build/artifacts/android/.validation`; it replaces that file at validation
+`build/artifacts/android/.validation`; it replaces that file at validation
 start and deletes it at the end, including failure paths. The package build owns
-the separate retained `.build/artifacts/android/AstroTops.apk`.
+the separate retained `build/artifacts/android/AstroTops.apk`.
 
 ### 8.2 APIs and integrations
 
@@ -356,7 +356,8 @@ Traxy's capture waits only for its generated poof to finish. Missing voice
 support still degrades to silent names without
 blocking capture. `ConfigFile` is the local persistence interface.
 
-The SDLC contract is [`.ceratops/sdlc/sdlc.yml`](../.ceratops/sdlc/sdlc.yml). Repository helpers
+The SDLC contract is [`.ceratops/sdlc/sdlc.yml`](../.ceratops/sdlc/sdlc.yml).
+Repository helpers
 use subprocess argument arrays rather than shell strings. The Android install
 interface accepts an ADB executable, device, package, activity, and artifact;
 it returns the declared structured receipt or a bounded error.

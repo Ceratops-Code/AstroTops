@@ -29,7 +29,7 @@ import time
 import zipfile
 from datetime import UTC, datetime
 from functools import partial
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 _SCRIPT_DIRECTORY = pathlib.Path(__file__).resolve().parent
@@ -55,28 +55,30 @@ from godot_toolchain import (  # noqa: E402
     validate_godot_project,
 )
 from result_records import (  # noqa: E402
-    CHECK_CONTEXT_ENV,
-    CHECK_CONTEXT_SCHEMA,
     GROUP_SCHEMA,
     RESULT_SCHEMA,
-    CurrentCheckResults,
     ResultStore,
-    add_result_arguments,
     android_deploy_result,
-    check_result_context,
-    describe_result_contract,
     group_fingerprint,
-    read_build_check_summary,
     record_completed_android_export,
     require_current_android_export,
     resolve_artifact_identity,
     resolve_source_identity,
+)
+from result_records import main as record_result_command  # noqa: E402
+from write_check_results import (  # noqa: E402
+    CHECK_CONTEXT_ENV,
+    CHECK_CONTEXT_SCHEMA,
+    CurrentCheckResults,
+    add_result_arguments,
+    check_result_context,
+    describe_result_contract,
+    read_build_check_summary,
     result_path,
     run_recorded_check,
     select_build_check_summaries,
     write_result,
 )
-from result_records import main as record_result_command  # noqa: E402
 
 INVENTORY_SCHEMA = "astrotops-test-inventory.v1"
 GODOT_RESULT_PREFIX = "ASTROTOPS_TEST_RESULT="
@@ -202,7 +204,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     """Exercise deployment resumption without contacting or modifying a device."""
 
     fake_repo = temporary_root / "repo"
-    artifact = fake_repo / ".build" / "artifacts" / "android" / "AstroTops.apk"
+    artifact = fake_repo / "build" / "artifacts" / "android" / "AstroTops.apk"
     artifact.parent.mkdir(parents=True)
     artifact.write_bytes(b"qualified-astrotops-apk")
     (fake_repo / "project.godot").write_text("config_version=5\n", encoding="utf-8")
@@ -433,17 +435,21 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
             source_change_blocked = False
         check("changed-source-cannot-install-or-publish", True, source_change_blocked)
     project.write_bytes(source_bytes)
+    save_record = CurrentCheckResults.put
     replace_file = os.replace
     for after in (False, True):
         artifact.write_bytes(original_bytes + str(after).encode())
 
-        def interrupt_record(source: object, target: object, after: bool = after) -> None:
+        def interrupt_record(source: object, target: object, *arguments: object, after: bool = after) -> None:
             if after:
-                replace_file(source, target)  # type: ignore[arg-type]
+                if isinstance(source, CurrentCheckResults):
+                    save_record(source, target, *arguments)  # type: ignore[arg-type]
+                else:
+                    replace_file(source, target)  # type: ignore[arg-type]
             raise OSError("export record interrupted")
 
         try:
-            with patch("result_records.os.replace", side_effect=interrupt_record):
+            with patch.object(CurrentCheckResults, "put", interrupt_record):
                 record_completed_android_export(fake_repo, artifact, source_before_export)
         except OSError:
             interrupted_record = True
@@ -457,55 +463,6 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
               require_current_android_export(fake_repo, artifact, "android-apk")["sha256"])
     artifact.write_bytes(original_bytes)
     record_completed_android_export(fake_repo, artifact, source_before_export)
-
-    output_directory = temporary_root / "_allocated-build"
-    output_directory.mkdir()
-    output_apk = output_directory / "AstroTops-0.1.0b1.apk"
-    pending_copy = output_directory / ("." + output_apk.name + ".in_process")
-    builder_arguments = ["result_records.py", "build-result", "--artifact", str(artifact),
-                         "--type", "android-apk", "--version", "0.1.0b1",
-                         "--output-directory", str(output_directory)]
-    builder_output = {"schema": "ceratops-builder-output", "status": "passed",
-                      "artifacts": [{"type": "android-apk", "path": output_apk.name}],
-                      "installationArtifactPath": output_apk.name}
-    with patch("result_records.__file__", str(fake_repo / "scripts" / "result_records.py")), \
-            patch.object(sys, "argv", builder_arguments):
-        for _ in range(2):
-            builder_stdout = io.StringIO()
-            with contextlib.redirect_stdout(builder_stdout):
-                code = record_result_command()
-            check("builder-output-current-format", (0, builder_output), (code, json.loads(builder_stdout.getvalue())))
-            check("builder-output-exact-copy", original_bytes, output_apk.read_bytes())
-            check("builder-preserves-native-export", original_bytes, artifact.read_bytes())
-        for after in (False, True):
-            replacement = original_bytes + str(after).encode()
-            artifact.write_bytes(replacement)
-            record_completed_android_export(fake_repo, artifact, source_before_export)
-            before = output_apk.read_bytes()
-            builder_stdout, builder_stderr = io.StringIO(), io.StringIO()
-            with patch("result_records.os.replace", side_effect=partial(interrupt_record, after=after)), \
-                    contextlib.redirect_stdout(builder_stdout), contextlib.redirect_stderr(builder_stderr):
-                code = record_result_command()
-            check("builder-interruption-not-success", (1, "", True),
-                  (code, builder_stdout.getvalue(), "export record interrupted" in builder_stderr.getvalue()))
-            check("builder-interruption-keeps-complete-file", replacement if after else before, output_apk.read_bytes())
-            check("builder-cleans-in-process-file", False, pending_copy.exists())
-            pending_copy.write_bytes(b"unfinished-copy")
-            with contextlib.redirect_stdout(io.StringIO()):
-                code = record_result_command()
-            check("builder-retry-publishes-current-copy", (0, replacement, False),
-                  (code, output_apk.read_bytes(), pending_copy.exists()))
-        artifact.write_bytes(b"not-a-completed-export")
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            code = record_result_command()
-        check("builder-rejects-unrecorded-bytes", (1, replacement), (code, output_apk.read_bytes()))
-        artifact.write_bytes(original_bytes)
-        record_completed_android_export(fake_repo, artifact, source_before_export)
-        with patch("result_records.shutil.copyfileobj", side_effect=OSError("copy interrupted")), \
-                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            code = record_result_command()
-        check("builder-copy-interruption-keeps-complete-file", (1, replacement, False),
-              (code, output_apk.read_bytes(), pending_copy.exists()))
 
     # Tagged summaries use the current member/bundle folders. No package bytes
     # or other checkout history are needed to recover their saved check outcomes.
@@ -537,9 +494,9 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     summaries = select_build_check_summaries(fake_repo, target="android")
     check("current-member-and-bundle-history", sorted(expected_tags), sorted(item["tag"] for item in summaries))
     check("higher-qualification-does-not-borrow-alpha", [], select_build_check_summaries(fake_repo, qualification_level="beta"))
-    template = runpy.run_path(str(_SCRIPT_DIRECTORY.parent / "docs" / "result_records.py.tmpl"))
+    template = runpy.run_path(str(_SCRIPT_DIRECTORY / "write_check_results.py"))
     template_summaries = template["select_build_check_summaries"](fake_repo, target="android")
-    check("template-reads-current-build-summaries", summaries, template_summaries)
+    check("generated-writer-reads-current-build-summaries", summaries, template_summaries)
 
     import_calls: list[tuple[list[str], dict[str, object]]] = []
 
@@ -832,7 +789,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
     exported = export_debug_project(
         fake_repo,
         operation_console,
-        pathlib.Path(".build/artifacts/android/provisioned.apk"),
+        pathlib.Path("build/artifacts/android/provisioned.apk"),
         run=fake_godot_run,
         template_provider=lambda: repaired_android_source,
         board_builder=lambda _root: None,
@@ -847,6 +804,38 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         "debug-apk",
         exported.read_bytes().decode("ascii"),
     )
+    allocated = fake_repo / ".git/ceratops/artifacts/worktrees/primary/_in-test/android"
+    allocated.mkdir(parents=True)
+    report = temporary_root / "build-report.json"
+    filename = "AstroTops-0.1.0b1.apk"
+    arguments = ["result_records.py", "build-result", "--version", "0.1.0b1",
+                 "--output-directory", str(allocated), "--receipt-file", str(report)]
+    with (patch("result_records.__file__", str(fake_repo / "scripts/result_records.py")),
+          patch("godot_toolchain.resolve_godot", return_value=operation_console),
+          patch("godot_toolchain.export_debug_project", side_effect=partial(export_debug_project,
+                run=fake_godot_run, template_provider=Mock(return_value=repaired_android_source), board_builder=Mock())),
+          patch.object(sys, "argv", arguments), contextlib.redirect_stdout(io.StringIO())):
+        for _ in range(2):
+            check("allocated-export-exits-successfully", 0, record_result_command())
+            check("allocated-apk", b"debug-apk", (allocated / filename).read_bytes())
+            check("allocated-build-result",
+                  {"schema": "ceratops-builder-output", "status": "passed", "installationArtifactPath": filename,
+                   "artifacts": [{"type": "android-apk", "path": filename}]},
+                  json.loads(report.read_text(encoding="utf-8")))
+        report.unlink()
+        with patch("godot_toolchain.export_debug_project", side_effect=RuntimeError("interrupted export")), contextlib.redirect_stderr(io.StringIO()):
+            check("interrupted-export-stops", 1, record_result_command())
+        check("interrupted-export-has-no-receipt", False, report.exists())
+        check("fresh-export-after-interruption", 0, record_result_command())
+    installed = allocated / filename
+    installed.write_bytes(original_bytes)
+    with (patch("result_records.require_current_android_export", side_effect=AssertionError("unexpected checkout lookup")),
+          patch("result_records.android_deploy_result", wraps=partial(android_deploy_result, run=exact)),
+          patch.object(sys, "argv", ["result_records.py", "android-deploy", "--adb-executable", "adb",
+                       "--device", device, "--package", package, "--activity", activity, "--type", "android-apk",
+                       "--accepted-artifacts", json.dumps({"deliverables.packages.astrotops-android-apk": [str(installed)]})]),
+          contextlib.redirect_stdout(io.StringIO())):
+        check("install-from-accepted-apk", 0, record_result_command())
     export_index = next(
         index
         for index, command in enumerate(operation_calls)
@@ -896,7 +885,7 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         False,
         (
             fake_repo
-            / ".build"
+            / "build"
             / "artifacts"
             / "android"
             / ".validation"
@@ -956,10 +945,9 @@ def current_result_lifecycle_checks(temporary_root: pathlib.Path) -> list[str]:
     target = {"os": "test", "architecture": "test"}
     kind = "astrotops-gameplay-group"
     store.put(kind, "probe", target, passed)
-    original_bytes = store.path.read_bytes()
-    with patch("result_records.os.replace", side_effect=AssertionError("unchanged output must not be replaced")):
+    with patch("write_check_results.os.replace", side_effect=AssertionError("single outcomes must append")):
         store.put(kind, "probe", target, passed)
-    assert store.path.read_bytes() == original_bytes
+    assert store.records(kind, target=target) == [passed]
     twice = reused_result(reused_result(passed, {"commit": "later"}), {"commit": "latest"})
     assert twice["source"] == passed["source"] and twice["originalRunId"] == passed["runId"]
     assert twice["checkVersion"] == passed["checkVersion"]
@@ -975,18 +963,18 @@ def current_result_lifecycle_checks(temporary_root: pathlib.Path) -> list[str]:
     for outcome in ("failed", "running"):
         store.put(kind, "probe", target, {**passed, "outcome": outcome})
         assert not applicable_group_pass(CurrentCheckResults(root).records(kind, target=target)[0], fingerprint, None)
-    replace_file = os.replace
+    save_record = CurrentCheckResults.put
     for after in (False, True):
         store = CurrentCheckResults(root)
         store.put(kind, "probe", target, {**passed, "outcome": "running"})
 
-        def interrupt_replace(source: object, target: object, after: bool = after) -> None:
+        def interrupt_save(self, kind, check_id, target, record, after: bool = after) -> None:
             if after:
-                replace_file(source, target)  # type: ignore[arg-type]
+                save_record(self, kind, check_id, target, record)
             raise OSError("interrupted after replacement" if after else "interrupted before replacement")
 
         try:
-            with patch("result_records.os.replace", side_effect=interrupt_replace):
+            with patch.object(CurrentCheckResults, "put", interrupt_save):
                 store.put(kind, "probe", target, passed)
         except OSError as error:
             assert "interrupted" in str(error)
@@ -998,14 +986,14 @@ def current_result_lifecycle_checks(temporary_root: pathlib.Path) -> list[str]:
         assert not fresh.pending.exists()
         fresh.put(kind, "other", target, {**passed, "id": "other", "runId": "other-execution"})
         assert next(item for item in fresh.records(kind, target=target) if item["id"] == "probe")["runId"] == "original-execution"
-    fresh.path.write_text("broken evidence", encoding="utf-8")
+    fresh.path.write_text("broken evidence\n", encoding="utf-8")
     try:
         CurrentCheckResults(root)
     except ValueError:
         pass
     else:
         raise AssertionError("malformed current outcomes were treated as reusable")
-    assert fresh.path.read_text(encoding="utf-8") == "broken evidence"
+    assert fresh.path.read_text(encoding="utf-8") == "broken evidence\n"
     return ["results-reuse-keeps-original-work-and-check", "results-change-requires-new-execution",
             "results-newer-failure-or-interruption-blocks-pass", "results-replacement-interruptions-converge",
             "results-repeat-does-not-rewrite-accepted-outcome", "results-corruption-blocks-without-rewriting"]
@@ -1029,7 +1017,8 @@ def shared_result_protocol_checks(temporary_root: pathlib.Path) -> list[str]:
                                   check_id="protocol", check_version="observed-checks", repair_unaccepted_result=False,
                                   probe_command=None)
 
-    with patch.dict(os.environ, clean_environment, clear=True), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+    # Keep fixture writes inside its checkout and leave native Git's process environment intact.
+    with contextlib.chdir(root), patch.object(os, "environ", clean_environment), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
         args = request("original")
         assert run_recorded_check(callback, args, invocation) == 0
         accepted = args.result_file.read_bytes()
@@ -1055,7 +1044,7 @@ def shared_result_protocol_checks(temporary_root: pathlib.Path) -> list[str]:
                     raise OSError("interrupted after final-file write")
 
             before = count
-            with patch("result_records.write_result", side_effect=interrupted_write):
+            with patch("write_check_results.write_result", side_effect=interrupted_write):
                 assert run_recorded_check(callback, args, invocation) == 2
             after = count
             assert after - before == (1 if boundary >= 2 else 0)
@@ -1113,7 +1102,7 @@ def shared_current_attempt_checks(temporary_root: pathlib.Path) -> list[str]:
         "qualificationLevel": "alpha", "workVersion": "observed-work", "checkVersion": "observed-checks",
         "productInputs": {"product.txt": None}, "checkInputs": {"check.txt": None},
         "arguments": [], "dependencies": {}, "fingerprint": "1" * 64,
-        "environment": {"variables": {}, "tools": {}, "platform": platform.system(), "architecture": platform.machine()},
+        "environment": {"variables": {}, "files": {}, "tools": {}, "platform": platform.system(), "architecture": platform.machine()},
     }
     invocation: dict[str, object] = {"targets": [], "pytest_args": [], "pytest_addopts": [], "probe_command": None}
     calls = 0
@@ -1127,45 +1116,44 @@ def shared_current_attempt_checks(temporary_root: pathlib.Path) -> list[str]:
         nonlocal calls
         calls += 1
         current = CurrentCheckResults(root).records("repository-check", target=target)
-        assert len(current) == 1 and current[0]["status"] == "running"
-        assert current[0]["execution"]["finishedAt"] is None
+        assert all(item["status"] == "passed" for item in current)
         return 0
 
-    replace_file = os.replace
-    with patch.dict(os.environ, {CHECK_CONTEXT_ENV: json.dumps(context)}), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-        for boundary in range(4):
+    save_record = CurrentCheckResults.put
+    with patch.object(os, "environ", {**os.environ, CHECK_CONTEXT_ENV: json.dumps(context)}), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        for boundary in range(2):
             assert run_recorded_check(callback, request("accepted-" + str(boundary)), invocation, repo_root=root) == 0
             writes = 0
             args = request("attempt-" + str(boundary))
 
-            def interrupted_replace(source: object, destination: object, boundary: int = boundary) -> None:
+            def interrupted_save(self, kind, check_id, target, record, boundary: int = boundary) -> None:
                 nonlocal writes
                 index = writes
                 writes += 1
-                if index == boundary // 2 and boundary % 2 == 0:
+                if index == 0 and boundary == 0:
                     raise OSError("interrupted before shared replacement")
-                replace_file(source, destination)  # type: ignore[arg-type]
-                if index == boundary // 2 and boundary % 2 == 1:
+                save_record(self, kind, check_id, target, record)
+                if index == 0 and boundary == 1:
                     raise OSError("interrupted after shared replacement")
 
             before = calls
-            with patch("result_records.os.replace", side_effect=interrupted_replace):
+            with patch.object(CurrentCheckResults, "put", interrupted_save):
                 assert run_recorded_check(callback, args, invocation, repo_root=root) == 2
-            assert calls - before == (1 if boundary >= 2 else 0)
+            assert calls - before == 1
             records = CurrentCheckResults(root).records("repository-check", target=target)
             assert len(records) == 1
-            assert records[0]["status"] == ("passed" if boundary in (0, 3) else "running")
+            assert records[0]["status"] == "passed"
             assert records[0]["result_id"] == ("accepted-0" if boundary == 0 else args.result_id)
             after = calls
-            if boundary == 3:
+            if boundary == 1:
                 assert run_recorded_check(callback, args, invocation, repo_root=root) == 0
                 assert calls == after  # The completed attempt keeps its original identity.
             else:
                 assert run_recorded_check(callback, request("fresh-" + str(boundary)), invocation, repo_root=root) == 0
                 assert calls == after + 1
             assert not CurrentCheckResults(root).pending.exists()
-    return ["shared-current-running-precedes-callback", "shared-current-write-interruptions-converge",
-            "shared-current-interrupted-attempt-hides-old-pass", "shared-current-completed-attempt-is-reused"]
+    return ["shared-current-pass-survives-unfinished-work", "shared-current-write-interruptions-converge",
+            "shared-current-records-only-completed-outcomes", "shared-current-completed-attempt-is-reused"]
 
 
 def board_build_lifecycle_checks(temporary_root: pathlib.Path) -> list[str]:
@@ -1627,7 +1615,7 @@ def main() -> int:
     mode.add_argument(
         "--export-debug",
         type=pathlib.Path,
-        help="Export the Android debug artifact to a repository-relative path and stop.",
+        help="Write the Android debug APK to the path supplied by the caller.",
     )
     parser.add_argument("--source-tag")
     parser.add_argument("--artifact", type=pathlib.Path)
@@ -1681,7 +1669,7 @@ def execute_test_request(args: argparse.Namespace, parser: argparse.ArgumentPars
             elif args.validate_project:
                 validate_godot_project(repo_root, godot)
             elif args.export_debug is not None:
-                source_before_export = resolve_source_identity(repo_root)
+                source_before_export = resolve_source_identity(repo_root, export_path=args.export_debug)
                 export_debug_project(repo_root, godot, args.export_debug)
                 record_completed_android_export(repo_root, args.export_debug, source_before_export)
         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:

@@ -896,17 +896,20 @@ def export_debug_project(
 ) -> pathlib.Path:
     """Install prerequisites and create one fresh Android debug artifact."""
 
-    resolved = (
-        output.expanduser().resolve()
-        if output.is_absolute()
-        else (repo_root / output).resolve()
-    )
-    try:
-        resolved.relative_to(repo_root)
-    except ValueError as error:
-        raise RuntimeError(
-            f"Godot export must stay inside {repo_root}: {resolved}"
-        ) from error
+    requested = repo_root / output.expanduser()
+    resolved = requested.resolve()
+    # The build service allocates an attempt directory inside Git's common
+    # directory. All Git metadata and completed package directories stay protected.
+    git_parts = [part.lower() for part in resolved.parts]
+    if ".git" in git_parts:
+        relative = git_parts[git_parts.index(".git") + 1:]
+        if (relative[:3] != ["ceratops", "artifacts", "worktrees"] or len(relative) < 6
+                or relative[4] != "_in-test"):
+            raise RuntimeError(f"Android export cannot overwrite Git metadata or accepted files: {requested}")
+    if requested.is_symlink():
+        raise RuntimeError(f"Android export requires an ordinary output file: {requested}")
+    if resolved.suffix.lower() != ".apk":
+        raise RuntimeError(f"Android export requires an APK output path: {resolved}")
     ensure_android_build_template(repo_root, template_provider=template_provider)
     board_builder(repo_root)
     resolved.parent.mkdir(parents=True, exist_ok=True)
@@ -983,7 +986,7 @@ def validate_android_build(
 
     root = repo_root.expanduser().resolve(strict=True)
     environment = _android_build_environment(environ)
-    validation_directory = root / ".build" / "artifacts" / "android" / ".validation"
+    validation_directory = root / "build" / "artifacts" / "android" / ".validation"
     validation_apk = validation_directory / "AstroTops.apk"
     try:
         validate_godot_project(root, godot, run=run)
