@@ -1167,7 +1167,7 @@ def board_build_lifecycle_checks(temporary_root: pathlib.Path) -> list[str]:
 
     def gradle(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
         for name in names:
-            source = native / ".build" / name.split("-")[0] / "outputs" / "aar" / name
+            source = native / ".gradle" / "build" / name.split("-")[0] / "outputs" / "aar" / name
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_bytes(("current:" + name).encode())
         return subprocess.CompletedProcess(command, 0, "Gradle finished", "")

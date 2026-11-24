@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the standalone BoBo Android libraries or run their JVM behavior tests.
 
-The module owns native/.gradle and native/.build as disposable Gradle caches.
+Gradle keeps its module outputs under native/.gradle/build.
 This helper owns addons/bobo_board/.artifacts: one current AAR per library and
 variant, plus one bounded last-build log. Startup and successful publication
 remove only its exact temporary siblings; no host APK or unrelated output is
@@ -27,6 +27,7 @@ def build_board_module(repo_root: Path, *, tests: bool = False, run: Callable[..
     """Run Gradle from the reusable module, preserving both process output streams."""
     module = repo_root / "addons" / "bobo_board"
     native = module / "native"
+    build_output = native / ".gradle" / "build"
     output = module / ".artifacts"
     output.mkdir(parents=True, exist_ok=True)
     for name in ARTIFACT_NAMES:
@@ -63,7 +64,7 @@ def build_board_module(repo_root: Path, *, tests: bool = False, run: Callable[..
                 (output / name).unlink(missing_ok=True)
         raise RuntimeError("BoBo module operation failed; " + str(log) + "\n" + diagnostic[-6000:])
     if tests:
-        reports = list((native / ".build" / "board" / "test-results" / "testDebugUnitTest").glob("TEST-*.xml"))
+        reports = list((build_output / "board" / "test-results" / "testDebugUnitTest").glob("TEST-*.xml"))
         if not reports:
             raise RuntimeError("BoBo module tests returned success without JUnit reports: " + str(log))
         checks = []
@@ -77,7 +78,7 @@ def build_board_module(repo_root: Path, *, tests: bool = False, run: Callable[..
             raise RuntimeError("BoBo module test reports contained no behavior checks.")
         return {"checks": checks}
     sources = {
-        name: native / ".build" / name.split("-")[0] / "outputs" / "aar" / name
+        name: build_output / name.split("-")[0] / "outputs" / "aar" / name
         for name in ARTIFACT_NAMES
     }
     for source in sources.values():
