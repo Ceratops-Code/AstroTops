@@ -163,8 +163,9 @@ The SDLC declarations provide product inputs, separate check-only inputs,
 dependency locks, relevant environment and tools. The shared executor supplies
 the result/candidate/check identities and qualification level. The runner writes
 actual outcomes using `ceratops-repository-check-result.v1`; original group
-executions, source and check versions survive reuse. New alpha results cannot
-satisfy beta, rc or final gates. The same shared file owns current game-group
+executions, source and check versions survive reuse. Local beta check requests
+can reuse matching alpha passes. RC and final checks still require results at
+their requested level or higher. The same shared file owns current game-group
 outcomes and repository-check outcomes; there is no separate local cache owner.
 Reuse matches owned inputs, dependency locks, runtime/build scope and
 artifact identity.

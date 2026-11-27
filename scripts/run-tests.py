@@ -493,7 +493,12 @@ def deployment_lifecycle_payload(temporary_root: pathlib.Path) -> dict[str, obje
         check("current-build-summary-preserves-pass", summary, saved["summary"])
     summaries = select_build_check_summaries(fake_repo, target="android")
     check("current-member-and-bundle-history", sorted(expected_tags), sorted(item["tag"] for item in summaries))
-    check("higher-qualification-does-not-borrow-alpha", [], select_build_check_summaries(fake_repo, qualification_level="beta"))
+    with patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}):
+        check("beta-reads-local-alpha-check-summaries", summaries,
+              select_build_check_summaries(fake_repo, qualification_level="beta"))
+    for level in ("rc", "final"):
+        check(f"{level}-does-not-read-alpha-check-summaries", [],
+              select_build_check_summaries(fake_repo, qualification_level=level))
     template = runpy.run_path(str(_SCRIPT_DIRECTORY / "write_check_results.py"))
     template_summaries = template["select_build_check_summaries"](fake_repo, target="android")
     check("generated-writer-reads-current-build-summaries", summaries, template_summaries)
@@ -953,16 +958,22 @@ def current_result_lifecycle_checks(temporary_root: pathlib.Path) -> list[str]:
     assert twice["checkVersion"] == passed["checkVersion"]
     assert twice["status"] == twice["outcome"] == "passed"
     assert twice["execution"] == "reused" and twice["exitCode"] == 0
-    assert applicable_group_pass(CurrentCheckResults(root).records(kind, target=target)[0], fingerprint, None)
-    assert not applicable_group_pass(passed, fingerprint, None, "beta")
+    retained = CurrentCheckResults(root).records(kind, target=target)[0]
+    with patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}):
+        assert applicable_group_pass(retained, fingerprint, None, "beta")
+    assert not applicable_group_pass(retained, fingerprint, "other-artifact", "beta")
+    assert not applicable_group_pass(retained, fingerprint, None, "rc")
+    assert not applicable_group_pass(retained, fingerprint, None, "final")
+    with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
+        assert not applicable_group_pass(retained, fingerprint, None, "beta")
     assert applicable_group_pass({**passed, "qualificationLevel": "final"}, fingerprint, None, "beta")
     product.write_text("changed product", encoding="utf-8")
     changed = group_fingerprint(root, "probe", ["game.txt"], {"runtime": "test"}, None)
-    assert not applicable_group_pass(passed, changed, None)
+    assert not applicable_group_pass(passed, changed, None, "beta")
     assert not applicable_group_pass(passed, group_fingerprint(root, "probe", ["game.txt"], {"runtime": "different"}, None), None)
     for outcome in ("failed", "running"):
         store.put(kind, "probe", target, {**passed, "outcome": outcome})
-        assert not applicable_group_pass(CurrentCheckResults(root).records(kind, target=target)[0], fingerprint, None)
+        assert not applicable_group_pass(CurrentCheckResults(root).records(kind, target=target)[0], fingerprint, None, "beta")
     save_record = CurrentCheckResults.put
     for after in (False, True):
         store = CurrentCheckResults(root)
@@ -1565,7 +1576,8 @@ def applicable_group_pass(previous: dict[str, object] | None, fingerprint: str, 
     """Reuse only the latest matching successful outcome for this execution scope."""
     levels = ("alpha", "beta", "rc", "final")
     level = previous.get("qualificationLevel") if previous else None
-    return bool(previous and level in levels and levels.index(str(level)) >= levels.index(qualification)
+    minimum = "alpha" if qualification == "beta" and os.getenv("GITHUB_ACTIONS") != "true" else qualification
+    return bool(previous and level in levels and levels.index(str(level)) >= levels.index(minimum)
                 and previous.get("outcome") == "passed"
                 and previous.get("fingerprint") == fingerprint and previous.get("artifact") == artifact)
 
