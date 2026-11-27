@@ -15,7 +15,7 @@ def repository_contract(repo_root: pathlib.Path) -> list[str]:
 
     problems: list[str] = []
     required = (
-        ".build/README.md",
+        ".ceratops/build/README.md",
         "docs/feature-acceptance.json",
         "scripts/regression_tests.gd",
         "scripts/result_records.py",
@@ -45,8 +45,8 @@ def repository_contract(repo_root: pathlib.Path) -> list[str]:
     try:
         presets.read(repo_root / "export_presets.cfg", encoding="utf-8")
         expected_exports = {
-            "preset.0": ".build/artifacts/windows/AstroTops.exe",
-            "preset.1": ".build/artifacts/android/AstroTops.apk",
+            "preset.0": "build/artifacts/windows/AstroTops.exe",
+            "preset.1": "build/artifacts/android/AstroTops.apk",
         }
         for section, expected in expected_exports.items():
             actual = presets.get(section, "export_path", fallback="").strip('"')
@@ -75,8 +75,9 @@ def repository_contract(repo_root: pathlib.Path) -> list[str]:
         problems.append(f"feature-map={error}")
 
     ignored_probes = (
-        ".build/artifacts/probe.apk",
+        ".test-diagnostics/pytest-failure.json",
         ".godot/probe",
+        "build/artifacts/android/probe.apk",
         ".test-results/evidence/probe.log",
         "android/probe",
         "scripts/.venv/probe",
@@ -84,9 +85,10 @@ def repository_contract(repo_root: pathlib.Path) -> list[str]:
         "scripts/node_modules/probe",
     )
     tracked_probes = (
-        ".build/README.md",
-        ".test-results/tests.json",
-        ".test-results/validation.json",
+        ".build/artifacts/android/AstroTops.apk",
+        ".ceratops/build/README.md",
+        ".ceratops/results/tests.json",
+        ".ceratops/results/validation.json",
     )
     for relative in ignored_probes:
         result = subprocess.run(

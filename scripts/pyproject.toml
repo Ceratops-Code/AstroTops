@@ -1,7 +1,7 @@
 [project]
 name = "repository-tools"
 version = "0.0.0"
-requires-python = ">=3.11"
+requires-python = "==3.14.9"
 dependencies = [
     "mypy",
     "packaging>=26.3",
@@ -36,3 +36,7 @@ exclude = ["(^|/)\\.venv/"]
 ignore_missing_imports = true
 check_untyped_defs = true
 warn_unused_configs = true
+
+[tool.ceratops.test-support]
+managed = true
+result-module = "scripts/write_check_results.py"

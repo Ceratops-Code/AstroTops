@@ -16,7 +16,7 @@
     {"path": "scripts/planet.gd", "role": "Implemented celestial-body rendering, capture, collision extent, and explosion behavior"},
     {"path": "scripts/meteor.gd", "role": "Implemented meteor-flight and impact behavior"},
     {"path": "export_presets.cfg", "role": "Android package identity, architecture, and launcher-icon export configuration"},
-    {"path": "sdlc/sdlc.yml", "role": "Repository build, validation, delivery, and Android installation workflow"},
+    {"path": ".ceratops/sdlc/sdlc.yml", "role": "Repository build, validation, delivery, and Android installation workflow"},
     {"path": "docs/feature-acceptance.json", "role": "Current requirement-to-observable-test contract"},
     {"path": "scripts/godot_toolchain.py", "role": "Pinned Godot editor and Android source-template provisioning, project-template installation, JDK and SDK preflight, validation, export, and Gradle lint"},
     {"path": "scripts/run-tests.py", "role": "Grouped regression orchestration and shipping-lifecycle acceptance tests"},
@@ -161,7 +161,8 @@ bounded evidence, artifact identity, and deterministic Android deployment.
   checks repository structure and contracts independently from gameplay tests.
 - [`scripts/result_records.py`](../scripts/result_records.py) is the only
   storage owner for portable result records and bounded ignored evidence.
-- [`sdlc/sdlc.yml`](../sdlc/sdlc.yml) declares bootstrap, validation, testing,
+- [`.ceratops/sdlc/sdlc.yml`](../.ceratops/sdlc/sdlc.yml) declares
+  bootstrap, validation, testing,
   packaging, delivery verification, and ADB installation.
 
 ## 6 Runtime behavior
@@ -216,16 +217,20 @@ after the face, so the ring visibly wraps around rather than sitting behind it.
 
 ## 7 Deployment and operations
 
-Desktop development runs the project directly in Godot. Android packaging
-produces `.build/artifacts/android/AstroTops.apk`; the current export identity,
-source digest and APK descriptor live in the shared current-results store.
-`.build/builds/` retains historical source-tag reports. The Gradle export
+Desktop development runs the project directly in Godot. During a Ceratops
+package build, Godot writes `AstroTops-<version>.apk` to the allocated artifact
+directory. The package command reports that filename to Ceratops. Once its checks
+pass, Ceratops keeps the APK in Git's common artifact store and commits the build
+receipt and check summary. The same package’s install action passes its accepted
+APK to ADB, including when a different checkout performs the installation.
+A standalone Godot export writes to the requested path.
+`.ceratops/build/builds/` retains historical source-tag reports. The Gradle export
 uses separate adaptive background, foreground, and monochrome launcher layers.
 Every SDLC step that needs Godot calls the repository helper, which honors an
 explicit executable or a matching `PATH` installation and otherwise provisions
 the pinned official x86_64 archive before the step runs. It never installs a
 system package or changes persistent `PATH` state.
-The app validation action declares its JDK and Android SDK prerequisites,
+The Android package’s pre-build source check declares its JDK and Android SDK,
 rejects an incomplete toolchain before export, performs a real disposable debug
 export, and runs Gradle lint through the installed source template.
 
@@ -249,19 +254,23 @@ save. Tests replace the path with an isolated runner-owned file. There is no
 cloud synchronization, backup contract, or legacy-score migration; changing
 the storage identity intentionally starts a distinct store.
 
-Tracked `.test-results/groups/*.json` and `.test-results/tests.json` describe the
+Tracked `.ceratops/results/groups/*.json` and
+`.ceratops/results/tests.json` describe the
 source and environment tested. SDLC records each current source check in Git
-metadata. The tracked `.test-results/validation.json` retains earlier results.
+metadata. The tracked `.ceratops/results/validation.json` retains earlier results.
 The runner owns one current outcome per group in the Git metadata file
 `<git-common-dir>/ceratops/results/repository-checks/<worktree-id>/check_results.json`,
 capped at 64 MiB. Repository-check results also obey the shared executor's
 per-record limit. This includes dirty candidate inputs and leaves portable records
 untouched with `--no-record`. The repository-owned writer is deliberately adopted
 from the maintained Ceratops reference and shares the exact current-store envelope.
-Original work/check versions and execution identities survive reuse. The declared
-check-only input list separates check versions from product versions; both must
-match for current-candidate reuse. A check edit does not rewrite historical
-artifact acceptance. Current failed/running outcomes block an older pass.
+Original work/check versions and execution identities survive reuse. The reported
+outcome remains `status: passed`; `execution: reused` says this call used that
+original pass. Build completion can therefore consume it as a passing check.
+The declared check-only input list separates check versions from product
+versions; both must match for current-candidate reuse. A check edit does not
+rewrite historical artifact acceptance. Current failed/running outcomes block
+an older pass.
 Each shared runner writes its running attempt before calling the check, so an
 interrupted worker cannot leave a previous pass current throughout execution.
 SDLC declares product/check inputs, dependency files, tools and environment.
@@ -291,9 +300,9 @@ remove. The ignored project `android` directory is created only when absent;
 valid matching content is reused, while unexpected existing content is
 preserved and blocks export.
 The same helper owns the fixed validation-only APK under
-`.build/artifacts/android/.validation`; it replaces that file at validation
+`build/artifacts/android/.validation`; it replaces that file at validation
 start and deletes it at the end, including failure paths. The package build owns
-the separate retained `.build/artifacts/android/AstroTops.apk`.
+the separate retained `build/artifacts/android/AstroTops.apk`.
 
 ### 8.2 APIs and integrations
 
@@ -347,7 +356,8 @@ Traxy's capture waits only for its generated poof to finish. Missing voice
 support still degrades to silent names without
 blocking capture. `ConfigFile` is the local persistence interface.
 
-The SDLC contract is [`sdlc/sdlc.yml`](../sdlc/sdlc.yml). Repository helpers
+The SDLC contract is [`.ceratops/sdlc/sdlc.yml`](../.ceratops/sdlc/sdlc.yml).
+Repository helpers
 use subprocess argument arrays rather than shell strings. The Android install
 interface accepts an ADB executable, device, package, activity, and artifact;
 it returns the declared structured receipt or a bounded error.
@@ -503,11 +513,11 @@ camera behavior remain explicit verification gaps.
 The Ceratops design draft's methodology informs independent owners, declared
 affected inputs, original result identity, bounded outputs, and fresh calls after
 interruptions. Shared check-result production, the current-results envelope,
-qualification levels and SDLC scheduling are connected. Public artifact-receipt
-Build/Deploy routing remains planned in the installed Kit. AstroTops package
-production and installation use their repository-owned completed-export guard
-with shared SDLC check outcomes. A shared source-check receipt or native export
-record is not a completed versioned artifact receipt.
+qualification levels and SDLC scheduling are implemented. AstroTops supplies the
+current builder-output format to Ceratops Build and reads current tagged member
+and bundle check summaries. Its ADB installation still consumes the native export
+and the repository-owned completed-export record, with shared SDLC check outcomes.
+A native export record is not a completed versioned artifact receipt.
 
 ## 14 Ownership and maintenance
 

@@ -139,8 +139,8 @@ remove temporary recovery files. The store serializes clients in one application
 process; multi-process hosts need their own store implementation. No operational
 logs are written. Unsaved capture data lives only in bounded memory buffers.
 
-Gradle owns native/.gradle and native/.build as local incremental build caches.
-Each module/variant has one current output directory. The Python build helper
+Gradle writes compilation outputs and unit-test reports under `native/.gradle/build/`.
+Each module and variant has one current output directory. The Python build helper
 owns .artifacts: one current AAR per library and variant, exact temporary siblings
 removed at startup/publication, and one last-build log limited to 2 MiB.
 A failed build blocks game export. These locations are disposable and ignored;

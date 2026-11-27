@@ -68,11 +68,11 @@ jobs:
           uv run --project scripts --locked python -m mypy --config-file scripts/pyproject.toml 2>&1 | tee -a "${RUNNER_TEMP}/repository-validation.log"
           # repository.actions.pre-build-checks.check-groups.actionlint
           uv run --project scripts --locked python scripts/run-actionlint.py 2>&1 | tee -a "${RUNNER_TEMP}/repository-validation.log"
-          # deliverables.apps.astrotops.actions.pre-build-checks.check-groups.source
+          # deliverables.packages.astrotops-android-apk.actions.pre-build-checks.check-groups.source
           uv run --project scripts --locked scripts/run-tests.py --validate-android-build 2>&1 | tee -a "${RUNNER_TEMP}/repository-validation.log"
           # repository.actions.pre-build-checks.check-groups.tests
           uv run --project scripts --locked python scripts/run-tests.py --no-record --scope repository 2>&1 | tee -a "${RUNNER_TEMP}/repository-validation.log"
-          # deliverables.apps.astrotops.actions.pre-build-checks.check-groups.tests: Repository tests own the grouped gameplay and rendered-app qualification.
+          # deliverables.packages.astrotops-android-apk.actions.pre-build-checks.check-groups.tests: Repository tests own the grouped gameplay and rendered-app qualification.
       - name: Upload validation evidence
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
